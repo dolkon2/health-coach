@@ -1,0 +1,12 @@
+# Running quirks log
+
+Things noticed mid-build that aren't bugs to fix now, but are worth remembering
+before they bite. Append as we go; resolve and date when handled.
+
+| # | Pass | Quirk | Status | Notes |
+|---|------|-------|--------|-------|
+| 1 | 3 | **Timezone in `dayKey`** — `timeline.ts` buckets days by slicing the *UTC* date (`instant.slice(0,10)`), not the user's local civil day. A late-night weigh-in can land on the wrong day; data-model principle 4 wants local days. | OPEN (acceptable) | Pass 3's *queries* use correct local-day bounds (`localDayWindow` in `lib/date.ts`). The trend engine's grouping is still UTC-based — fine in practice for a timezone behind UTC with morning weigh-ins (US Pacific/Mountain). Proper fix = make `dayKey`/`bucketByLocalDay` tz-aware; do it when sync/import lands or before shipping to other timezones. |
+| 2 | 3 | **No `useSettings` hook existed** — game plan assumed one for units. | RESOLVED (2026-06-26) | Added `src/settings/useSettings.ts` stub, default `weightUnit: 'lb'` (Dylan logs in lb; storage stays kg via `lib/units.ts`). When settings get persisted, only this file changes. |
+| 3 | 2,3 | **expo-sqlite doesn't run on web** — `getDb()` needs a wasm asset + metro tweak. Today now calls the DB, so a web load would throw on first query. | OPEN (deferred) | Phase-1 target is iOS sim / Expo Go. `getDb` dynamic-imports expo-sqlite, so importing the storage layer is safe; only *calling* it on web fails. Smoke-test on the simulator, not web. Revisit only if a web build is ever wanted. |
+| 4 | 3 | **Refetch after modal save** — Today must reload when the Log Weigh-In modal closes. | RESOLVED (2026-06-26) | `useFocusEffect` on Today re-runs both hooks' `reload()` on focus. (Minor: hooks also self-load via `useEffect`, so first mount double-fetches — harmless.) |
+| 5 | 3 | **Body-fat fidelity** — weight and body-fat % ride in one weigh-in Observation that carries a single `fidelity: 1.0`. Correct for scale weight, far too confident for scale body-fat (bioimpedance ≈ a guess without DEXA/calipers). Currently captured (`payload.bodyFatPct`, persisted + tested) but shown nowhere. | OPEN (design note) | Dylan's call, constitution-aligned. When body-fat is surfaced (Reflect / Phase 2), display it at LOW fidelity per brand-kit fidelity rules (dashed/hollow), never as a confident number, and never let it gate/contradict tier-1 data. Clean fix = per-field fidelity OR split body-fat into its own Observation with its own fidelity. Architecture call, not Phase-1. |

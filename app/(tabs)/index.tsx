@@ -2,19 +2,37 @@
  * Today — the home of the daily loop. Open it, see today, log a weigh-in, log a
  * session, leave.
  *
- * Phase 1 / Pass 1: placeholder structure that reads the theme correctly and
- * wires navigation to the log modals. The real weigh-in card lands in Pass 3,
- * sessions in Pass 4. Nothing here fabricates data.
+ * Pass 3: the weigh-in card is live. Two states — not-logged (a tap target) and
+ * logged (today's weight + the smoothed trend delta from core/trend.ts). The
+ * delta line only renders when the engine has enough data for an honest answer;
+ * it never fabricates one. Sessions stay a placeholder until Pass 4.
  */
+import { useCallback } from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen, Text, Card, Button } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
+import { useTodayObservations } from '@/hooks/useTodayObservations';
+import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useSettings } from '@/settings/useSettings';
+import { formatWeight, formatDelta } from '@/lib/units';
 
 export default function TodayScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { weightUnit } = useSettings();
+
+  const { weighInToday, reload: reloadToday } = useTodayObservations();
+  const { delta, reload: reloadTrend } = useWeightTrend();
+
+  // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
+  useFocusEffect(
+    useCallback(() => {
+      reloadToday();
+      reloadTrend();
+    }, [reloadToday, reloadTrend])
+  );
 
   return (
     <Screen scroll>
@@ -32,13 +50,36 @@ export default function TodayScreen() {
       {/* Weigh-in */}
       <Card style={{ marginTop: theme.spacing[8], gap: theme.spacing[3] }}>
         <Text variant="label">Weigh-in</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Not logged today.
-        </Text>
-        <Button label="Log weigh-in" onPress={() => router.push('/log-weigh-in')} />
+        {weighInToday ? (
+          <>
+            <Text variant="dataLg" color={theme.colors.text}>
+              {formatWeight(weighInToday.payload.weightKg, weightUnit)}
+            </Text>
+            {delta ? (
+              <Text variant="dataSm" color={theme.colors.textSecondary}>
+                {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
+                  delta.deltaKg,
+                  weightUnit
+                )} over ${delta.days} days`}
+              </Text>
+            ) : null}
+            <Button
+              label="Update weigh-in"
+              variant="ghost"
+              onPress={() => router.push('/log-weigh-in')}
+            />
+          </>
+        ) : (
+          <>
+            <Text variant="body" color={theme.colors.textMuted}>
+              Not logged today.
+            </Text>
+            <Button label="Log weigh-in" onPress={() => router.push('/log-weigh-in')} />
+          </>
+        )}
       </Card>
 
-      {/* Sessions */}
+      {/* Sessions — placeholder until Pass 4 */}
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Today's sessions</Text>
         <Text variant="body" color={theme.colors.textMuted}>

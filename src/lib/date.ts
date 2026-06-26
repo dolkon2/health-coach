@@ -16,3 +16,25 @@ export function todayLocalLabel(d: Date = new Date()): string {
 export function yearLabel(d: Date = new Date()): string {
   return String(d.getFullYear());
 }
+
+/** The device's IANA timezone, e.g. 'America/Los_Angeles'. Stored on every Observation. */
+export function deviceTz(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
+ * The UTC instants bounding the user's *local* civil day containing `d`.
+ * `[startUtc, endUtc]` runs from local midnight to the last millisecond before
+ * the next local midnight — so a query on occurredAt picks up exactly today's
+ * local entries regardless of the device's UTC offset (data-model principle 4).
+ */
+export function localDayWindow(d: Date = new Date()): { startUtc: string; endUtc: string } {
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+  return { startUtc: start.toISOString(), endUtc: end.toISOString() };
+}
+
+/** ISO instant for `days` ago from `d`, used as the lower bound on trend queries. */
+export function daysAgoUtc(days: number, d: Date = new Date()): string {
+  return new Date(d.getTime() - days * 86_400_000).toISOString();
+}
