@@ -10,11 +10,12 @@
 import { useCallback } from 'react';
 import { View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button } from '@/components';
+import { Screen, Text, Card, Button, SessionCard } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
 
@@ -23,8 +24,9 @@ export default function TodayScreen() {
   const router = useRouter();
   const { weightUnit } = useSettings();
 
-  const { weighInToday, reload: reloadToday } = useTodayObservations();
+  const { weighInToday, sessionsToday, reload: reloadToday } = useTodayObservations();
   const { delta, reload: reloadTrend } = useWeightTrend();
+  const contributions = useTodayStimulusContributions(sessionsToday);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   useFocusEffect(
@@ -79,12 +81,22 @@ export default function TodayScreen() {
         )}
       </Card>
 
-      {/* Sessions — placeholder until Pass 4 */}
+      {/* Sessions */}
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Today's sessions</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          No sessions yet.
-        </Text>
+        {sessionsToday.length > 0 ? (
+          sessionsToday.map((session) => (
+            <SessionCard
+              key={session.id}
+              session={session}
+              contribution={contributions[session.id]}
+            />
+          ))
+        ) : (
+          <Text variant="body" color={theme.colors.textMuted}>
+            No sessions yet.
+          </Text>
+        )}
         <Button
           label="Log session"
           variant="secondary"

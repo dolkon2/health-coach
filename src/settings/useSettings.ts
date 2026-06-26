@@ -6,14 +6,16 @@
  * from one place instead of hard-coding them. When settings get persisted,
  * only this file changes — every caller keeps working.
  */
-import type { WeightUnit } from '@/lib/units';
+import type { WeightUnit, DistanceUnit } from '@/lib/units';
 
 export type Settings = {
   weightUnit: WeightUnit;
+  distanceUnit: DistanceUnit;
 };
 
 const DEFAULTS: Settings = {
   weightUnit: 'lb', // Dylan logs in pounds; storage stays kg (see units.ts).
+  distanceUnit: 'km', // endurance distance; storage stays metres (see units.ts).
 };
 
 export function useSettings(): Settings {

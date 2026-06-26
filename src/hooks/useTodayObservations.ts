@@ -3,8 +3,9 @@
  *
  * Queries the storage layer for the user's current civil day (data-model
  * principle 4) and exposes a `reload()` so a screen can re-fetch after a modal
- * writes a new Observation. Pass 3 only needs the weigh-in; the full list is
- * returned too so Pass 4 can read today's sessions without a new hook.
+ * writes a new Observation. Returns the full list plus the two derived slices
+ * Today renders — the latest weigh-in and today's sessions — so neither needs a
+ * separate query (Pass 4 reuses this rather than re-fetching).
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { Observation, ObservationOf } from '@core/observation';
@@ -15,6 +16,7 @@ import { localDayWindow } from '@/lib/date';
 type TodayObservations = {
   observations: Observation[];
   weighInToday: ObservationOf<'weighIn'> | null;
+  sessionsToday: ObservationOf<'session'>[];
   loading: boolean;
   error: Error | null;
   reload: () => void;
@@ -55,5 +57,10 @@ export function useTodayObservations(): TodayObservations {
   );
   const weighInToday = weighIns.length > 0 ? weighIns[weighIns.length - 1] : null;
 
-  return { observations, weighInToday, loading, error, reload };
+  // Today's sessions, oldest first (the query already orders by occurredAt asc).
+  const sessionsToday = observations.filter((o): o is ObservationOf<'session'> =>
+    isKind(o, 'session')
+  );
+
+  return { observations, weighInToday, sessionsToday, loading, error, reload };
 }
