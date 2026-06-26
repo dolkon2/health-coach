@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { kgToDisplay, displayToKg, formatWeight, formatDelta } from '../units';
 
 describe('units', () => {

@@ -17,7 +17,7 @@ import { makeTestDb } from '../storage/__tests__/sqliteTestDb';
 import { displayToKg } from '../lib/units';
 
 // What the modal builds from a pounds entry (storage stays kg).
-function weighInFromLb(id: string, lb: number, occurredAt: string): Observation {
+function weighInFromLb(id: string, lb: number, occurredAt: string): ObservationOf<'weighIn'> {
   return {
     id,
     kind: 'weighIn',
