@@ -1,6 +1,6 @@
 import { colors } from '../tokens/colors';
 import { typography } from '../tokens/typography';
-import { spacing, borderRadius, shadow } from '../tokens/spacing';
+import { spacing, borderRadius, shadow, motion } from '../tokens/spacing';
 
 export const theme = {
   colors,
@@ -8,6 +8,7 @@ export const theme = {
   spacing,
   borderRadius,
   shadow,
+  motion,
 };
 
 export type Theme = typeof theme;

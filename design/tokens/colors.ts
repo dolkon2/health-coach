@@ -1,35 +1,50 @@
 export const colors = {
-  // Brand
-  primary: '#2D9B6F',       // deep green — health, vitality
-  primaryLight: '#4DC28A',
-  primaryDark: '#1E6B4C',
-
-  // Accent
-  accent: '#F4845F',        // warm coral — energy, warmth
-  accentLight: '#F9A98B',
-  accentDark: '#C85C38',
-
-  // Neutrals
-  background: '#F8F9FA',
-  surface: '#FFFFFF',
-  surfaceAlt: '#F0F4F2',
+  // Ground & structure
+  bg: '#181614',
+  surface: '#221F1C',
+  surfaceRaised: '#2C2825',
+  border: '#38332E',
+  borderStrong: '#4A443D',
 
   // Text
-  textPrimary: '#1A1A2E',
-  textSecondary: '#5A6472',
-  textMuted: '#9BA3AE',
-  textInverse: '#FFFFFF',
+  text: '#E6E1DB',
+  textSecondary: '#9B9590',
+  textMuted: '#6B6560',
 
-  // Feedback
-  success: '#27AE60',
-  warning: '#F2994A',
-  error: '#EB5757',
-  info: '#2F80ED',
+  // Earth accents
+  sandstone: '#C4A87A',
+  olive: '#7B8C68',
+  clay: '#B07858',
+  slate: '#7A8896',
 
-  // Borders
-  border: '#E2E8E4',
-  borderStrong: '#BCC8C2',
+  // Semantic
+  trendLine: '#A3B490',
+  positive: '#7B8C68',
+  negative: '#B86B5A',
+  neutral: '#9B9590',
 
-  // Overlay
-  overlay: 'rgba(26, 26, 46, 0.5)',
+  // Fidelity encoding
+  fidelityHigh: 1.0,
+  fidelityMid: 0.7,
+  fidelityLow: 0.45,
+
+  // Light mode
+  light: {
+    bg: '#F2EDE7',
+    surface: '#FAFAF7',
+    surfaceRaised: '#FFFFFF',
+    border: '#DDD7CF',
+    borderStrong: '#C4BDB4',
+    text: '#1A1816',
+    textSecondary: '#6B6560',
+    textMuted: '#9B9590',
+    sandstone: '#A68A5B',
+    olive: '#5E7048',
+    clay: '#9A6344',
+    slate: '#62717E',
+    trendLine: '#6B7F5A',
+    positive: '#5E7048',
+    negative: '#A85545',
+    neutral: '#6B6560',
+  },
 };

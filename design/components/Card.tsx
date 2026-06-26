@@ -1,19 +1,17 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { colors } from '../tokens/colors';
-import { spacing, borderRadius, shadow } from '../tokens/spacing';
-
-type Elevation = 'flat' | 'sm' | 'md' | 'lg';
+import { spacing, borderRadius } from '../tokens/spacing';
 
 interface CardProps {
   children: React.ReactNode;
-  elevation?: Elevation;
+  raised?: boolean;
   style?: ViewStyle;
 }
 
-export function Card({ children, elevation = 'sm', style }: CardProps) {
+export function Card({ children, raised = false, style }: CardProps) {
   return (
-    <View style={[styles.card, elevation !== 'flat' && shadow[elevation], style]}>
+    <View style={[styles.card, raised && styles.raised, style]}>
       {children}
     </View>
   );
@@ -22,9 +20,12 @@ export function Card({ children, elevation = 'sm', style }: CardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing[5],
+    borderRadius: borderRadius.md,
+    padding: spacing[4],
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  raised: {
+    backgroundColor: colors.surfaceRaised,
   },
 });

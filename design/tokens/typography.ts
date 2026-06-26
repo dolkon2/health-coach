@@ -1,44 +1,31 @@
 export const typography = {
-  // Font families
   fontFamily: {
-    regular: 'System',
-    medium: 'System',
-    bold: 'System',
+    display: 'BarlowCondensed',
+    body: 'Inter',
+    data: 'JetBrainsMono',
   },
 
-  // Font sizes (sp)
-  fontSize: {
-    xs: 11,
-    sm: 13,
-    md: 15,
-    lg: 17,
-    xl: 20,
-    '2xl': 24,
-    '3xl': 28,
-    '4xl': 34,
-    '5xl': 40,
+  // Display — section headers, hero stats. Always uppercase, tracked.
+  display: {
+    xl: { fontSize: 40, fontWeight: '700' as const, lineHeight: 40, letterSpacing: 40 * 0.04 },
+    lg: { fontSize: 28, fontWeight: '700' as const, lineHeight: 30.8, letterSpacing: 28 * 0.04 },
+    md: { fontSize: 20, fontWeight: '600' as const, lineHeight: 24, letterSpacing: 20 * 0.04 },
   },
 
-  // Font weights
-  fontWeight: {
-    regular: '400' as const,
-    medium: '500' as const,
-    semibold: '600' as const,
-    bold: '700' as const,
+  // Body — all UI, prose, labels
+  body: {
+    base: { fontSize: 15, fontWeight: '400' as const, lineHeight: 22.5 },
+    sm: { fontSize: 13, fontWeight: '400' as const, lineHeight: 19.5 },
   },
 
-  // Line heights
-  lineHeight: {
-    tight: 1.2,
-    normal: 1.5,
-    relaxed: 1.75,
+  label: {
+    base: { fontSize: 11, fontWeight: '500' as const, lineHeight: 14.3, letterSpacing: 11 * 0.06 },
   },
 
-  // Letter spacing
-  letterSpacing: {
-    tight: -0.5,
-    normal: 0,
-    wide: 0.5,
-    wider: 1,
+  // Data — numbers in charts, stats, tables. Tabular figures.
+  data: {
+    lg: { fontSize: 24, fontWeight: '500' as const, lineHeight: 28.8, letterSpacing: -0.24 },
+    base: { fontSize: 14, fontWeight: '400' as const, lineHeight: 19.6, letterSpacing: -0.14 },
+    sm: { fontSize: 12, fontWeight: '400' as const, lineHeight: 16.8, letterSpacing: -0.12 },
   },
 };

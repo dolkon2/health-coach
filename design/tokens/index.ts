@@ -1,3 +1,3 @@
 export { colors } from './colors';
 export { typography } from './typography';
-export { spacing, borderRadius, shadow } from './spacing';
+export { spacing, borderRadius, shadow, motion } from './spacing';
