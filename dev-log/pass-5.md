@@ -94,9 +94,28 @@ exit 0, `jest` 21/21. Green baseline was real before building.
   (web untested by design — quirk 3).
 - On-device sim smoke test: handed to Dylan as a tap-through checklist.
 
-## Next — Reflect, pass 2: Benchmarks
+## Next — ~2-week dogfood stop
 
-User-written intent (free text, no category picker) at the top of the Reflect
-tab; Today foregrounds active ones. This pass built the foundation they'll sit on.
-After that: the logging deep-dive + Garmin Connect ingestion — the input pipeline
-that closes out ring 1 and makes the engine real for daily use. Scoped separately.
+Per Dylan's "Pass 5 Prompt.md" (Opus planning session, 2026-06-26): the minimum
+useful loop is complete, so the next step is **using it for real for ~2 weeks**
+before adding anything. Acceptance #6 ("you actually want to open it tomorrow")
+is the only test that matters now, and it can't be coded.
+
+**On hold pending dogfood (decided 2026-06-26):** a *weekly summary* section —
+session count by modality + total working volume load above the current week's
+reveal() lines. The ledger's tap-a-week drill-down already shows the reveal()
+lines; the only missing piece is the aggregates. Dylan chose to HOLD rather than
+pre-build — revisit only if the aggregates are actually missed in real use
+(constitution: don't add until the need is proven). When built, the clean shape
+is to upgrade the existing drill-down panel, not add a second redundant block.
+
+**Roadmap correction (carry forward):** Benchmarks are NOT the next pass — they're
+**Phase 5, Pass 2**, needing a Phase-5 spec + dogfood data + a domain-mapping
+layer (keyword mapper → AI parser). Reflect's bigger arc (benchmark→hero-signal
+mapping, hierarchy recomposition, correlation overlays, z-score detection, AI
+forensics) is all post-dogfood, Phases 5/7. The separate logging deep-dive +
+Garmin Connect ingestion ("ring 1" input pipeline) still stands as its own effort.
+
+**Before dogfooding:** clear the dev sample seed (Settings → Developer → Clear
+sample data) so the trend and ledger reflect only real entries — otherwise the
+honesty rule is undermined by seeded data sitting in the charts.
