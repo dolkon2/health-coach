@@ -469,6 +469,22 @@ gesture handling) and confirm.
 
 ---
 
+## ⛔ HALT — Exercise logging deep dive (before Phase 2)
+
+**Do this before moving past Phase 1.** Pass 4's session logging is functional but intentionally minimal. Before building anything else, do a dedicated planning session to design the full logging experience. These decisions all interconnect and need to be resolved together:
+
+- **Garmin + Apple Health API integration** — these will be the primary data source for most session metrics (pace, elevation, HR zones, splits). Manual forms become a fallback. The API shape drives what the forms need to capture vs what comes for free.
+- **Training tab (planned workouts → Today)** — a new tab where users plan workouts. A planned workout lands on Today as a to-do that becomes a logged session. This changes Today's model from "what happened" to "what's planned + what happened."
+- **Reopen/edit a logged session** — currently immutable Observations. The `supersede` pattern exists from weigh-ins.
+- **Delete a session** — related to edit. No delete affordance on Today's session cards yet.
+- **Duration: required vs optional** — quirk #8. APIs would supply duration automatically.
+- **Hike: elevation gain, pace** — not captured yet. Likely comes from API import.
+- **Activity log formatting/presentation** — how sessions look on Today and in history.
+
+Don't build detailed logging improvements piecemeal. Plan them together, then build.
+
+---
+
 ## After Phase 1
 
 Stop. Use the app for two weeks. Notice what feels right and what feels broken. *Don't add features.*

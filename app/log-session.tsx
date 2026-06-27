@@ -136,10 +136,21 @@ export default function LogSessionScreen() {
     mutateExercise(exId, (ex) => ({ ...ex, sets: [...ex.sets, emptySetDraft(uuidv7())] }));
   }
 
+  function removeSet(exId: string, setId: string) {
+    mutateExercise(exId, (ex) => ({ ...ex, sets: ex.sets.filter((s) => s.id !== setId) }));
+  }
+
   function addExercise() {
     setForm((f) => ({
       ...f,
       gym: { exercises: [...f.gym.exercises, emptyExerciseDraft(uuidv7(), uuidv7())] },
+    }));
+  }
+
+  function removeExercise(exId: string) {
+    setForm((f) => ({
+      ...f,
+      gym: { exercises: f.gym.exercises.filter((ex) => ex.id !== exId) },
     }));
   }
 
@@ -162,6 +173,13 @@ export default function LogSessionScreen() {
         ...f.climb,
         sends: f.climb.sends.map((s) => (s.id === id ? { ...s, ...patch } : s)),
       },
+    }));
+  }
+
+  function removeSend(id: string) {
+    setForm((f) => ({
+      ...f,
+      climb: { ...f.climb, sends: f.climb.sends.filter((s) => s.id !== id) },
     }));
   }
 
@@ -261,6 +279,8 @@ export default function LogSessionScreen() {
               onPattern={(p) => setExercisePattern(ex.id, p)}
               onSet={(setId, fn) => mutateSet(ex.id, setId, fn)}
               onAddSet={() => addSet(ex.id)}
+              onRemoveSet={(setId) => removeSet(ex.id, setId)}
+              onRemove={() => removeExercise(ex.id)}
             />
           ))}
           <Button label="+ Add exercise" variant="secondary" onPress={addExercise} />
@@ -335,6 +355,7 @@ export default function LogSessionScreen() {
                 checked={s.sent}
                 onToggle={() => mutateSend(s.id, { sent: !s.sent })}
               />
+              <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
             </View>
           ))}
           <Button label="+ Add send" variant="secondary" onPress={addSend} />
@@ -410,43 +431,53 @@ function ExerciseEditor({
   onPattern,
   onSet,
   onAddSet,
+  onRemoveSet,
+  onRemove,
 }: {
   exercise: ExerciseDraft;
   onName: (name: string) => void;
   onPattern: (p: MovementPattern) => void;
   onSet: (setId: string, fn: (s: SetDraft) => SetDraft) => void;
   onAddSet: () => void;
+  onRemoveSet: (setId: string) => void;
+  onRemove: () => void;
 }) {
   const theme = useTheme();
+  const canRemoveSet = exercise.sets.length > 1; // always keep one row so the table isn't empty
   return (
     <Card raised style={{ gap: theme.spacing[4] }}>
-      <Field
-        label="Exercise"
-        value={exercise.name}
-        onChangeText={onName}
-        placeholder="e.g. barbell back squat"
-        keyboardType="default"
-      />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[3] }}>
+        <Field
+          label="Exercise"
+          value={exercise.name}
+          onChangeText={onName}
+          placeholder="e.g. barbell back squat"
+          keyboardType="default"
+          style={{ flex: 1 }}
+        />
+        <RemoveButton label="Remove exercise" onPress={onRemove} />
+      </View>
       <View style={{ gap: theme.spacing[2] }}>
         <Text variant="label">Movement pattern (required)</Text>
         <ChipSelect options={PATTERNS} value={exercise.movementPattern} onChange={onPattern} />
       </View>
 
-      {/* Sets table */}
+      {/* Sets table — trailing column reserved for the per-row remove control */}
       <View style={{ gap: theme.spacing[2] }}>
         <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
           <Text variant="label" style={{ flex: 1 }}>
             Weight
           </Text>
-          <Text variant="label" style={{ width: 64 }}>
+          <Text variant="label" style={{ width: 56 }}>
             Reps
           </Text>
-          <Text variant="label" style={{ width: 56 }}>
+          <Text variant="label" style={{ width: 48 }}>
             RIR
           </Text>
-          <Text variant="label" style={{ width: 52 }}>
+          <Text variant="label" style={{ width: 44 }}>
             Warm
           </Text>
+          <View style={{ width: 24 }} />
         </View>
         {exercise.sets.map((s) => (
           <View key={s.id} style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
@@ -461,26 +492,48 @@ function ExerciseEditor({
               onChangeText={(reps) => onSet(s.id, (prev) => ({ ...prev, reps }))}
               placeholder="0"
               keyboardType="number-pad"
-              style={{ width: 64 }}
+              style={{ width: 56 }}
             />
             <Field
               value={s.rir}
               onChangeText={(rir) => onSet(s.id, (prev) => ({ ...prev, rir }))}
               placeholder="—"
               keyboardType="number-pad"
-              style={{ width: 56 }}
+              style={{ width: 48 }}
             />
-            <View style={{ width: 52, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+            <View style={{ width: 44, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
               <Checkbox
                 checked={s.isWarmup}
                 onToggle={() => onSet(s.id, (prev) => ({ ...prev, isWarmup: !prev.isWarmup }))}
               />
+            </View>
+            <View style={{ width: 24, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+              {canRemoveSet ? (
+                <RemoveButton label="Remove set" onPress={() => onRemoveSet(s.id)} />
+              ) : null}
             </View>
           </View>
         ))}
       </View>
       <Button label="+ Add set" variant="ghost" size="sm" onPress={onAddSet} />
     </Card>
+  );
+}
+
+function RemoveButton({ onPress, label }: { onPress: () => void; label?: string }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label ?? 'Remove'}
+      hitSlop={8}
+      style={{ paddingHorizontal: theme.spacing[1], paddingBottom: theme.spacing[2] }}
+    >
+      <Text variant="dataSm" color={theme.colors.textMuted}>
+        ✕
+      </Text>
+    </Pressable>
   );
 }
 
