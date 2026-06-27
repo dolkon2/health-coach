@@ -21,25 +21,98 @@ import type {
   ObservationId,
   LocalDate,
 } from './observation';
-import { notImplemented } from './notImplemented';
+import { dayKey } from './timeline';
 
 export type StimulusLedgerWeek = {
   weekStart: LocalDate;
+  // Sparsely populated: only patterns that carried working volume that week
+  // appear as keys. Consumers iterate Object.entries (no fabricated zero rows).
   byPattern: Record<MovementPattern, { sets: number; volumeLoadKg: number }>;
+  // Always fully populated (three keys), zero when nothing was logged.
   byEnergySystem: Record<EnergySystem, { minutes: number }>;
   sessionIds: ObservationId[];
 };
 
 /**
- * Current week + prior weeks, grouped by movement pattern and energy system.
- * The Reflect ledger consumes this — built in Pass 5, when the ledger UI and a
- * test that drives it land together. Until then it stays an honest placeholder
- * rather than shipping untested engine code with no consumer (constitution).
+ * The Monday (ISO week start) of the week containing `date`, as 'YYYY-MM-DD'.
+ * Buckets by UTC civil date — consistent with trend.ts/`dayKey` (see quirk 1:
+ * grouping is UTC-based, fine for US-Pacific morning logging, tz-correct fix
+ * deferred until sync/import lands).
+ */
+export function isoWeekStart(date: LocalDate): LocalDate {
+  const d = new Date(`${date}T00:00:00Z`);
+  const dow = d.getUTCDay(); // 0 = Sun … 6 = Sat
+  const daysSinceMonday = (dow + 6) % 7; // Mon -> 0, Sun -> 6
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return d.toISOString().slice(0, 10);
+}
+
+function emptyWeek(weekStart: LocalDate): StimulusLedgerWeek {
+  return {
+    weekStart,
+    byPattern: {} as StimulusLedgerWeek['byPattern'],
+    byEnergySystem: {
+      aerobic: { minutes: 0 },
+      glycolytic: { minutes: 0 },
+      mixed: { minutes: 0 },
+    },
+    sessionIds: [],
+  };
+}
+
+/**
+ * Groups sessions by ISO week into a per-pattern volume / per-energy-system
+ * minutes ledger. One entry per week that actually has sessions, oldest first;
+ * it does not invent empty weeks (that needs "now" — a UI windowing concern the
+ * pure engine stays out of; the hook pads the fixed 8-week display window).
+ *
+ * Gym volume excludes warm-ups, matching reveal() so the ledger and the Today
+ * contribution line never disagree. Climbing/hike/other sessions carry no
+ * measurable pattern volume in the data model — they appear in `sessionIds`
+ * (and so in the drill-down) but contribute nothing to the bars rather than a
+ * fabricated number (constitution: no fake data). See quirk: climb/hike gap.
+ *
+ * Speaks engine-native kg, like reveal() (quirk 6) — the ledger is the engine's
+ * voice, not a data-entry surface.
  */
 export function computeWeeklyStimulus(
-  _sessions: ObservationOf<'session'>[]
+  sessions: ObservationOf<'session'>[]
 ): StimulusLedgerWeek[] {
-  return notImplemented('stimulus.computeWeeklyStimulus', 'Pass 5');
+  const byWeek = new Map<LocalDate, StimulusLedgerWeek>();
+
+  const weekFor = (weekStart: LocalDate): StimulusLedgerWeek => {
+    let w = byWeek.get(weekStart);
+    if (!w) {
+      w = emptyWeek(weekStart);
+      byWeek.set(weekStart, w);
+    }
+    return w;
+  };
+
+  for (const session of sessions) {
+    const week = weekFor(isoWeekStart(dayKey(session.occurredAt)));
+    week.sessionIds.push(session.id);
+    const p = session.payload;
+
+    if (p.lifting) {
+      for (const set of p.lifting.sets) {
+        if (set.isWarmup === true) continue; // working sets only
+        const cur = week.byPattern[set.movementPattern] ?? { sets: 0, volumeLoadKg: 0 };
+        cur.sets += 1;
+        cur.volumeLoadKg += set.weightKg * set.reps;
+        week.byPattern[set.movementPattern] = cur;
+      }
+    }
+
+    if (p.endurance) {
+      week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin;
+    }
+    // climb / hike / other: no measurable pattern volume — sessionIds only.
+  }
+
+  return [...byWeek.values()].sort((a, b) =>
+    a.weekStart < b.weekStart ? -1 : a.weekStart > b.weekStart ? 1 : 0
+  );
 }
 
 /**

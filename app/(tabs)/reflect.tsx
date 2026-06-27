@@ -1,17 +1,37 @@
 /**
- * Reflect — the weight trend chart and the stimulus ledger. This is where
- * Phase 1 starts feeling like a product.
+ * Reflect — the long view. The smoothed weight trend on top, the weekly stimulus
+ * ledger below, scrollable. This is where Phase 1 starts feeling like a product.
  *
- * Pass 1: placeholder. The custom SVG trend chart lands in Pass 5; the ledger
- * too. Until the engine is built, Reflect honestly says there's nothing to show
- * yet rather than rendering a fabricated curve.
+ * Both components read from the engine (trend.ts / stimulus.ts) and own their own
+ * honest empty states — when there isn't enough data, they say so rather than
+ * drawing a fabricated curve. No TDEE: without intake data the expenditure engine
+ * can't produce an honest number, so we say that plainly instead of faking one.
+ *
+ * Benchmarks (user-written intent) land at the top of this tab in the next Reflect
+ * pass; this screen builds the foundation they'll sit on.
  */
+import { useCallback } from 'react';
 import { View } from 'react-native';
-import { Screen, Text, Card } from '@/components';
+import { useFocusEffect } from 'expo-router';
+import { Screen, Text, WeightTrendChart, StimulusLedger } from '@/components';
 import { useTheme } from '@/theme';
+import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useWeeklyStimulus } from '@/hooks/useWeeklyStimulus';
+import { useSettings } from '@/settings/useSettings';
 
 export default function ReflectScreen() {
   const theme = useTheme();
+  const { weightUnit } = useSettings();
+  const { points, raw, reload: reloadTrend } = useWeightTrend();
+  const { weeks, sessionsById, reload: reloadStimulus } = useWeeklyStimulus();
+
+  // Re-fetch on focus — e.g. after logging from Today (mirrors Today's pattern).
+  useFocusEffect(
+    useCallback(() => {
+      reloadTrend();
+      reloadStimulus();
+    }, [reloadTrend, reloadStimulus])
+  );
 
   return (
     <Screen scroll>
@@ -22,19 +42,22 @@ export default function ReflectScreen() {
         The long view
       </Text>
 
-      <Card style={{ marginTop: theme.spacing[8], gap: theme.spacing[2] }}>
-        <Text variant="label">Weight trend</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Log a few weigh-ins and a smoothed trend will appear here.
-        </Text>
-      </Card>
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <WeightTrendChart points={points} raw={raw} weightUnit={weightUnit} />
+      </View>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[2] }}>
-        <Text variant="label">Stimulus ledger</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Log sessions and your weekly volume by movement pattern shows up here.
-        </Text>
-      </Card>
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <StimulusLedger weeks={weeks} sessionsById={sessionsById} />
+      </View>
+
+      {/* No fabricated expenditure — honest about what's missing (Phase 2). */}
+      <Text
+        variant="dataSm"
+        color={theme.colors.textMuted}
+        style={{ marginTop: theme.spacing[8] }}
+      >
+        Expenditure available once food logging is in (Phase 2).
+      </Text>
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
