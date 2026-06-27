@@ -128,3 +128,44 @@ export async function deleteObservation(
   await d.runAsync('DELETE FROM observations WHERE id = ?;', [id]);
   return true;
 }
+
+/**
+ * Hard-overwrite by id. The row's kind and original loggedAt are preserved;
+ * everything else comes from `obs`. Pass 6 contract: edits do not supersede —
+ * they replace. Throws if no row with that id exists.
+ */
+export async function updateObservation(
+  obs: Observation,
+  db?: SqlDatabase
+): Promise<Observation> {
+  const d = db ?? (await getDb());
+  const existing = await getObservationById(obs.id, d);
+  if (!existing) {
+    throw new Error(`updateObservation: no observation with id ${obs.id}`);
+  }
+  const merged: Observation = {
+    ...obs,
+    kind: existing.kind,
+    loggedAt: existing.loggedAt,
+  } as Observation;
+  const r = observationToRow(merged);
+  await d.runAsync(
+    `UPDATE observations SET
+       occurredAt = ?, loggedAt = ?, tz = ?, tier = ?,
+       fidelity = ?, source = ?, payload = ?, notes = ?, supersedes = ?
+     WHERE id = ?;`,
+    [
+      r.occurredAt,
+      r.loggedAt,
+      r.tz,
+      r.tier,
+      r.fidelity,
+      r.source,
+      r.payload,
+      r.notes,
+      r.supersedes,
+      r.id,
+    ]
+  );
+  return merged;
+}

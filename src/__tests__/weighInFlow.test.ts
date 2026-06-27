@@ -16,6 +16,7 @@ import {
   createObservation,
   deleteObservation,
   listObservations,
+  updateObservation,
 } from '../storage/observations';
 import { makeTestDb } from '../storage/__tests__/sqliteTestDb';
 import { displayToKg } from '../lib/units';
@@ -101,6 +102,35 @@ describe('weigh-in flow (Pass 3)', () => {
     );
     expect(survivors).toHaveLength(1);
     expect(weightTrendDelta(computeWeightTrend(survivors))).toBeNull();
+  });
+
+  it('editing a weigh-in changes the trend without changing the row count', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    const lbs = [180, 179.6, 179.2, 178.9, 178.5, 178.2, 178];
+    for (let i = 0; i < lbs.length; i++) {
+      const day = String(20 + i).padStart(2, '0');
+      await createObservation(weighInFromLb(`w${i}`, lbs[i], `2026-06-${day}T15:00:00Z`), db);
+    }
+
+    // Original trend, last day = ~178 lb.
+    let rows = await listObservations({ kinds: ['weighIn'] }, db);
+    const original = computeWeightTrend(
+      rows.filter((o): o is ObservationOf<'weighIn'> => isKind(o, 'weighIn'))
+    );
+
+    // Edit the last weigh-in down to 170 lb. Same id, same occurredAt.
+    await updateObservation(weighInFromLb('w6', 170, '2026-06-26T15:00:00Z'), db);
+
+    rows = await listObservations({ kinds: ['weighIn'] }, db);
+    expect(rows).toHaveLength(lbs.length); // no extra row created
+    const edited = computeWeightTrend(
+      rows.filter((o): o is ObservationOf<'weighIn'> => isKind(o, 'weighIn'))
+    );
+    // Latest trend point should now be meaningfully below the original.
+    expect(edited[edited.length - 1].trendKg).toBeLessThan(
+      original[original.length - 1].trendKg
+    );
   });
 
   it('a week of weigh-ins produces a real downward delta', async () => {

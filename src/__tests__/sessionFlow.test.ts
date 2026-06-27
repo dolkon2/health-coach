@@ -17,11 +17,13 @@ import {
   createObservation,
   deleteObservation,
   listObservations,
+  updateObservation,
 } from '../storage/observations';
 import { makeTestDb } from '../storage/__tests__/sqliteTestDb';
 import {
   buildSessionObservation,
   emptySessionForm,
+  sessionFormFromObservation,
   validateSessionForm,
   type BuildContext,
   type SessionForm,
@@ -153,6 +155,86 @@ describe('session flow (Pass 4)', () => {
     expect(reveal(buildSessionObservation(form, CTX))).toBe(
       'quad-dom + hip-hinge · 3 sets · 1,420 kg volume load' // 100*5+100*5+140*3
     );
+  });
+
+  it('editing a session updates the contribution line (same id, no extra rows)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const obs = buildSessionObservation(pullDayForm(), CTX);
+    await createObservation(obs, db);
+    expect(reveal(obs)).toBe('upper-pull · 3 sets · 1,700 kg volume load');
+
+    // Edit: invert to form, drop the lat-pulldown exercise, save back.
+    const form = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `gen-${Math.random()}`
+    );
+    form.gym.exercises = form.gym.exercises.filter((e) => e.name !== 'lat pulldown');
+    const edited = buildSessionObservation(form, { ...CTX, id: obs.id });
+    await updateObservation(edited, db);
+
+    const today = await listObservations(
+      { from: '2026-06-26T00:00:00Z', to: '2026-06-26T23:59:59Z' },
+      db
+    );
+    const sessions = today.filter((o): o is ObservationOf<'session'> => isKind(o, 'session'));
+    expect(sessions).toHaveLength(1); // still one row, not two
+    expect(sessions[0].id).toBe(obs.id); // id preserved
+    // 1,700 - (70*10) = 1,000 kg volume load left.
+    expect(reveal(sessions[0])).toBe('upper-pull · 2 sets · 1,000 kg volume load');
+  });
+
+  it('round-trips a gym session through sessionFormFromObservation -> build (payload survives)', () => {
+    const obs = buildSessionObservation(pullDayForm(), CTX);
+
+    let counter = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `gen-${counter++}`
+    );
+
+    // Inverted form rebuilds the same payload (modulo id/occurredAt, which the
+    // build context owns). The lifting block is what matters: same sets, same
+    // patterns, same warm-up flags.
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's2' });
+
+    expect(rebuilt.payload.modality).toBe(obs.payload.modality);
+    expect(rebuilt.payload.durationMin).toBe(obs.payload.durationMin);
+    expect(rebuilt.payload.perceivedEffort).toBe(obs.payload.perceivedEffort);
+    expect(rebuilt.payload.lifting?.sets).toHaveLength(obs.payload.lifting!.sets.length);
+
+    // Field-by-field on the sets (volume-load reveals would also match).
+    rebuilt.payload.lifting!.sets.forEach((s, i) => {
+      const orig = obs.payload.lifting!.sets[i];
+      expect(s.exercise).toBe(orig.exercise);
+      expect(s.movementPattern).toBe(orig.movementPattern);
+      expect(s.reps).toBe(orig.reps);
+      expect(s.weightKg).toBeCloseTo(orig.weightKg, 6);
+      expect(s.rir ?? null).toBe(orig.rir ?? null);
+      expect(s.isWarmup === true).toBe(orig.isWarmup === true);
+    });
+  });
+
+  it('round-trips an endurance session — distance and HR preserved across units', () => {
+    const form = emptySessionForm();
+    form.modality = 'run';
+    form.durationMin = '45';
+    form.endurance = { distance: '8.2', avgHr: '152', energySystem: 'aerobic' };
+    const obs = buildSessionObservation(form, CTX);
+
+    let counter = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `gen-${counter++}`
+    );
+    expect(inverted.modality).toBe('run');
+    expect(Number(inverted.endurance.distance)).toBeCloseTo(8.2, 2);
+    expect(inverted.endurance.avgHr).toBe('152');
+    expect(inverted.endurance.energySystem).toBe('aerobic');
   });
 
   it('builds an endurance session and reveals its energy system, time and distance', () => {

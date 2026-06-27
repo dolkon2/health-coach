@@ -11,14 +11,18 @@
  * movement-pattern requirement is enforced by the same builder the test drives,
  * so an untagged set can't reach storage.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Screen, Text, Button, Card, Field, ChipSelect, type ChipOption } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useExercisePatternMemory } from '@/hooks/useExercisePatternMemory';
-import { createObservation } from '@/storage/observations';
+import {
+  createObservation,
+  getObservationById,
+  updateObservation,
+} from '@/storage/observations';
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
 import {
@@ -27,6 +31,7 @@ import {
   emptySetDraft,
   validateSessionForm,
   buildSessionObservation,
+  sessionFormFromObservation,
   isEndurance,
   type SessionForm,
   type SessionModality,
@@ -34,7 +39,7 @@ import {
   type SetDraft,
   type ClimbStyle,
 } from '@/lib/session';
-import type { EnergySystem, MovementPattern } from '@core/observation';
+import type { EnergySystem, MovementPattern, ObservationOf } from '@core/observation';
 
 const MODALITIES: { value: SessionModality; label: string }[] = [
   { value: 'gym', label: 'Gym' },
@@ -83,11 +88,36 @@ export default function LogSessionScreen() {
   const router = useRouter();
   const { weightUnit, distanceUnit } = useSettings();
   const patternMemory = useExercisePatternMemory();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const isEdit = typeof editId === 'string' && editId.length > 0;
 
   const [form, setForm] = useState<SessionForm>(emptySessionForm);
-  const [step, setStep] = useState<'modality' | 'detail'>('modality');
+  // Edit-mode skips the modality picker — the session already has one.
+  const [step, setStep] = useState<'modality' | 'detail'>(isEdit ? 'detail' : 'modality');
+  const [original, setOriginal] = useState<ObservationOf<'session'> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill from the existing session when editing.
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    getObservationById(editId!)
+      .then((obs) => {
+        if (cancelled || !obs || obs.kind !== 'session') return;
+        const s = obs as ObservationOf<'session'>;
+        setOriginal(s);
+        setForm(
+          sessionFormFromObservation(s, { weightUnit, distanceUnit }, () => uuidv7())
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load session.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, isEdit, weightUnit, distanceUnit]);
 
   const update = (patch: Partial<SessionForm>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -189,18 +219,36 @@ export default function LogSessionScreen() {
 
   async function handleSave() {
     if (validationError || saving) return;
+    if (isEdit && !original) return; // edit clicked before prefill resolved
     Keyboard.dismiss();
     setSaving(true);
     setError(null);
     try {
-      const obs = buildSessionObservation(form, {
-        id: uuidv7(),
-        now: new Date().toISOString(),
-        tz: deviceTz(),
-        weightUnit,
-        distanceUnit,
-      });
-      await createObservation(obs);
+      if (isEdit && original) {
+        // Preserve id, occurredAt, tz, source, fidelity — the edit only
+        // rebuilds the user-facing payload + notes.
+        const built = buildSessionObservation(form, {
+          id: original.id,
+          now: original.occurredAt,
+          tz: original.tz,
+          weightUnit,
+          distanceUnit,
+        });
+        await updateObservation({
+          ...built,
+          source: original.source,
+          fidelity: original.fidelity,
+        });
+      } else {
+        const obs = buildSessionObservation(form, {
+          id: uuidv7(),
+          now: new Date().toISOString(),
+          tz: deviceTz(),
+          weightUnit,
+          distanceUnit,
+        });
+        await createObservation(obs);
+      }
       router.back();
     } catch {
       setError('Could not save. Try again.');
@@ -265,7 +313,7 @@ export default function LogSessionScreen() {
         </Text>
       </Pressable>
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
-        Log {modality}
+        {isEdit ? `Edit ${modality}` : `Log ${modality}`}
       </Text>
 
       {/* Modality-dependent body */}
@@ -411,9 +459,9 @@ export default function LogSessionScreen() {
 
       <View style={{ height: theme.spacing[6] }} />
       <Button
-        label="Save session"
+        label={isEdit ? 'Save changes' : 'Save session'}
         onPress={handleSave}
-        disabled={validationError !== null}
+        disabled={validationError !== null || (isEdit && !original)}
         loading={saving}
       />
       <View style={{ height: theme.spacing[3] }} />

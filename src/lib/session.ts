@@ -22,7 +22,14 @@ import type {
   ObservationOf,
   SessionPayload,
 } from '@core/observation';
-import { displayToKg, displayToMeters, type DistanceUnit, type WeightUnit } from './units';
+import {
+  displayToKg,
+  displayToMeters,
+  kgToDisplay,
+  metersToDisplay,
+  type DistanceUnit,
+  type WeightUnit,
+} from './units';
 
 // The seven modalities the Phase-1 picker offers.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
@@ -233,4 +240,111 @@ export function buildSessionObservation(
     payload,
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
   };
+}
+
+// ─── Inverse: Observation -> SessionForm ─────────────────────────────────────
+
+/** Modalities the SessionForm picker offers. Engine-side `Modality` is broader. */
+const FORM_MODALITIES: ReadonlyArray<SessionModality> = [
+  'gym',
+  'run',
+  'ride',
+  'climb',
+  'paddle',
+  'hike',
+  'other',
+];
+
+function normalizeModality(m: Modality): SessionModality {
+  return (FORM_MODALITIES as ReadonlyArray<Modality>).includes(m)
+    ? (m as SessionModality)
+    : 'other';
+}
+
+function numStr(n: number | undefined | null, digits = 2): string {
+  if (n == null || !Number.isFinite(n)) return '';
+  // Trim trailing zeros so "100" stays "100" instead of "100.00".
+  const fixed = n.toFixed(digits);
+  return fixed.replace(/\.?0+$/, '');
+}
+
+/**
+ * Rebuilds the form state from a saved session — the inverse of
+ * buildSessionObservation. The log-session screen uses this to prefill its
+ * fields when opened in edit mode (?editId=…), and the round-trip
+ * (form → build → from → build) is what the tests guard.
+ *
+ * Units are inverted to the user's display unit so the form shows what the
+ * user originally entered, not the engine-native kg / metres.
+ */
+export function sessionFormFromObservation(
+  obs: ObservationOf<'session'>,
+  units: { weightUnit: WeightUnit; distanceUnit: DistanceUnit },
+  idFactory: () => string
+): SessionForm {
+  const p = obs.payload;
+  const modality = normalizeModality(p.modality);
+  const base = emptySessionForm();
+
+  const form: SessionForm = {
+    ...base,
+    modality,
+    durationMin: numStr(p.durationMin, 1),
+    perceivedEffort: p.perceivedEffort ?? null,
+    notes: obs.notes ?? '',
+  };
+
+  if (modality === 'gym' && p.lifting) {
+    // Group flat sets back under their exercise (name + pattern). Same name
+    // logged with different patterns becomes two groups, preserving order.
+    const groups: ExerciseDraft[] = [];
+    const indexByKey = new Map<string, number>();
+    for (const s of p.lifting.sets) {
+      const key = `${s.exercise}${s.movementPattern}`;
+      let idx = indexByKey.get(key);
+      if (idx === undefined) {
+        idx = groups.length;
+        indexByKey.set(key, idx);
+        groups.push({
+          id: idFactory(),
+          name: s.exercise,
+          movementPattern: s.movementPattern,
+          sets: [],
+        });
+      }
+      groups[idx].sets.push({
+        id: idFactory(),
+        weight: numStr(kgToDisplay(s.weightKg, units.weightUnit), 2),
+        reps: String(s.reps),
+        rir: s.rir != null ? String(s.rir) : '',
+        isWarmup: s.isWarmup === true,
+      });
+    }
+    form.gym = { exercises: groups };
+  }
+
+  if (isEndurance(modality) && p.endurance) {
+    form.endurance = {
+      distance:
+        p.endurance.distanceM != null
+          ? numStr(metersToDisplay(p.endurance.distanceM, units.distanceUnit), 2)
+          : '',
+      avgHr: p.endurance.avgHr != null ? String(p.endurance.avgHr) : '',
+      energySystem: p.endurance.energySystem,
+    };
+  }
+
+  if (modality === 'climb' && p.climbing) {
+    form.climb = {
+      style: p.climbing.style as ClimbStyle,
+      sends: p.climbing.sends.map((s) => ({
+        id: idFactory(),
+        grade: s.grade,
+        attempts: String(s.attempts),
+        sent: s.sent,
+      })),
+    };
+  }
+
+  return form;
 }

@@ -4,28 +4,59 @@
  * Enter a weight (and optionally body-fat %), save, and it persists as a tier-1,
  * fidelity-1.0 manual Observation. Today re-fetches on focus and renders it.
  * Storage is always kg; the input shows the user's preferred unit (units.ts).
+ *
+ * Pass 6 — accepts `?editId=…` to open in edit mode: prefills from the
+ * existing observation and saves via updateObservation (hard overwrite; the
+ * supersede pattern is deferred to Ring 2).
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, TextInput, Keyboard } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Screen, Text, Button } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
-import { displayToKg } from '@/lib/units';
-import { createObservation } from '@/storage/observations';
+import { displayToKg, kgToDisplay } from '@/lib/units';
+import {
+  createObservation,
+  getObservationById,
+  updateObservation,
+} from '@/storage/observations';
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
-import type { Observation } from '@core/observation';
+import type { Observation, ObservationOf } from '@core/observation';
 
 export default function LogWeighInScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit } = useSettings();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const isEdit = typeof editId === 'string' && editId.length > 0;
 
   const [weight, setWeight] = useState('');
   const [bodyFat, setBodyFat] = useState('');
+  const [original, setOriginal] = useState<ObservationOf<'weighIn'> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Prefill from the existing observation when editing.
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    getObservationById(editId!)
+      .then((obs) => {
+        if (cancelled || !obs || obs.kind !== 'weighIn') return;
+        const w = obs as ObservationOf<'weighIn'>;
+        setOriginal(w);
+        setWeight(kgToDisplay(w.payload.weightKg, weightUnit).toFixed(1));
+        if (w.payload.bodyFatPct != null) setBodyFat(String(w.payload.bodyFatPct));
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load weigh-in.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, isEdit, weightUnit]);
 
   const weightNum = parseFloat(weight);
   const bodyFatNum = parseFloat(bodyFat);
@@ -38,26 +69,32 @@ export default function LogWeighInScreen() {
     setError(null);
 
     const now = new Date().toISOString();
-    const obs: Observation = {
-      id: uuidv7(),
-      kind: 'weighIn',
-      occurredAt: now,
-      loggedAt: now,
-      tz: deviceTz(),
-      tier: 1,
-      fidelity: 1.0,
-      source: { type: 'manual' },
-      payload: {
-        kind: 'weighIn',
-        weightKg: displayToKg(weightNum, weightUnit),
-        ...(Number.isFinite(bodyFatNum) && bodyFatNum > 0
-          ? { bodyFatPct: bodyFatNum }
-          : {}),
-      },
+    const payload = {
+      kind: 'weighIn' as const,
+      weightKg: displayToKg(weightNum, weightUnit),
+      ...(Number.isFinite(bodyFatNum) && bodyFatNum > 0
+        ? { bodyFatPct: bodyFatNum }
+        : {}),
     };
 
     try {
-      await createObservation(obs);
+      if (isEdit && original) {
+        const edited: Observation = { ...original, payload };
+        await updateObservation(edited);
+      } else {
+        const obs: Observation = {
+          id: uuidv7(),
+          kind: 'weighIn',
+          occurredAt: now,
+          loggedAt: now,
+          tz: deviceTz(),
+          tier: 1,
+          fidelity: 1.0,
+          source: { type: 'manual' },
+          payload,
+        };
+        await createObservation(obs);
+      }
       router.back();
     } catch (e) {
       setError('Could not save. Try again.');
@@ -79,7 +116,7 @@ export default function LogWeighInScreen() {
         Weigh-in
       </Text>
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
-        Log weigh-in
+        {isEdit ? 'Edit weigh-in' : 'Log weigh-in'}
       </Text>
 
       {/* Weight */}
@@ -128,9 +165,9 @@ export default function LogWeighInScreen() {
 
       <View style={{ height: theme.spacing[8] }} />
       <Button
-        label="Save weigh-in"
+        label={isEdit ? 'Save changes' : 'Save weigh-in'}
         onPress={handleSave}
-        disabled={!weightValid}
+        disabled={!weightValid || (isEdit && !original)}
         loading={saving}
       />
       <View style={{ height: theme.spacing[3] }} />

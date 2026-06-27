@@ -11,6 +11,7 @@ import {
   getObservationById,
   supersedeObservation,
   deleteObservation,
+  updateObservation,
 } from '../observations';
 import { makeTestDb } from './sqliteTestDb';
 
@@ -74,6 +75,45 @@ describe('observations storage', () => {
 
     // Idempotent: deleting again is a no-op, not an error.
     expect(await deleteObservation('w1', db)).toBe(false);
+  });
+
+  it('updateObservation overwrites payload in place; id and loggedAt preserved', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const original = fakeWeighIn('w1', 80, '2026-06-26T14:00:00Z');
+    await createObservation(original, db);
+
+    // User edited the weight. We deliberately pass a different loggedAt to
+    // assert it is ignored — original loggedAt is the source of truth.
+    const edited: Observation = {
+      ...original,
+      loggedAt: '2026-06-27T09:00:00Z',
+      fidelity: 0.9,
+      payload: { kind: 'weighIn', weightKg: 81.2 },
+    };
+    await updateObservation(edited, db);
+
+    const back = await getObservationById('w1', db);
+    expect(back).not.toBeNull();
+    expect(back!.id).toBe('w1');
+    expect(back!.loggedAt).toBe(original.loggedAt);
+    expect(back!.fidelity).toBe(0.9);
+    expect((back!.payload as { weightKg: number }).weightKg).toBe(81.2);
+
+    // list() still returns one row (no supersede chain created).
+    const list = await listObservations({ kinds: ['weighIn'] }, db);
+    expect(list).toHaveLength(1);
+    expect(list[0].id).toBe('w1');
+  });
+
+  it('updateObservation throws when the id does not exist', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await expect(
+      updateObservation(fakeWeighIn('ghost', 75, '2026-06-26T14:00:00Z'), db)
+    ).rejects.toThrow(/no observation with id ghost/);
   });
 
   it('filters by date window', async () => {

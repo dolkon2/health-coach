@@ -8,7 +8,7 @@
  * it never fabricates one. Sessions stay a placeholder until Pass 4.
  */
 import { useCallback } from 'react';
-import { View } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen, Text, Card, Button, SessionCard, SwipeToDelete } from '@/components';
 import { useTheme } from '@/theme';
@@ -74,19 +74,31 @@ export default function TodayScreen() {
             )} — permanent.`}
           >
             <Card style={{ gap: theme.spacing[3] }}>
-              <Text variant="dataLg" color={theme.colors.text}>
-                {formatWeight(weighInToday.payload.weightKg, weightUnit)}
-              </Text>
-              {delta ? (
-                <Text variant="dataSm" color={theme.colors.textSecondary}>
-                  {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
-                    delta.deltaKg,
-                    weightUnit
-                  )} over ${delta.days} days`}
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/log-weigh-in',
+                    params: { editId: weighInToday.id },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel="Edit weigh-in"
+                style={{ gap: theme.spacing[1] }}
+              >
+                <Text variant="dataLg" color={theme.colors.text}>
+                  {formatWeight(weighInToday.payload.weightKg, weightUnit)}
                 </Text>
-              ) : null}
+                {delta ? (
+                  <Text variant="dataSm" color={theme.colors.textSecondary}>
+                    {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
+                      delta.deltaKg,
+                      weightUnit
+                    )} over ${delta.days} days`}
+                  </Text>
+                ) : null}
+              </Pressable>
               <Button
-                label="Update weigh-in"
+                label="Log another"
                 variant="ghost"
                 onPress={() => router.push('/log-weigh-in')}
               />
@@ -116,10 +128,21 @@ export default function TodayScreen() {
                 confirmTitle="Delete session?"
                 confirmMessage={`${session.payload.modality} — permanent.`}
               >
-                <SessionCard
-                  session={session}
-                  contribution={contributions[session.id]}
-                />
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: '/log-session',
+                      params: { editId: session.id },
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Edit ${session.payload.modality} session`}
+                >
+                  <SessionCard
+                    session={session}
+                    contribution={contributions[session.id]}
+                  />
+                </Pressable>
               </SwipeToDelete>
             ))}
           </View>
