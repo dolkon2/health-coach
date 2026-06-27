@@ -18,10 +18,14 @@ the conflict — do not quietly reinterpret it into something "safer."
 
 - `claude-md.md` — the constitution (imported above)
 - `product-overview.md` — north star, features, traps, taglines
-- `phase-1-build-spec.md` — what we're building first (the minimum useful loop)
 - `data-model.md` — the Observation schema (the data contract)
 - `correlation-engine-spec.md` — expenditure, plateau forensics, thresholds
+- `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)
+- `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
+- `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
+- `ai-consultant-prompt.md` — Phase 7 (AI consultant)
 - `competitive-landscape.md` — Cora, trainhybrid, Edge, etc.
 - `brand-kit.md` — design tokens and visual direction
-- `ai-consultant-prompt.md` — Phase 7 (AI consultant)
-- `game-plan-and-prompts.md` — the 5-pass build sequence
+- `phase-1-build-spec.md` — what we built first (the minimum useful loop)
+- `game-plan-and-prompts.md` — build sequence + ring↔phase↔pass legend
+- `backlog.md` — deferred items, open constraints, known quirks

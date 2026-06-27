@@ -9,10 +9,10 @@
 The product overview is the **what** and the **why**. These notes are the **how** for the first real feature — the correlation engine and the AI that reads it. The material splits into three homes:
 
 - **Principle refinement** (AI as engine, not face) → updates the philosophy section of the overview.  
-- **Feature spec** (expenditure, plateau forensics, detection threshold) → *new*. This is the spec layer beneath the overview, sitting alongside the data-model doc still to be written.  
+- **Feature spec** (expenditure, plateau forensics, detection threshold) → *new*. This is the spec layer beneath the overview, sitting alongside `data-model.md` (the Observation schema, now written).  
 - **Competitive update (Cora)** → updates the existing competitive analysis.
 
-The natural next artifact after this is still the **data model** — the single session/log object (stimulus, effort, fidelity, link to outcome). Everything below assumes that schema exists.
+The data model is now spec'd in `data-model.md` — the single Observation record (tier + fidelity + source) that everything below assumes. Companion specs that have since landed: `training-logging-spec.md` (session logging surfaces), `benchmarks-spec.md` (the Reflect layout key), `cohorts-spec.md` (Ring 4 social layer).
 
 ---
 

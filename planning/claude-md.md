@@ -64,9 +64,11 @@ core/
 
     stimulus.ts      Sessions \-\> weekly per-pattern/energy-system ledger \+ reveal().
 
-  demo.ts            Throwaway proof: recovers a hidden true expenditure from noise.
+    benchmark.ts     User-defined benchmarks; the data-dimension anchor for Reflect.
 
-  demo\_stimulus.ts   Throwaway proof: climbing substitutes for pull work; legs gap revealed.
+    notImplemented.ts  Helper for stubbed-but-typed engine functions.
+
+    index.ts         Barrel exports.
 
 Data flow: things happen \-\> become Observations \-\> timeline orders them \-\> engines turn them into facts (trend \-\> expenditure; stimulus) \-\> only those facts, with confidence attached, are ever shown.
 
@@ -93,8 +95,15 @@ Two entry states, not two products: users with an existing plan who want it conn
 See `planning/` for the full product context:
 
 - `product-overview.md` — north star, features, traps, taglines  
-- `correlation-engine-spec.md` — first feature spec (expenditure, forensics, thresholds)  
+- `data-model.md` — the Observation schema (the data contract)  
+- `correlation-engine-spec.md` — expenditure, plateau forensics, thresholds  
+- `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)  
+- `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key  
+- `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)  
+- `ai-consultant-prompt.md` — Ring 3 / Phase 7 AI consultant  
 - `competitive-landscape.md` — Cora, trainhybrid, Edge, etc.  
 - `brand-kit.md` — design tokens and visual direction  
-- `data-model.md` — the session/log schema (TBD)
+- `phase-1-build-spec.md` — what was built first (the minimum useful loop)  
+- `game-plan-and-prompts.md` — build sequence + ring↔phase↔pass legend  
+- `backlog.md` — deferred items, open constraints, known quirks
 

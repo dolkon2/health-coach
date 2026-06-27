@@ -94,7 +94,8 @@ Everything on one timeline: gym sessions, runs, climbs, food logs, bodyweight, s
 ### Social layer (ring 4 — later)
 
 - The shareable unit is the act of showing up, not outcomes or body transformation.  
-- No shareable body-change content. No "Moments" celebrating streaks or perfect habit days.
+- No shareable body-change content. No "Moments" celebrating streaks or perfect habit days.  
+- Full spec: `cohorts-spec.md` (events, challenges, profile, friend mechanic).
 
 ---
 
