@@ -2,13 +2,47 @@
  * Settings — a gear-icon screen, not a tab. Pass 1 ships a working theme toggle
  * (exercises the ThemeProvider) and placeholders for the rest. Units, modality
  * picker, and JSON export are wired in later passes.
+ *
+ * The Developer card (sample data) is a testing aid added in Pass 5 so a
+ * populated Reflect can be previewed instantly. It writes tagged rows and clears
+ * only those — never real logged data. Remove this card before any real release.
  */
+import { useState } from 'react';
 import { View } from 'react-native';
 import { Screen, Text, Card, Button } from '@/components';
 import { useTheme } from '@/theme';
+import { seedSampleData, clearSampleData } from '@/lib/devSeed';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function onSeed() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await seedSampleData();
+      setMsg('Sample data loaded. Open Reflect to see the trend and ledger.');
+    } catch {
+      setMsg('Could not load sample data.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onClear() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await clearSampleData();
+      setMsg('Sample data cleared. Your real entries are untouched.');
+    } catch {
+      setMsg('Could not clear sample data.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <Screen scroll>
@@ -36,6 +70,25 @@ export default function SettingsScreen() {
         <Text variant="body" color={theme.colors.textMuted}>
           One-button JSON export lands with the storage layer. You own your data.
         </Text>
+      </Card>
+
+      {/* Developer-only: sample data for previewing Reflect. Removed before release. */}
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label" color={theme.colors.clay}>
+          Developer · sample data
+        </Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Loads ~2 weeks of example weigh-ins and sessions so you can see a
+          populated trend chart and ledger. Clearing removes only this sample —
+          your real entries stay.
+        </Text>
+        <Button label="Load sample data" variant="outline" onPress={onSeed} loading={busy} />
+        <Button label="Clear sample data" variant="outline" onPress={onClear} disabled={busy} />
+        {msg ? (
+          <Text variant="bodySm" color={theme.colors.textSecondary}>
+            {msg}
+          </Text>
+        ) : null}
       </Card>
 
       <View style={{ height: theme.spacing[10] }} />

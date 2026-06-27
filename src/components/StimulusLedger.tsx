@@ -185,15 +185,6 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
               return (
                 <React.Fragment key={week.weekStart}>
                   {segments}
-                  {/* full-slot invisible tap target (works on empty weeks too) */}
-                  <Rect
-                    x={wi * slot}
-                    y={TOP_PAD}
-                    width={slot}
-                    height={innerH}
-                    fill="transparent"
-                    onPress={() => setSelectedWeek(wi)}
-                  />
                   {/* active-week marker */}
                   {isActive ? (
                     <Rect
@@ -214,6 +205,17 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                   >
                     {shortDate(week.weekStart)}
                   </SvgText>
+                  {/* Full-column tap target, drawn last so the entire column —
+                      bar area AND the date label — reliably selects the week,
+                      even on empty weeks. */}
+                  <Rect
+                    x={wi * slot}
+                    y={0}
+                    width={slot}
+                    height={BAR_AREA_HEIGHT}
+                    fill="transparent"
+                    onPress={() => setSelectedWeek(wi)}
+                  />
                 </React.Fragment>
               );
             })}
