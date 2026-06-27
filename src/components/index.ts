@@ -8,3 +8,4 @@ export { SessionCard } from './SessionCard';
 export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './FidelityIndicator';
 export { WeightTrendChart } from './WeightTrendChart';
 export { StimulusLedger } from './StimulusLedger';
+export { SwipeToDelete } from './SwipeToDelete';

@@ -109,3 +109,22 @@ export async function supersedeObservation(
   const d = db ?? (await getDb());
   return createObservation({ ...newObs, supersedes: oldId }, d);
 }
+
+/**
+ * Hard-delete by id. Pass 6 contract: edits and deletes are destructive — the
+ * supersede pattern is deferred to Ring 2 (see backlog.md). Returns true when
+ * a row was removed, false when nothing matched the id.
+ */
+export async function deleteObservation(
+  id: ObservationId,
+  db?: SqlDatabase
+): Promise<boolean> {
+  const d = db ?? (await getDb());
+  const existed = await d.getFirstAsync<{ id: string }>(
+    'SELECT id FROM observations WHERE id = ?;',
+    [id]
+  );
+  if (!existed) return false;
+  await d.runAsync('DELETE FROM observations WHERE id = ?;', [id]);
+  return true;
+}

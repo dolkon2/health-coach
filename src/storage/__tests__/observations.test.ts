@@ -10,6 +10,7 @@ import {
   listObservations,
   getObservationById,
   supersedeObservation,
+  deleteObservation,
 } from '../observations';
 import { makeTestDb } from './sqliteTestDb';
 
@@ -60,6 +61,19 @@ describe('observations storage', () => {
 
     // The old version is still retrievable by id (append-only).
     expect(await getObservationById('w1', db)).not.toBeNull();
+  });
+
+  it('deleteObservation removes the row and returns true; false when missing', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createObservation(fakeWeighIn('w1', 80, '2026-06-26T14:00:00Z'), db);
+    expect(await deleteObservation('w1', db)).toBe(true);
+    expect(await getObservationById('w1', db)).toBeNull();
+    expect(await listObservations({ kinds: ['weighIn'] }, db)).toHaveLength(0);
+
+    // Idempotent: deleting again is a no-op, not an error.
+    expect(await deleteObservation('w1', db)).toBe(false);
   });
 
   it('filters by date window', async () => {

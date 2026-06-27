@@ -13,7 +13,11 @@ import { describe, it, expect } from '@jest/globals';
 import { isKind, type ObservationOf } from '@core/observation';
 import { reveal } from '@core/stimulus';
 import { runMigrations } from '../storage/db';
-import { createObservation, listObservations } from '../storage/observations';
+import {
+  createObservation,
+  deleteObservation,
+  listObservations,
+} from '../storage/observations';
 import { makeTestDb } from '../storage/__tests__/sqliteTestDb';
 import {
   buildSessionObservation,
@@ -79,6 +83,23 @@ describe('session flow (Pass 4)', () => {
 
     // volume load = working sets only: 100*5 + 100*5 + 70*10 = 1,700 kg.
     expect(reveal(sessions[0])).toBe('upper-pull · 3 sets · 1,700 kg volume load');
+  });
+
+  it('deleting a logged session removes it from today (and the contribution disappears)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const obs = buildSessionObservation(pullDayForm(), CTX);
+    await createObservation(obs, db);
+
+    await deleteObservation(obs.id, db);
+
+    const today = await listObservations(
+      { from: '2026-06-26T00:00:00Z', to: '2026-06-26T23:59:59Z' },
+      db
+    );
+    const sessions = today.filter((o): o is ObservationOf<'session'> => isKind(o, 'session'));
+    expect(sessions).toHaveLength(0);
   });
 
   it('excludes warm-up sets from volume load and set count', () => {

@@ -12,7 +12,11 @@ import type { Observation } from '@core/observation';
 import { computeWeightTrend, weightTrendDelta } from '@core/trend';
 import { isKind, type ObservationOf } from '@core/observation';
 import { runMigrations } from '../storage/db';
-import { createObservation, listObservations } from '../storage/observations';
+import {
+  createObservation,
+  deleteObservation,
+  listObservations,
+} from '../storage/observations';
 import { makeTestDb } from '../storage/__tests__/sqliteTestDb';
 import { displayToKg } from '../lib/units';
 
@@ -70,6 +74,33 @@ describe('weigh-in flow (Pass 3)', () => {
     const rows = await listObservations({ kinds: ['weighIn'] }, db);
     const weighIns = rows.filter((o): o is ObservationOf<'weighIn'> => isKind(o, 'weighIn'));
     expect(weightTrendDelta(computeWeightTrend(weighIns))).toBeNull();
+  });
+
+  it('deleting a weigh-in recalculates the trend honestly (drops below threshold)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    const lbs = [180, 179.6, 179.2, 178.9, 178.5, 178.2, 178];
+    for (let i = 0; i < lbs.length; i++) {
+      const day = String(20 + i).padStart(2, '0');
+      await createObservation(weighInFromLb(`w${i}`, lbs[i], `2026-06-${day}T15:00:00Z`), db);
+    }
+
+    // Sanity: with a full week we have a delta.
+    let rows = await listObservations({ kinds: ['weighIn'] }, db);
+    expect(weightTrendDelta(computeWeightTrend(
+      rows.filter((o): o is ObservationOf<'weighIn'> => isKind(o, 'weighIn'))
+    ))).not.toBeNull();
+
+    // Delete all but one. The engine has to return null — the felt sense is
+    // "not enough data," not a fabricated single-point trend.
+    for (let i = 1; i < lbs.length; i++) await deleteObservation(`w${i}`, db);
+
+    rows = await listObservations({ kinds: ['weighIn'] }, db);
+    const survivors = rows.filter((o): o is ObservationOf<'weighIn'> =>
+      isKind(o, 'weighIn')
+    );
+    expect(survivors).toHaveLength(1);
+    expect(weightTrendDelta(computeWeightTrend(survivors))).toBeNull();
   });
 
   it('a week of weigh-ins produces a real downward delta', async () => {

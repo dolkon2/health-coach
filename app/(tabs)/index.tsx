@@ -10,7 +10,7 @@
 import { useCallback } from 'react';
 import { View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, SessionCard } from '@/components';
+import { Screen, Text, Card, Button, SessionCard, SwipeToDelete } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
@@ -18,6 +18,7 @@ import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
+import { deleteObservation } from '@/storage/observations';
 
 export default function TodayScreen() {
   const theme = useTheme();
@@ -36,6 +37,15 @@ export default function TodayScreen() {
     }, [reloadToday, reloadTrend])
   );
 
+  const removeAndReload = useCallback(
+    async (id: string) => {
+      await deleteObservation(id);
+      reloadToday();
+      reloadTrend();
+    },
+    [reloadToday, reloadTrend]
+  );
+
   return (
     <Screen scroll>
       {/* Date header — display font, uppercase, primary text */}
@@ -50,59 +60,83 @@ export default function TodayScreen() {
       </Text>
 
       {/* Weigh-in */}
-      <Card style={{ marginTop: theme.spacing[8], gap: theme.spacing[3] }}>
-        <Text variant="label">Weigh-in</Text>
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+          Weigh-in
+        </Text>
         {weighInToday ? (
-          <>
-            <Text variant="dataLg" color={theme.colors.text}>
-              {formatWeight(weighInToday.payload.weightKg, weightUnit)}
-            </Text>
-            {delta ? (
-              <Text variant="dataSm" color={theme.colors.textSecondary}>
-                {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
-                  delta.deltaKg,
-                  weightUnit
-                )} over ${delta.days} days`}
+          <SwipeToDelete
+            onDelete={() => removeAndReload(weighInToday.id)}
+            confirmTitle="Delete weigh-in?"
+            confirmMessage={`${formatWeight(
+              weighInToday.payload.weightKg,
+              weightUnit
+            )} — permanent.`}
+          >
+            <Card style={{ gap: theme.spacing[3] }}>
+              <Text variant="dataLg" color={theme.colors.text}>
+                {formatWeight(weighInToday.payload.weightKg, weightUnit)}
               </Text>
-            ) : null}
-            <Button
-              label="Update weigh-in"
-              variant="ghost"
-              onPress={() => router.push('/log-weigh-in')}
-            />
-          </>
+              {delta ? (
+                <Text variant="dataSm" color={theme.colors.textSecondary}>
+                  {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
+                    delta.deltaKg,
+                    weightUnit
+                  )} over ${delta.days} days`}
+                </Text>
+              ) : null}
+              <Button
+                label="Update weigh-in"
+                variant="ghost"
+                onPress={() => router.push('/log-weigh-in')}
+              />
+            </Card>
+          </SwipeToDelete>
         ) : (
-          <>
+          <Card style={{ gap: theme.spacing[3] }}>
             <Text variant="body" color={theme.colors.textMuted}>
               Not logged today.
             </Text>
             <Button label="Log weigh-in" onPress={() => router.push('/log-weigh-in')} />
-          </>
+          </Card>
         )}
-      </Card>
+      </View>
 
       {/* Sessions */}
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Today's sessions</Text>
+      <View style={{ marginTop: theme.spacing[3] }}>
+        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+          Today's sessions
+        </Text>
         {sessionsToday.length > 0 ? (
-          sessionsToday.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              contribution={contributions[session.id]}
-            />
-          ))
+          <View style={{ gap: theme.spacing[3] }}>
+            {sessionsToday.map((session) => (
+              <SwipeToDelete
+                key={session.id}
+                onDelete={() => removeAndReload(session.id)}
+                confirmTitle="Delete session?"
+                confirmMessage={`${session.payload.modality} — permanent.`}
+              >
+                <SessionCard
+                  session={session}
+                  contribution={contributions[session.id]}
+                />
+              </SwipeToDelete>
+            ))}
+          </View>
         ) : (
-          <Text variant="body" color={theme.colors.textMuted}>
-            No sessions yet.
-          </Text>
+          <Card>
+            <Text variant="body" color={theme.colors.textMuted}>
+              No sessions yet.
+            </Text>
+          </Card>
         )}
         <Button
           label="Log session"
           variant="secondary"
           onPress={() => router.push('/log-session')}
+          style={{ marginTop: theme.spacing[3] }}
         />
-      </Card>
+      </View>
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
