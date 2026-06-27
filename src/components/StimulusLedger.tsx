@@ -16,7 +16,7 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 import type { MovementPattern, ObservationId, ObservationOf } from '@core/observation';
-import { reveal, type StimulusLedgerWeek } from '@core/stimulus';
+import { reveal, isoWeekStart, type StimulusLedgerWeek } from '@core/stimulus';
 import { useTheme } from '@/theme';
 import { Text } from './Text';
 
@@ -62,6 +62,13 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
   }, [weeks]);
   const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
   const activeWeek = selectedWeek ?? lastWithSessions;
+
+  // The week containing today — its bar reads "this wk", not its Monday's date,
+  // so the most recent bar doesn't look stale (it's the in-progress week).
+  const currentWeekStart = useMemo(
+    () => isoWeekStart(new Date().toISOString().slice(0, 10)),
+    []
+  );
 
   // A stable pattern -> palette-color map, ranked by total volume so the biggest
   // pattern is always series-1. >4 patterns cycle the four series colors; the
@@ -161,6 +168,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
             {weeks.map((week, wi) => {
               const x = wi * slot + (slot - barWidth) / 2;
               const isActive = wi === activeWeek;
+              const isCurrent = week.weekStart === currentWeekStart;
               let cursorY = baselineY;
 
               // Stacked segments, biggest-volume pattern at the bottom.
@@ -200,10 +208,16 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                     y={BAR_AREA_HEIGHT - 6}
                     fontSize={11}
                     fontFamily={theme.fonts.data.regular}
-                    fill={isActive ? theme.colors.text : theme.colors.textMuted}
+                    fill={
+                      isCurrent
+                        ? theme.colors.sandstone // "you are here" anchor
+                        : isActive
+                          ? theme.colors.text
+                          : theme.colors.textMuted
+                    }
                     textAnchor="middle"
                   >
-                    {shortDate(week.weekStart)}
+                    {isCurrent ? 'this wk' : shortDate(week.weekStart)}
                   </SvgText>
                   {/* Full-column tap target, drawn last so the entire column —
                       bar area AND the date label — reliably selects the week,
@@ -250,7 +264,11 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
 
       {/* Drill-down: the sessions that built the selected week */}
       {activeWeek != null ? (
-        <WeekDrillDown week={weeks[activeWeek]} sessionsById={sessionsById} />
+        <WeekDrillDown
+          week={weeks[activeWeek]}
+          sessionsById={sessionsById}
+          isCurrent={weeks[activeWeek].weekStart === currentWeekStart}
+        />
       ) : null}
     </View>
   );
@@ -259,9 +277,11 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
 function WeekDrillDown({
   week,
   sessionsById,
+  isCurrent,
 }: {
   week: StimulusLedgerWeek;
   sessionsById: Map<ObservationId, ObservationOf<'session'>>;
+  isCurrent: boolean;
 }) {
   const theme = useTheme();
   const sessions = week.sessionIds
@@ -271,7 +291,7 @@ function WeekDrillDown({
   return (
     <View style={{ gap: theme.spacing[2], marginTop: theme.spacing[2] }}>
       <Text variant="label" color={theme.colors.sandstone}>
-        Week of {shortDate(week.weekStart)}
+        {isCurrent ? 'This week' : `Week of ${shortDate(week.weekStart)}`}
       </Text>
       {sessions.length === 0 ? (
         <Text variant="bodySm" color={theme.colors.textMuted}>

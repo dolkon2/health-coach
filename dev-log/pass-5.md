@@ -94,6 +94,16 @@ exit 0, `jest` 21/21. Green baseline was real before building.
   (web untested by design — quirk 3).
 - On-device sim smoke test: handed to Dylan as a tap-through checklist.
 
+## Follow-up fix — current-week label
+
+The ledger labels each bar by its week's Monday, so the most recent bar read
+"6/22" on 6/26 and looked stale (it's actually the in-progress current week).
+Fixed: the bar containing today now reads **"this wk"** in sandstone ("you are
+here"), and its drill-down header reads **"This week"** instead of "Week of M/D".
+Computed from `isoWeekStart(today)`, so it's robust regardless of bar position.
+No data/logic change — the window was always correct (8 weeks ending at the
+current ISO week); this is purely the label.
+
 ## Next — ~2-week dogfood stop
 
 Per Dylan's "Pass 5 Prompt.md" (Opus planning session, 2026-06-26): the minimum
