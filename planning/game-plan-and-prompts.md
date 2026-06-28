@@ -19,7 +19,7 @@ The three numbering schemes that show up across the planning docs all refer to t
 | Ring 1 | Phase 4 | Training tab + logging surfaces (gym / GPS / swim / practice) | 5 core + 3 fast-follow | pending |
 | Ring 1 | Phase 5 | Full Reflect tab + benchmarks | 3 passes | pending |
 | Ring 1 | Phase 6 | Plan tab (calendar / scheduling) | 2 passes | pending |
-| Ring 2 | Phase 2 | Food logging via nutrition API | 3 passes | pending |
+| Ring 2 | Phase 2 | Food logging via nutrition API | 6 core + 2 fast-follow | pending |
 | Ring 2.5 | Phase 3 | Sleep + steps via HealthKit / Health Connect / Garmin | 3 passes | pending |
 | Ring 3 | Phase 7 | AI consultant (plateau forensics, retrospective first) | 4 passes | pending |
 | Ring 4 | Phase 8 | Cohorts (events, challenges, profile) | 4 passes | pending |
@@ -28,7 +28,8 @@ Notes:
 - "Phase" and "Ring" don't track linearly — Ring 1 is spread across Phase 1, Pass 6, and Phases 4–6 because the core loop keeps deepening as later rings come online.
 - Pass 6 is broken out from "Phase 1" because the 5-pass plan in this doc is what shipped Ring 1 v1; CRUD is the first additive pass on top.
 - Phase 4 was expanded past this legend's original 3-pass placeholder by the HALT logging deep-dive (2026-06-27). Full breakdown: `planning/phase-4-training-plan.md` — **5 core passes** (Training tab + gym/GPS/swim/practice surfaces) + **3 fast-follow** (exercise library, templates, identity tags). The original "planned workouts → Today" scheduling concept moved to **Phase 6** (Plan tab); the Training tab is history + the log entry point, not a planning surface.
-- The full planning-doc home for each ring's spec: Ring 1 = `phase-1-build-spec.md` + `training-logging-spec.md` + `benchmarks-spec.md` + `correlation-engine-spec.md`; Ring 2 = (food spec TBD); Ring 2.5 = `data-model.md` (ingestion notes); Ring 3 = `ai-consultant-prompt.md`; Ring 4 = `cohorts-spec.md`.
+- Phase 2 (Ring 2) was expanded past this legend's original 3-pass placeholder during the Ring 2 build kickoff (2026-06-27). Full breakdown: `planning/ring2-food-logging-plan.md` — **6 core passes** (2.1 schema + fidelity, 2.2 USDA/OFF adapters, 2.3 lookup + cache, 2.4 meal-log + template persistence, 2.5 logging UI [weighed + described], 2.6 expenditure wired + `bucketByLocalDay`) + **2 fast-follow** (2.7 barcode build; 2.8 photo schema-reserved, no build surface). Earned-fidelity computation + signal attribution deferred to **Phase 7**. That plan doc is the single authority for Ring 2.
+- The full planning-doc home for each ring's spec: Ring 1 = `phase-1-build-spec.md` + `training-logging-spec.md` + `benchmarks-spec.md` + `correlation-engine-spec.md`; Ring 2 = `food-logging-spec.md` \+ `ring2-food-logging-plan.md`; Ring 2.5 = `data-model.md` (ingestion notes); Ring 3 = `ai-consultant-prompt.md`; Ring 4 = `cohorts-spec.md`.
 
 ---
 
