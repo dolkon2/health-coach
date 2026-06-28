@@ -21,6 +21,14 @@ export interface AdaptOptions {
   quantityG: number;
   /** How that quantity was determined. */
   quantityMethod: QuantityMethod;
+  /**
+   * Optional extraction override. For `weighed`/`barcode` the adapter derives the
+   * extraction from the source (Branded vs lab; record completeness). For
+   * `described`, fidelity keys off the *parse* (food/quantity/unit), which only
+   * the describe layer knows — it passes those flags here. Omit to use the
+   * adapter's own source-derived signal.
+   */
+  extraction?: Extraction;
 }
 
 /**
@@ -69,7 +77,7 @@ export function buildFoodItem(
     proteinG: scale(perGram.proteinG, q),
     carbsG: scale(perGram.carbsG, q),
     fatG: scale(perGram.fatG, q),
-    fidelity: defaultFidelity(opts.method, extraction),
+    fidelity: defaultFidelity(opts.method, opts.extraction ?? extraction),
     fidelityCeiling: fidelityCeiling(opts.method),
   };
   const fiber = scale(perGram.fiberG, q);

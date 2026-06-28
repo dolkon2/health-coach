@@ -159,6 +159,12 @@ export default function TodayScreen() {
           onPress={() => router.push('/log-session')}
           style={{ marginTop: theme.spacing[3] }}
         />
+        <Button
+          label="Log food"
+          variant="secondary"
+          onPress={() => router.push('/log-food')}
+          style={{ marginTop: theme.spacing[2] }}
+        />
       </View>
 
       <View style={{ height: theme.spacing[10] }} />

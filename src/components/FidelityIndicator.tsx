@@ -9,6 +9,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/theme';
+import { tierOf } from '@core/nutrition/fidelity';
 
 export type FidelityLevel = 'high' | 'mid' | 'low';
 
@@ -43,9 +44,12 @@ const styles = StyleSheet.create({
   },
 });
 
-/** Map a 0..1 fidelity number to a discrete level (data-model thresholds). */
+/**
+ * Map a 0..1 fidelity to a discrete level. The tier boundaries live in ONE place
+ * now — core's `tierOf` (HIGH/MID/LOW). This just lowercases them for the legacy
+ * segmented-bar API, so the 0.8/0.4 numbers are no longer duplicated here.
+ */
 export function fidelityLevel(value: number): FidelityLevel {
-  if (value >= 0.8) return 'high';
-  if (value >= 0.4) return 'mid';
-  return 'low';
+  const tier = tierOf(value);
+  return tier === 'HIGH' ? 'high' : tier === 'MID' ? 'mid' : 'low';
 }

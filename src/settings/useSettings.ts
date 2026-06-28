@@ -7,15 +7,18 @@
  * only this file changes — every caller keeps working.
  */
 import type { WeightUnit, DistanceUnit } from '@/lib/units';
+import type { NutritionFocus } from '@/lib/foodLog';
 
 export type Settings = {
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
+  nutritionFocus: NutritionFocus; // display-only: which macro renders large in food UI
 };
 
 const DEFAULTS: Settings = {
   weightUnit: 'lb', // Dylan logs in pounds; storage stays kg (see units.ts).
   distanceUnit: 'km', // endurance distance; storage stays metres (see units.ts).
+  nutritionFocus: 'calories', // the hero number; a lens over the data, never a gate on it.
 };
 
 export function useSettings(): Settings {
