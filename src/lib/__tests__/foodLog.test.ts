@@ -14,6 +14,7 @@ import {
   describedExtraction,
   describedQuantityG,
   rollupMacros,
+  dailyTotals,
   validateFoodLog,
   buildMealLog,
   mealTemplateFrom,
@@ -75,6 +76,43 @@ describe('rollupMacros', () => {
     const r = rollupMacros([foodItem({ kcal: 200 }), foodItem({ kcal: null })]);
     expect(r.kcal).toBeNull();
     expect(r.kcal).not.toBe(0);
+  });
+});
+
+describe('dailyTotals — honest cross-meal sum (null≠0, one partial ≠ whole day null)', () => {
+  type DM = Pick<FoodEntryPayload, 'kcal' | 'proteinG' | 'carbsG' | 'fatG'>;
+  const meal = (over: Partial<DM> = {}): DM => ({ kcal: 200, proteinG: 20, carbsG: 10, fatG: 5, ...over });
+
+  it('sums the day across complete meals', () => {
+    const t = dailyTotals([meal(), meal({ kcal: 300, proteinG: 25 })]);
+    expect(t.kcal.value).toBe(500);
+    expect(t.proteinG.value).toBe(45);
+    expect(t.kcal.missing).toBe(0);
+    expect(t.entryCount).toBe(2);
+    expect(t.partialCount).toBe(0);
+  });
+
+  it("excludes a missing macro from the sum (never 0) but keeps the meal's other macros", () => {
+    const t = dailyTotals([meal({ kcal: 200 }), meal({ kcal: null, proteinG: 30 })]);
+    expect(t.kcal.value).toBe(200); // only the meal that had kcal — the null is NOT summed as 0
+    expect(t.kcal.missing).toBe(1);
+    expect(t.proteinG.value).toBe(50); // 20 + 30 — the partial meal's protein still counts
+    expect(t.partialCount).toBe(1);
+  });
+
+  it('totals a macro to null only when NOT ONE entry captured it', () => {
+    const t = dailyTotals([meal({ kcal: null }), meal({ kcal: null })]);
+    expect(t.kcal.value).toBeNull();
+    expect(t.kcal.value).not.toBe(0);
+    expect(t.kcal.missing).toBe(2);
+  });
+
+  it('an empty day is all-null with zero counts (nothing known, nothing fabricated)', () => {
+    const t = dailyTotals([]);
+    expect(t.kcal.value).toBeNull();
+    expect(t.proteinG.value).toBeNull();
+    expect(t.entryCount).toBe(0);
+    expect(t.partialCount).toBe(0);
   });
 });
 

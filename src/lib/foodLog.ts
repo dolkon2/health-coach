@@ -119,6 +119,63 @@ export function rollupMacros(items: FoodItem[]): MacroRollup {
   };
 }
 
+// ─── Daily totals (cross-meal aggregation for the Today screen) ──────────────
+
+export interface DailyMacroTotal {
+  /** Sum of the entries that captured this macro. `null` only when NOT ONE entry
+   *  did — a genuinely unknown total, never a fabricated 0. */
+  value: number | null;
+  /** How many of today's entries lacked this macro (excluded from `value`). */
+  missing: number;
+}
+
+export interface DailyTotals {
+  kcal: DailyMacroTotal;
+  proteinG: DailyMacroTotal;
+  carbsG: DailyMacroTotal;
+  fatG: DailyMacroTotal;
+  entryCount: number;
+  /** Entries missing at least one of the four macros (isPartial holds). */
+  partialCount: number;
+}
+
+type DailyMacros = Pick<FoodEntryPayload, 'kcal' | 'proteinG' | 'carbsG' | 'fatG'>;
+
+/**
+ * Roll a day's meals into per-macro totals — the honest counterpart to a single
+ * meal's `rollupMacros`. The aggregation rule differs on purpose: here a missing
+ * macro is EXCLUDED from the sum (and counted in `missing`), never summed as 0 and
+ * never collapsing the whole day to null — one partial breakfast must not erase a
+ * known lunch. A macro totals `null` only when not one entry captured it. Macros
+ * are never inferred from one another. (food-logging-spec § null ≠ 0.)
+ */
+export function dailyTotals(meals: ReadonlyArray<DailyMacros>): DailyTotals {
+  const fold = (sel: (m: DailyMacros) => number | null): DailyMacroTotal => {
+    let sum = 0;
+    let known = 0;
+    let missing = 0;
+    for (const m of meals) {
+      const v = sel(m);
+      if (v == null) missing += 1;
+      else {
+        sum += v;
+        known += 1;
+      }
+    }
+    return { value: known > 0 ? round1(sum) : null, missing };
+  };
+  return {
+    kcal: fold((m) => m.kcal),
+    proteinG: fold((m) => m.proteinG),
+    carbsG: fold((m) => m.carbsG),
+    fatG: fold((m) => m.fatG),
+    entryCount: meals.length,
+    partialCount: meals.filter(
+      (m) => m.kcal === null || m.proteinG === null || m.carbsG === null || m.fatG === null
+    ).length,
+  };
+}
+
 // ─── Build: resolved items → foodEntry Observation ───────────────────────────
 
 export interface FoodLogInput {

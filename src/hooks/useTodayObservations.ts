@@ -17,6 +17,7 @@ type TodayObservations = {
   observations: Observation[];
   weighInToday: ObservationOf<'weighIn'> | null;
   sessionsToday: ObservationOf<'session'>[];
+  foodEntriesToday: ObservationOf<'foodEntry'>[];
   loading: boolean;
   error: Error | null;
   reload: () => void;
@@ -62,5 +63,10 @@ export function useTodayObservations(): TodayObservations {
     isKind(o, 'session')
   );
 
-  return { observations, weighInToday, sessionsToday, loading, error, reload };
+  // Today's food entries, oldest first (same ordering).
+  const foodEntriesToday = observations.filter((o): o is ObservationOf<'foodEntry'> =>
+    isKind(o, 'foodEntry')
+  );
+
+  return { observations, weighInToday, sessionsToday, foodEntriesToday, loading, error, reload };
 }

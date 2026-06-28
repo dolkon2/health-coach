@@ -10,24 +10,43 @@
 import { useCallback } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, SessionCard, SwipeToDelete } from '@/components';
+import { Screen, Text, Card, Button, SessionCard, SwipeToDelete, FidelityTreatment } from '@/components';
 import { useTheme } from '@/theme';
-import { todayLocalLabel, yearLabel } from '@/lib/date';
+import { todayLocalLabel, yearLabel, localTimeLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
+import { dailyTotals, fidelityTreatment, type DailyMacroTotal } from '@/lib/foodLog';
 import { deleteObservation } from '@/storage/observations';
+
+// A captured macro renders as a rounded integer; a genuinely unknown one as "—",
+// never 0 (food-logging-spec § null ≠ 0).
+const macroStr = (v: number | null | undefined): string => (v == null ? '—' : String(Math.round(v)));
+
+/** One column of the daily-total card: the honest sum (or "—") above its label. */
+function TotalMacro({ label, total }: { label: string; total: DailyMacroTotal }) {
+  const theme = useTheme();
+  return (
+    <View>
+      <Text variant="data">{macroStr(total.value)}</Text>
+      <Text variant="label" color={theme.colors.textSecondary}>
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function TodayScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit } = useSettings();
 
-  const { weighInToday, sessionsToday, reload: reloadToday } = useTodayObservations();
+  const { weighInToday, sessionsToday, foodEntriesToday, reload: reloadToday } = useTodayObservations();
   const { delta, reload: reloadTrend } = useWeightTrend();
   const contributions = useTodayStimulusContributions(sessionsToday);
+  const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   useFocusEffect(
@@ -159,11 +178,79 @@ export default function TodayScreen() {
           onPress={() => router.push('/log-session')}
           style={{ marginTop: theme.spacing[3] }}
         />
+      </View>
+
+      {/* Today's food */}
+      <View style={{ marginTop: theme.spacing[3] }}>
+        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+          Today's food
+        </Text>
+        {foodEntriesToday.length > 0 ? (
+          <View style={{ gap: theme.spacing[3] }}>
+            {/* Daily total — the honest sum: partial entries are excluded, never zeroed. */}
+            <Card raised style={{ gap: theme.spacing[2] }}>
+              <Text variant="label" color={theme.colors.textSecondary}>
+                Daily total
+              </Text>
+              <View style={{ flexDirection: 'row', gap: theme.spacing[5] }}>
+                <TotalMacro label="Cal" total={foodTotals.kcal} />
+                <TotalMacro label="P" total={foodTotals.proteinG} />
+                <TotalMacro label="C" total={foodTotals.carbsG} />
+                <TotalMacro label="F" total={foodTotals.fatG} />
+              </View>
+              {foodTotals.partialCount > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                  <View
+                    style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.clay }}
+                  />
+                  <Text variant="bodySm" color={theme.colors.clay} style={{ flex: 1 }}>
+                    {foodTotals.partialCount} partial{' '}
+                    {foodTotals.partialCount === 1 ? 'entry' : 'entries'} — missing macros not counted
+                  </Text>
+                </View>
+              ) : null}
+            </Card>
+
+            {/* Each meal — name + fidelity dot; its macros at the fidelity's own opacity. */}
+            {foodEntriesToday.map((o) => {
+              const treat = fidelityTreatment(o.fidelity);
+              return (
+                <Card key={o.id} style={{ gap: theme.spacing[2] }}>
+                  <View
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
+                  >
+                    <FidelityTreatment fidelity={o.fidelity} />
+                    <Text variant="body" style={{ flex: 1 }}>
+                      {o.payload.description || 'Meal'}
+                    </Text>
+                    <Text variant="bodySm" color={theme.colors.textMuted}>
+                      {localTimeLabel(o.occurredAt, o.tz)}
+                    </Text>
+                  </View>
+                  <Text
+                    variant="bodySm"
+                    color={theme.colors.textSecondary}
+                    style={{ opacity: treat.opacity }}
+                  >
+                    {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
+                    {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
+                  </Text>
+                </Card>
+              );
+            })}
+          </View>
+        ) : (
+          <Card>
+            <Text variant="body" color={theme.colors.textMuted}>
+              No food logged yet.
+            </Text>
+          </Card>
+        )}
         <Button
           label="Log food"
           variant="secondary"
           onPress={() => router.push('/log-food')}
-          style={{ marginTop: theme.spacing[2] }}
+          style={{ marginTop: theme.spacing[3] }}
         />
       </View>
 
