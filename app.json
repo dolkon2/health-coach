@@ -35,6 +35,13 @@
           "background": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8944e0f3-ea5f-444b-a127-068a8f94a194"
+      }
+    },
+    "owner": "dolkon"
   }
 }
