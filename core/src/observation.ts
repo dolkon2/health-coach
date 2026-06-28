@@ -151,6 +151,9 @@ export type LiftingBlock = {
     reps: number;
     rir?: number; // reps in reserve, optional
     isWarmup?: boolean;
+    completedAt?: ISOInstant; // when the set was finished, stamped live by the logger.
+    // Session duration is derived from the spread of these (deriveSessionDuration),
+    // not declared — so it falls out of structure. Absent for batch-entered sets.
   }>;
 };
 

@@ -123,3 +123,69 @@ describe('Pass 2 — activity identity + surface routing', () => {
     expect(reveal(obs)).toBe('other · 15 min');
   });
 });
+
+describe('Pass 3a — derived gym duration', () => {
+  function gymFormWithStamps(stamps: ReadonlyArray<string | undefined>): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'gym';
+    f.durationMin = '99'; // manual value — should be overridden when stamps span time
+    f.gym.exercises = [
+      {
+        id: 'e1',
+        name: 'back squat',
+        movementPattern: 'quad-dom',
+        sets: stamps.map((completedAt, i) => ({
+          id: `s${i}`,
+          weight: '100',
+          reps: '5',
+          rir: '',
+          isWarmup: false,
+          ...(completedAt ? { completedAt } : {}),
+        })),
+      },
+    ];
+    return f;
+  }
+
+  it('derives gym duration from the set-timestamp spread, overriding the manual value', () => {
+    const obs = buildSessionObservation(
+      gymFormWithStamps(['2026-06-26T17:00:00Z', '2026-06-26T17:45:00Z']),
+      CTX
+    );
+    expect(obs.payload.durationMin).toBe(45); // the spread, not the manual 99
+    expect(obs.fidelity).toBe(0.95); // lived capture
+    expect(obs.payload.lifting?.sets[0].completedAt).toBe('2026-06-26T17:00:00Z');
+  });
+
+  it('keeps the manual duration when no timestamps are present (current path, pre-3b)', () => {
+    const obs = buildSessionObservation(gymFormWithStamps([undefined, undefined]), CTX);
+    expect(obs.payload.durationMin).toBe(99);
+    expect(obs.fidelity).toBe(0.95);
+  });
+
+  it('keeps the manual duration when stamps are clustered (batch entry)', () => {
+    const obs = buildSessionObservation(
+      gymFormWithStamps(['2026-06-26T17:00:00Z', '2026-06-26T17:00:30Z']),
+      CTX
+    );
+    expect(obs.payload.durationMin).toBe(99); // clustered → derivation null → manual stands
+  });
+
+  it('round-trips completedAt through invert → rebuild', () => {
+    const obs = buildSessionObservation(
+      gymFormWithStamps(['2026-06-26T17:00:00Z', '2026-06-26T17:45:00Z']),
+      CTX
+    );
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.gym.exercises[0].sets.some((s) => s.completedAt === '2026-06-26T17:00:00Z')).toBe(
+      true
+    );
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's9' });
+    expect(rebuilt.payload.durationMin).toBe(45); // derived again from the preserved stamps
+  });
+});

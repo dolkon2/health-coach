@@ -31,6 +31,7 @@ import {
   type WeightUnit,
 } from './units';
 import { activityById, type Surface } from './activity';
+import { deriveSessionDuration } from '@core/sessionTiming';
 
 // The legacy modality set the Today quick-log picker and older sessions use
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
@@ -47,6 +48,7 @@ export type SetDraft = {
   reps: string;
   rir: string;
   isWarmup: boolean;
+  completedAt?: string; // ISO instant, stamped when the set is marked complete (Pass 3b)
 };
 
 export type ExerciseDraft = {
@@ -231,6 +233,7 @@ function buildLifting(exercises: ExerciseDraft[], weightUnit: WeightUnit): Lifti
       reps: Math.round(Number(s.reps)),
       ...(num(s.rir) !== null ? { rir: Number(s.rir) } : {}),
       ...(s.isWarmup ? { isWarmup: true } : {}),
+      ...(s.completedAt ? { completedAt: s.completedAt } : {}),
     }));
   });
   return { sets };
@@ -250,18 +253,26 @@ export function buildSessionObservation(
 
   const surface = resolveSurface(form);
   const modality = resolveModality(form);
-  const durationMin = Number(form.durationMin);
+  let fidelity = SURFACE_FIDELITY[surface];
 
   const payload: SessionPayload = {
     kind: 'session',
     modality,
     ...(form.activity ? { activity: form.activity } : {}),
-    durationMin,
+    durationMin: Number(form.durationMin),
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
   };
 
   if (surface === 'gym') {
     payload.lifting = buildLifting(form.gym.exercises, ctx.weightUnit);
+    // Duration falls out of the set-timestamp spread when the session was lived
+    // set-by-set; otherwise the manually entered value stands (the gym duration
+    // field is removed in Pass 3b, when the live set-complete affordance lands).
+    const derived = deriveSessionDuration(payload.lifting.sets);
+    if (derived.durationMin != null) {
+      payload.durationMin = derived.durationMin;
+      fidelity = derived.fidelity;
+    }
   } else if (surface === 'gps') {
     const distance = num(form.endurance.distance);
     const avgHr = num(form.endurance.avgHr);
@@ -291,7 +302,7 @@ export function buildSessionObservation(
     loggedAt: ctx.now,
     tz: ctx.tz,
     tier: 1,
-    fidelity: SURFACE_FIDELITY[surface],
+    fidelity,
     source: { type: 'manual' },
     payload,
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
@@ -376,6 +387,7 @@ export function sessionFormFromObservation(
         reps: String(s.reps),
         rir: s.rir != null ? String(s.rir) : '',
         isWarmup: s.isWarmup === true,
+        ...(s.completedAt ? { completedAt: s.completedAt } : {}),
       });
     }
     form.gym = { exercises: groups };

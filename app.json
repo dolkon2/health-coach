@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.health-coach"
+      "bundleIdentifier": "com.dylan.healthcoachproject"
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +27,14 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "This app reads your steps, sleep, and workouts so your timeline reflects what actually happened. Your data is never written back or shared.",
+          "background": false
+        }
+      ]
     ]
   }
 }
