@@ -11,11 +11,13 @@ import type { WeightUnit, DistanceUnit } from '@/lib/units';
 export type Settings = {
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
+  restTimerSec: number; // default between-sets rest; the gym timer starts from this.
 };
 
 const DEFAULTS: Settings = {
   weightUnit: 'lb', // Dylan logs in pounds; storage stays kg (see units.ts).
   distanceUnit: 'km', // endurance distance; storage stays metres (see units.ts).
+  restTimerSec: 120, // 2 min — a sensible default until a Settings screen persists it.
 };
 
 export function useSettings(): Settings {

@@ -18,10 +18,11 @@
 import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Screen, Text, Button, Card, Field, ChipSelect, type ChipOption } from '@/components';
+import { Screen, Text, Button, Card, Field, ChipSelect, RestTimer, type ChipOption } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useExercisePatternMemory } from '@/hooks/useExercisePatternMemory';
+import { useRestTimer } from '@/hooks/useRestTimer';
 import {
   createObservation,
   getObservationById,
@@ -104,8 +105,9 @@ function seededFormForActivity(a: Activity): SessionForm {
 export default function LogSessionScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit, distanceUnit } = useSettings();
+  const { weightUnit, distanceUnit, restTimerSec } = useSettings();
   const patternMemory = useExercisePatternMemory();
+  const restTimer = useRestTimer();
   const { editId, activity: activityParam } = useLocalSearchParams<{
     editId?: string;
     activity?: string;
@@ -206,13 +208,19 @@ export default function LogSessionScreen() {
   }
 
   // Marking a set done stamps the moment it finished; the session's duration is
-  // derived from the spread of these (deriveSessionDuration). Tapping again clears
-  // it. The rest timer hooks in here in the next commit.
+  // derived from the spread of these (deriveSessionDuration). Finishing a set also
+  // auto-starts the rest timer; tapping again clears the stamp and cancels the rest.
   function completeSet(exId: string, setId: string) {
+    const set = form.gym.exercises
+      .find((e) => e.id === exId)
+      ?.sets.find((s) => s.id === setId);
+    const becomingDone = set ? !set.completedAt : false;
     mutateSet(exId, setId, (s) => ({
       ...s,
       completedAt: s.completedAt ? undefined : new Date().toISOString(),
     }));
+    if (becomingDone) restTimer.start(restTimerSec);
+    else restTimer.stop();
   }
 
   function addExercise() {
@@ -387,6 +395,9 @@ export default function LogSessionScreen() {
             />
           ))}
           <Button label="+ Add exercise" variant="secondary" onPress={addExercise} />
+          {restTimer.remainingSec != null && restTimer.remainingSec > 0 ? (
+            <RestTimer remainingSec={restTimer.remainingSec} onSkip={restTimer.stop} />
+          ) : null}
         </View>
       ) : null}
 
