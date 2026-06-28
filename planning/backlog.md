@@ -31,6 +31,7 @@
 ## Phase 4 (workout templates / library)
 
 - Exercise library API selection — wger vs ExerciseDB vs curated static dataset. Implementation decision for the build phase. (training-logging-spec.md)
+- Exercise library data source decision — curated static seed vs wger/ExerciseDB API. Deferred from the Phase 4 core cut: only a minimal ~80–100-exercise static seed (muscle groups + movement patterns pre-tagged, `src/lib/exerciseSeed.ts`) ships in core, for gym autocomplete + pattern pre-tagging so the stimulus ledger isn't blind to gym sessions. Full decision needed before the Pass 4 fast-follow. (phase-4-training-plan.md)
 - Climbing app research — Kaya, Crux, Toplogger, Mountain Project deep dive. Indoor vs. outdoor climbing have meaningfully different logging needs; finalize the climbing surface after this. (training-logging-spec.md "Climbing")
 - Mountain Project API / data import for outdoor climbing history. (training-logging-spec.md "Climbing")
 - Exercise demo / description content — stretch goal on library entries. (training-logging-spec.md "Exercise library")
@@ -47,7 +48,14 @@
 - Activity log formatting / presentation on Today and in history. (game-plan-and-prompts.md HALT)
 - `reveal()` speaks engine-native units (kg, km), not display units (quirk #6). Pass display unit into `reveal(session, opts)` or convert in UI when the kg/lb mismatch grates.
 - Climb / hike / other weeks underrepresented in stimulus ledger bars (quirk #9) — engine already accumulates `byEnergySystem` minutes, currently unused by UI. Eventual fix: energy-system parallel view and/or richer climb data (grade-weighted load).
-- Duration required on every session, no start/stop timer (quirk #8) — add timer or make duration optional if logging friction shows up in 2-week use test.
+- Duration required on every session, no start/stop timer (quirk #8) — add timer or make duration optional if logging friction shows up in 2-week use test. (Phase 4 Pass 3 resolves this — live-timestamped sets, duration derived from first→last set spread, no manual entry. phase-4-training-plan.md)
+- JSON payload query performance — evaluate before the Phase 5 Reflect tab build. Date/type queries are fine today; querying *inside* session payloads (Reflect drill-downs, AI consultant) will force an indexed-columns vs scan-and-parse decision. (phase-4-training-plan.md)
+
+---
+
+## Phase 6 (Plan tab / scheduling)
+
+- Planning system needs its own spec session before any build — program structure (recurring splits, multi-week date-anchored blocks, freeform saved-workout stacks), scheduling workouts onto days, the Today ↔ planned-workout handoff, and saved workouts that flex across all surfaces (gym template, cycling route, running route). Do not build ahead of this planning session. (phase-4-training-plan.md, game-plan-and-prompts.md)
 
 ---
 
