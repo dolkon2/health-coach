@@ -78,7 +78,7 @@ Two entry states, not two products: users with an existing plan who want it conn
 
 ## Conventions
 
-- TypeScript, ESM. Relative imports use the `.js` extension even though the source is `.ts` — required for the tsx/Node ESM resolver.  
+- TypeScript, ESM. Relative imports are **extensionless** (`from './observation'`, not `'./observation.js'`). The build uses `moduleResolution: "bundler"` (Expo/Metro + jest-expo), which resolves without file extensions; every `core/` file follows this. Don't add `.js` suffixes — they're for a Node/tsx ESM resolver this project doesn't use.  
 - Heuristics are tunable and must be documented honestly with their error band. KCAL\_PER\_KG \= 7700 and the EWMA half-life are guesses, labeled as such.  
 - Any user-facing string the engines produce must be descriptive, not imperative. See `stimulus.ts` `reveal()` for the tone: observations, not orders.  
 - Confidence is a first-class output. "We don't know yet" is a valid, honest answer — never paper over it with a fabricated number.
