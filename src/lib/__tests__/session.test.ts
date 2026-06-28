@@ -14,6 +14,7 @@ import {
   emptySessionForm,
   resolveSurface,
   sessionFormFromObservation,
+  validateSessionForm,
   type BuildContext,
   type SessionForm,
 } from '../session';
@@ -124,11 +125,11 @@ describe('Pass 2 — activity identity + surface routing', () => {
   });
 });
 
-describe('Pass 3a — derived gym duration', () => {
+describe('Pass 3 — gym duration derived from set timestamps (no manual fallback)', () => {
   function gymFormWithStamps(stamps: ReadonlyArray<string | undefined>): SessionForm {
     const f = emptySessionForm();
     f.activity = 'gym';
-    f.durationMin = '99'; // manual value — should be overridden when stamps span time
+    f.durationMin = '99'; // a manual value gym must now IGNORE — duration is derived
     f.gym.exercises = [
       {
         id: 'e1',
@@ -157,18 +158,27 @@ describe('Pass 3a — derived gym duration', () => {
     expect(obs.payload.lifting?.sets[0].completedAt).toBe('2026-06-26T17:00:00Z');
   });
 
-  it('keeps the manual duration when no timestamps are present (current path, pre-3b)', () => {
+  it('leaves duration absent (unknown, not 0) when no timestamps are present', () => {
     const obs = buildSessionObservation(gymFormWithStamps([undefined, undefined]), CTX);
-    expect(obs.payload.durationMin).toBe(99);
-    expect(obs.fidelity).toBe(0.95);
+    expect(obs.payload.durationMin).toBeUndefined(); // gym ignores the manual field
+    expect(obs.fidelity).toBe(0.95); // the set data itself is still precisely captured
   });
 
-  it('keeps the manual duration when stamps are clustered (batch entry)', () => {
+  it('leaves duration absent when stamps are clustered (batch entry)', () => {
     const obs = buildSessionObservation(
       gymFormWithStamps(['2026-06-26T17:00:00Z', '2026-06-26T17:00:30Z']),
       CTX
     );
-    expect(obs.payload.durationMin).toBe(99); // clustered → derivation null → manual stands
+    expect(obs.payload.durationMin).toBeUndefined(); // clustered spread → unknown, never fabricated
+  });
+
+  it('builds and validates a gym session with no manual duration at all', () => {
+    const f = gymFormWithStamps([undefined, undefined]);
+    f.durationMin = ''; // nothing entered — gym must not require it
+    expect(validateSessionForm(f)).toBeNull();
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.durationMin).toBeUndefined();
+    expect(obs.payload.lifting?.sets).toHaveLength(2);
   });
 
   it('round-trips completedAt through invert → rebuild', () => {

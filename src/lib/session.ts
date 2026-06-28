@@ -186,10 +186,16 @@ function sendFilled(s: SendDraft): boolean {
 export function validateSessionForm(form: SessionForm): string | null {
   if (form.activity == null && form.modality === null) return 'Pick an activity.';
 
-  const duration = num(form.durationMin);
-  if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+  const surface = resolveSurface(form);
 
-  if (resolveSurface(form) === 'gym') {
+  // Gym duration is derived from the set-timestamp spread, not entered, so it
+  // isn't required. Every other surface still needs a manual duration.
+  if (surface !== 'gym') {
+    const duration = num(form.durationMin);
+    if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+  }
+
+  if (surface === 'gym') {
     const active = form.gym.exercises.filter(isExerciseActive);
     if (active.length === 0) return 'Add an exercise with at least one set.';
 
@@ -259,15 +265,19 @@ export function buildSessionObservation(
     kind: 'session',
     modality,
     ...(form.activity ? { activity: form.activity } : {}),
-    durationMin: Number(form.durationMin),
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
   };
 
+  // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
+  // duration is derived from the set-timestamp spread below; when that spread is
+  // unknowable (batch/clustered entry) the field stays absent — honest, never a
+  // fabricated 0 (constitution: null ≠ 0).
+  if (surface !== 'gym') {
+    payload.durationMin = Number(form.durationMin);
+  }
+
   if (surface === 'gym') {
     payload.lifting = buildLifting(form.gym.exercises, ctx.weightUnit);
-    // Duration falls out of the set-timestamp spread when the session was lived
-    // set-by-set; otherwise the manually entered value stands (the gym duration
-    // field is removed in Pass 3b, when the live set-complete affordance lands).
     const derived = deriveSessionDuration(payload.lifting.sets);
     if (derived.durationMin != null) {
       payload.durationMin = derived.durationMin;

@@ -205,6 +205,16 @@ export default function LogSessionScreen() {
     mutateExercise(exId, (ex) => ({ ...ex, sets: ex.sets.filter((s) => s.id !== setId) }));
   }
 
+  // Marking a set done stamps the moment it finished; the session's duration is
+  // derived from the spread of these (deriveSessionDuration). Tapping again clears
+  // it. The rest timer hooks in here in the next commit.
+  function completeSet(exId: string, setId: string) {
+    mutateSet(exId, setId, (s) => ({
+      ...s,
+      completedAt: s.completedAt ? undefined : new Date().toISOString(),
+    }));
+  }
+
   function addExercise() {
     setForm((f) => ({
       ...f,
@@ -370,6 +380,7 @@ export default function LogSessionScreen() {
               onName={(name) => setExerciseName(ex.id, name)}
               onPattern={(p) => setExercisePattern(ex.id, p)}
               onSet={(setId, fn) => mutateSet(ex.id, setId, fn)}
+              onCompleteSet={(setId) => completeSet(ex.id, setId)}
               onAddSet={() => addSet(ex.id)}
               onRemoveSet={(setId) => removeSet(ex.id, setId)}
               onRemove={() => removeExercise(ex.id)}
@@ -463,16 +474,23 @@ export default function LogSessionScreen() {
         </Card>
       ) : null}
 
-      {/* Shared footer: duration, effort, notes */}
+      {/* Shared footer: duration (non-gym), effort, notes */}
       <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[5] }}>
-        <Field
-          label="Duration"
-          value={form.durationMin}
-          onChangeText={(durationMin) => update({ durationMin })}
-          placeholder="0"
-          suffix="min"
-          keyboardType="number-pad"
-        />
+        {surface === 'gym' ? (
+          <Text variant="bodySm" color={theme.colors.textMuted}>
+            Duration is timed from your sets — tap ✓ on each as you finish it. Logged after
+            the fact? That's fine; the time just stays blank rather than guessed.
+          </Text>
+        ) : (
+          <Field
+            label="Duration"
+            value={form.durationMin}
+            onChangeText={(durationMin) => update({ durationMin })}
+            placeholder="0"
+            suffix="min"
+            keyboardType="number-pad"
+          />
+        )}
         <View style={{ gap: theme.spacing[2] }}>
           <Text variant="label">Perceived effort (1–10, optional)</Text>
           <ChipSelect
@@ -557,6 +575,7 @@ function ExerciseEditor({
   onName,
   onPattern,
   onSet,
+  onCompleteSet,
   onAddSet,
   onRemoveSet,
   onRemove,
@@ -565,6 +584,7 @@ function ExerciseEditor({
   onName: (name: string) => void;
   onPattern: (p: MovementPattern) => void;
   onSet: (setId: string, fn: (s: SetDraft) => SetDraft) => void;
+  onCompleteSet: (setId: string) => void;
   onAddSet: () => void;
   onRemoveSet: (setId: string) => void;
   onRemove: () => void;
@@ -604,6 +624,9 @@ function ExerciseEditor({
           <Text variant="label" style={{ width: 44 }}>
             Warm
           </Text>
+          <Text variant="label" style={{ width: 32 }}>
+            Done
+          </Text>
           <View style={{ width: 24 }} />
         </View>
         {exercise.sets.map((s) => (
@@ -634,6 +657,9 @@ function ExerciseEditor({
                 onToggle={() => onSet(s.id, (prev) => ({ ...prev, isWarmup: !prev.isWarmup }))}
               />
             </View>
+            <View style={{ width: 32, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+              <SetDoneButton done={!!s.completedAt} onPress={() => onCompleteSet(s.id)} />
+            </View>
             <View style={{ width: 24, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
               {canRemoveSet ? (
                 <RemoveButton label="Remove set" onPress={() => onRemoveSet(s.id)} />
@@ -659,6 +685,34 @@ function RemoveButton({ onPress, label }: { onPress: () => void; label?: string 
     >
       <Text variant="dataSm" color={theme.colors.textMuted}>
         ✕
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Per-set "done" toggle — stamps the set's completedAt so duration can be derived. */
+function SetDoneButton({ done, onPress }: { done: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={done ? 'Mark set not done' : 'Mark set done'}
+      accessibilityState={{ checked: done }}
+      hitSlop={8}
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: theme.radius.sm,
+        borderWidth: 1.5,
+        borderColor: done ? theme.colors.sandstone : theme.colors.borderStrong,
+        backgroundColor: done ? theme.colors.sandstone : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text variant="dataSm" color={done ? theme.colors.bg : theme.colors.textMuted}>
+        ✓
       </Text>
     </Pressable>
   );

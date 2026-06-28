@@ -186,7 +186,11 @@ export type SessionPayload = {
   // (src/lib/activity.ts). Optional: legacy sessions and the quick-log picker may
   // carry only `modality`. Display + reveal() prefer it over the coarser modality.
   activity?: string;
-  durationMin: number;
+  // Minutes. Optional because a gym session's duration is *derived* from the set-
+  // timestamp spread (deriveSessionDuration); when the session was batch-entered
+  // the spread is unknowable, so duration is simply absent — never a fabricated 0
+  // (constitution: null ≠ 0). Non-gym surfaces always carry a manual value.
+  durationMin?: number;
   // Sport-specific blocks — only the relevant ones populated.
   lifting?: LiftingBlock;
   endurance?: EnduranceBlock;

@@ -105,7 +105,7 @@ export function computeWeeklyStimulus(
     }
 
     if (p.endurance) {
-      week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin;
+      week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin ?? 0;
     }
     // climb / hike / other: no measurable pattern volume — sessionIds only.
   }
@@ -169,7 +169,9 @@ function revealEndurance(session: ObservationOf<'session'>): string {
   const e = session.payload.endurance;
   if (!e) return durationLine(session);
 
-  const parts: string[] = [e.energySystem, `${formatMinutes(session.payload.durationMin)}`];
+  const parts: string[] = [e.energySystem];
+  const dur = formatMinutes(session.payload.durationMin);
+  if (dur) parts.push(dur);
   if (e.distanceM != null && e.distanceM > 0) {
     parts.push(`${(e.distanceM / 1000).toFixed(1)} km`);
   }
@@ -190,7 +192,8 @@ function revealClimbing(session: ObservationOf<'session'>): string {
   if (c.totalProblems != null && c.totalProblems > 0) {
     return `${c.style} · ${c.totalProblems} problems`;
   }
-  return `${c.style} · ${formatMinutes(session.payload.durationMin)}`;
+  const dur = formatMinutes(session.payload.durationMin);
+  return dur ? `${c.style} · ${dur}` : c.style;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -200,11 +203,12 @@ function durationLine(session: ObservationOf<'session'>): string {
   // Prefer the chosen identity over the coarse engine modality — it's the more
   // specific, honest label (e.g. "wingfoil" rather than "other").
   const label = p.activity ?? p.modality;
-  return `${label} · ${formatMinutes(p.durationMin)}`;
+  const dur = formatMinutes(p.durationMin);
+  return dur ? `${label} · ${dur}` : label;
 }
 
-function formatMinutes(min: number): string {
-  return `${Math.round(min)} min`;
+function formatMinutes(min: number | undefined): string | null {
+  return min != null ? `${Math.round(min)} min` : null;
 }
 
 /** 4200 -> "4,200". Integers only; the caller rounds first. */
