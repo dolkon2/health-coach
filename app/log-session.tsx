@@ -42,9 +42,10 @@ import {
   type ExerciseDraft,
   type SetDraft,
   type ClimbStyle,
+  type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
-import type { EnergySystem, MovementPattern, ObservationOf } from '@core/observation';
+import type { EnergySystem, MovementPattern, ObservationOf, SwimStroke } from '@core/observation';
 
 const PATTERNS: ChipOption<MovementPattern>[] = [
   { value: 'upper-push', label: 'Upper push' },
@@ -71,6 +72,20 @@ const CLIMB_STYLES: ChipOption<ClimbStyle>[] = [
   { value: 'sport', label: 'Sport' },
   { value: 'top-rope', label: 'Top rope' },
   { value: 'trad', label: 'Trad' },
+];
+
+const SWIM_MODES: ChipOption<SwimMode>[] = [
+  { value: 'pool', label: 'Pool' },
+  { value: 'open', label: 'Open water' },
+];
+
+const SWIM_STROKES: ChipOption<SwimStroke>[] = [
+  { value: 'freestyle', label: 'Free' },
+  { value: 'breaststroke', label: 'Breast' },
+  { value: 'backstroke', label: 'Back' },
+  { value: 'butterfly', label: 'Fly' },
+  { value: 'medley', label: 'Medley' },
+  { value: 'mixed', label: 'Mixed' },
 ];
 
 const EFFORT: ChipOption<number>[] = Array.from({ length: 10 }, (_, i) => ({
@@ -105,7 +120,7 @@ function seededFormForActivity(a: Activity): SessionForm {
 export default function LogSessionScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit, distanceUnit, restTimerSec } = useSettings();
+  const { weightUnit, distanceUnit, restTimerSec, defaultPoolLengthM } = useSettings();
   const patternMemory = useExercisePatternMemory();
   const restTimer = useRestTimer();
   const { editId, activity: activityParam } = useLocalSearchParams<{
@@ -151,6 +166,18 @@ export default function LogSessionScreen() {
       cancelled = true;
     };
   }, [editId, isEdit, weightUnit, distanceUnit]);
+
+  // Prefill the pool length from the remembered default when entering the swim
+  // surface — only when empty, so it never overwrites an entered or loaded value.
+  useEffect(() => {
+    if (resolveSurface(form) !== 'swim') return;
+    setForm((f) =>
+      f.swim.poolLengthM === ''
+        ? { ...f, swim: { ...f.swim, poolLengthM: String(defaultPoolLengthM) } }
+        : f
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.activity, form.modality, defaultPoolLengthM]);
 
   const update = (patch: Partial<SessionForm>) => setForm((f) => ({ ...f, ...patch }));
 
@@ -366,6 +393,10 @@ export default function LogSessionScreen() {
 
   const surface = resolveSurface(form);
   const label = form.activity ? activityById(form.activity)?.label ?? form.activity : form.modality ?? 'session';
+  const poolTotalM =
+    form.swim.mode === 'pool'
+      ? (Number(form.swim.poolLengthM) || 0) * (Number(form.swim.laps) || 0)
+      : 0;
 
   return (
     <Screen scroll>
@@ -476,7 +507,72 @@ export default function LogSessionScreen() {
         </Card>
       ) : null}
 
-      {surface === 'swim' || surface === 'practice' ? (
+      {surface === 'swim' ? (
+        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Where</Text>
+            <ChipSelect
+              options={SWIM_MODES}
+              value={form.swim.mode}
+              onChange={(mode) => update({ swim: { ...form.swim, mode } })}
+            />
+          </View>
+          {form.swim.mode === 'pool' ? (
+            <>
+              <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+                <Field
+                  label="Pool length"
+                  value={form.swim.poolLengthM}
+                  onChangeText={(poolLengthM) => update({ swim: { ...form.swim, poolLengthM } })}
+                  placeholder="25"
+                  suffix="m"
+                  keyboardType="number-pad"
+                  style={{ flex: 1 }}
+                />
+                <Field
+                  label="Laps"
+                  value={form.swim.laps}
+                  onChangeText={(laps) => update({ swim: { ...form.swim, laps } })}
+                  placeholder="0"
+                  keyboardType="number-pad"
+                  style={{ flex: 1 }}
+                />
+              </View>
+              {poolTotalM > 0 ? (
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  Total: {poolTotalM} m
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <Field
+              label={`Distance (${distanceUnit})`}
+              value={form.swim.distance}
+              onChangeText={(distance) => update({ swim: { ...form.swim, distance } })}
+              placeholder="—"
+              suffix={distanceUnit}
+            />
+          )}
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Stroke</Text>
+            <ChipSelect
+              options={SWIM_STROKES}
+              value={form.swim.stroke}
+              onChange={(stroke) => update({ swim: { ...form.swim, stroke } })}
+            />
+          </View>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Energy system</Text>
+            <ChipSelect
+              options={ENERGY_SYSTEMS}
+              value={form.swim.energySystem}
+              onChange={(energySystem) => update({ swim: { ...form.swim, energySystem } })}
+            />
+          </View>
+        </Card>
+      ) : null}
+
+      {surface === 'practice' ? (
         <Card style={{ marginTop: theme.spacing[6] }}>
           <Text variant="body" color={theme.colors.textMuted}>
             A dedicated {label} surface is coming next. For now, record duration, effort and a

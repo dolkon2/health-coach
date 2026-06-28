@@ -21,6 +21,8 @@ import type {
   MovementPattern,
   ObservationOf,
   SessionPayload,
+  SwimmingBlock,
+  SwimStroke,
 } from '@core/observation';
 import {
   displayToKg,
@@ -38,6 +40,7 @@ import { deriveSessionDuration } from '@core/sessionTiming';
 // maps either onto a logging surface.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
 export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+export type SwimMode = 'pool' | 'open'; // pool: laps × length; open: estimated distance
 
 // ─── Form state ──────────────────────────────────────────────────────────────
 // All numeric fields are strings — raw TextInput values, parsed at build time.
@@ -77,6 +80,14 @@ export type SessionForm = {
   gym: { exercises: ExerciseDraft[] };
   endurance: { distance: string; avgHr: string; energySystem: EnergySystem };
   climb: { style: ClimbStyle; sends: SendDraft[] };
+  swim: {
+    mode: SwimMode;
+    poolLengthM: string; // pool length in metres (pool mode)
+    laps: string; // lap count (pool mode)
+    distance: string; // estimated distance in display units (open-water mode)
+    stroke: SwimStroke;
+    energySystem: EnergySystem;
+  };
 };
 
 export function emptySetDraft(id: string): SetDraft {
@@ -96,6 +107,14 @@ export function emptySessionForm(): SessionForm {
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
     climb: { style: 'gym', sends: [] },
+    swim: {
+      mode: 'pool',
+      poolLengthM: '',
+      laps: '',
+      distance: '',
+      stroke: 'freestyle',
+      energySystem: 'aerobic',
+    },
   };
 }
 
@@ -245,10 +264,30 @@ function buildLifting(exercises: ExerciseDraft[], weightUnit: WeightUnit): Lifti
   return { sets };
 }
 
+function buildSwimming(swim: SessionForm['swim'], distanceUnit: DistanceUnit): SwimmingBlock {
+  const block: SwimmingBlock = { energySystem: swim.energySystem, stroke: swim.stroke };
+  if (swim.mode === 'pool') {
+    const poolLengthM = num(swim.poolLengthM);
+    const laps = num(swim.laps);
+    if (poolLengthM !== null && poolLengthM > 0) block.poolLengthM = poolLengthM;
+    if (laps !== null && laps > 0) block.laps = Math.round(laps);
+    // Total distance is laps × pool length — an audited figure, not an estimate.
+    if (block.poolLengthM != null && block.laps != null) {
+      block.distanceM = block.poolLengthM * block.laps;
+    }
+  } else {
+    const distance = num(swim.distance);
+    if (distance !== null && distance > 0) {
+      block.distanceM = displayToMeters(distance, distanceUnit);
+    }
+  }
+  return block;
+}
+
 /**
- * Maps validated form state to a tier-1, fidelity-0.95 manual session
- * Observation. Throws (via validateSessionForm / buildLifting) if the form is
- * incomplete — most importantly if any exercise lacks a movement pattern.
+ * Maps validated form state to a tier-1 manual session Observation. Throws (via
+ * validateSessionForm / buildLifting) if the form is incomplete — most importantly
+ * if any gym exercise lacks a movement pattern. Fidelity follows the surface.
  */
 export function buildSessionObservation(
   form: SessionForm,
@@ -302,8 +341,14 @@ export function buildSessionObservation(
         sent: s.sent,
       })),
     };
+  } else if (surface === 'swim') {
+    payload.swimming = buildSwimming(form.swim, ctx.distanceUnit);
+    // A pool total (laps × length) is audited, so it earns higher fidelity than an
+    // open-water estimate (which is a guess, like a manual GPS distance).
+    fidelity =
+      payload.swimming.poolLengthM != null && payload.swimming.laps != null ? 0.85 : 0.5;
   }
-  // swim → Pass 5, practice → Pass 6, 'other' → duration + effort + notes only (no block).
+  // practice → Pass 6, 'other' → duration + effort + notes only (no block).
 
   return {
     id: ctx.id,
@@ -423,6 +468,21 @@ export function sessionFormFromObservation(
         attempts: String(s.attempts),
         sent: s.sent,
       })),
+    };
+  }
+
+  if (p.swimming) {
+    const sw = p.swimming;
+    form.swim = {
+      mode: sw.poolLengthM != null ? 'pool' : 'open',
+      poolLengthM: sw.poolLengthM != null ? numStr(sw.poolLengthM, 0) : '',
+      laps: sw.laps != null ? String(sw.laps) : '',
+      distance:
+        sw.poolLengthM == null && sw.distanceM != null
+          ? numStr(metersToDisplay(sw.distanceM, units.distanceUnit), 2)
+          : '',
+      stroke: sw.stroke ?? 'freestyle',
+      energySystem: sw.energySystem,
     };
   }
 

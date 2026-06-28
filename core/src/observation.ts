@@ -178,6 +178,25 @@ export type PaddlingBlock = {
   segmentTimes?: Array<{ name: string; durationSec: number }>;
 };
 
+export type SwimStroke =
+  | 'freestyle'
+  | 'breaststroke'
+  | 'backstroke'
+  | 'butterfly'
+  | 'medley'
+  | 'mixed';
+
+export type SwimmingBlock = {
+  // Total distance. In a pool it's laps × poolLengthM — higher fidelity than a raw
+  // guess; open-water is the swimmer's estimate. Optional: a timed swim with no
+  // distance is still valid (null ≠ 0).
+  distanceM?: number;
+  poolLengthM?: number; // recorded for pool swims so the total stays auditable
+  laps?: number;
+  stroke?: SwimStroke;
+  energySystem: EnergySystem; // lets the swim contribute energy-system minutes to the ledger
+};
+
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
@@ -196,6 +215,7 @@ export type SessionPayload = {
   endurance?: EnduranceBlock;
   climbing?: ClimbingBlock;
   paddling?: PaddlingBlock;
+  swimming?: SwimmingBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward

@@ -107,6 +107,9 @@ export function computeWeeklyStimulus(
     if (p.endurance) {
       week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin ?? 0;
     }
+    if (p.swimming) {
+      week.byEnergySystem[p.swimming.energySystem].minutes += p.durationMin ?? 0;
+    }
     // climb / hike / other: no measurable pattern volume — sessionIds only.
   }
 
@@ -132,6 +135,7 @@ export function reveal(session: ObservationOf<'session'>): string {
   // over the modality (e.g. "wingfoil · 40 min", not "other · 40 min").
   if (p.lifting) return revealLifting(session);
   if (p.endurance) return revealEndurance(session);
+  if (p.swimming) return revealSwimming(session);
   if (p.climbing) return revealClimbing(session);
   return durationLine(session);
 }
@@ -178,6 +182,21 @@ function revealEndurance(session: ObservationOf<'session'>): string {
   if (e.avgHr != null && e.avgHr > 0) {
     parts.push(`${Math.round(e.avgHr)} bpm`);
   }
+  return parts.join(' · ');
+}
+
+function revealSwimming(session: ObservationOf<'session'>): string {
+  const s = session.payload.swimming;
+  if (!s) return durationLine(session);
+
+  const parts: string[] = [s.energySystem];
+  const dur = formatMinutes(session.payload.durationMin);
+  if (dur) parts.push(dur);
+  if (s.distanceM != null && s.distanceM > 0) {
+    // Swimming reads in metres (the pool's native unit), not km.
+    parts.push(`${groupThousands(Math.round(s.distanceM))} m`);
+  }
+  if (s.stroke) parts.push(s.stroke);
   return parts.join(' · ');
 }
 

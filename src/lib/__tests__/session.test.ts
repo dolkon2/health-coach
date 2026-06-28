@@ -8,7 +8,7 @@
  * — no storage needed.
  */
 import { describe, it, expect } from '@jest/globals';
-import { reveal } from '@core/stimulus';
+import { reveal, computeWeeklyStimulus } from '@core/stimulus';
 import {
   buildSessionObservation,
   emptySessionForm,
@@ -197,5 +197,64 @@ describe('Pass 3 — gym duration derived from set timestamps (no manual fallbac
     );
     const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's9' });
     expect(rebuilt.payload.durationMin).toBe(45); // derived again from the preserved stamps
+  });
+});
+
+describe('Pass 5 — swimming surface', () => {
+  function poolSwim(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'swim';
+    f.durationMin = '30';
+    f.swim = {
+      mode: 'pool',
+      poolLengthM: '25',
+      laps: '60',
+      distance: '',
+      stroke: 'freestyle',
+      energySystem: 'aerobic',
+    };
+    return f;
+  }
+
+  it('pool distance is laps × pool length (audited), at higher fidelity', () => {
+    const obs = buildSessionObservation(poolSwim(), CTX);
+    expect(obs.payload.modality).toBe('swim');
+    expect(obs.payload.swimming?.distanceM).toBe(1500); // 60 × 25
+    expect(obs.payload.swimming?.poolLengthM).toBe(25);
+    expect(obs.payload.swimming?.laps).toBe(60);
+    expect(obs.fidelity).toBe(0.85);
+    expect(reveal(obs)).toBe('aerobic · 30 min · 1,500 m · freestyle');
+  });
+
+  it('open-water swim takes a direct estimate at lower fidelity', () => {
+    const f = poolSwim();
+    f.swim = { ...f.swim, mode: 'open', distance: '2' }; // 2 km
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.swimming?.distanceM).toBeCloseTo(2000, 1);
+    expect(obs.payload.swimming?.poolLengthM).toBeUndefined();
+    expect(obs.fidelity).toBe(0.5);
+  });
+
+  it('round-trips a pool swim through invert → rebuild', () => {
+    const obs = buildSessionObservation(poolSwim(), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.swim.mode).toBe('pool');
+    expect(inverted.swim.poolLengthM).toBe('25');
+    expect(inverted.swim.laps).toBe('60');
+    expect(inverted.swim.stroke).toBe('freestyle');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'sw2' });
+    expect(rebuilt.payload.swimming?.distanceM).toBe(1500);
+  });
+
+  it('contributes energy-system minutes to the weekly ledger (not sessionIds-only)', () => {
+    const obs = buildSessionObservation(poolSwim(), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.byEnergySystem.aerobic.minutes).toBe(30);
+    expect(week.sessionIds).toContain(obs.id);
   });
 });
