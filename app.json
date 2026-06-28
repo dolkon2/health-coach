@@ -24,6 +24,9 @@
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "usdaApiKey": "3k16veE4wrwgFVX09MuiByrijHX1jfVmQG1QA33w"
+    },
     "plugins": [
       "expo-font",
       "expo-router",
