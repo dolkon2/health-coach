@@ -20,6 +20,7 @@ the conflict — do not quietly reinterpret it into something "safer."
 - `product-overview.md` — north star, features, traps, taglines
 - `data-model.md` — the Observation schema (the data contract)
 - `correlation-engine-spec.md` — expenditure, plateau forensics, thresholds
+- `food-logging-spec.md` — Ring 2 intake; APIs, input methods, fidelity, earned fidelity
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
 - `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
