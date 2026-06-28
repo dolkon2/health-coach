@@ -7,7 +7,7 @@
  * delta line only renders when the engine has enough data for an honest answer;
  * it never fabricates one. Sessions stay a placeholder until Pass 4.
  */
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen, Text, Card, Button, SessionCard, SwipeToDelete, FidelityTreatment } from '@/components';
@@ -18,7 +18,7 @@ import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
-import { dailyTotals, fidelityTreatment, type DailyMacroTotal } from '@/lib/foodLog';
+import { dailyTotals, fidelityTreatment, itemMacroSummary, type DailyMacroTotal } from '@/lib/foodLog';
 import { deleteObservation } from '@/storage/observations';
 
 // A captured macro renders as a rounded integer; a genuinely unknown one as "—",
@@ -47,6 +47,17 @@ export default function TodayScreen() {
   const { delta, reload: reloadTrend } = useWeightTrend();
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
+
+  // Which multi-item meals are expanded to show their per-item breakdown.
+  const [expandedFood, setExpandedFood] = useState<Set<string>>(() => new Set());
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedFood((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   useFocusEffect(
@@ -212,37 +223,82 @@ export default function TodayScreen() {
             </Card>
 
             {/* Each meal — name + fidelity dot; its macros at the fidelity's own
-                opacity. Swipe to delete, like sessions + weigh-ins. */}
+                opacity. Swipe to delete; tap a multi-item meal to see its breakdown. */}
             {foodEntriesToday.map((o) => {
               const treat = fidelityTreatment(o.fidelity);
-              return (
-                <SwipeToDelete
-                  key={o.id}
-                  onDelete={() => removeAndReload(o.id)}
-                  confirmTitle="Delete food?"
-                  confirmMessage={`${o.payload.description || 'Meal'} — permanent.`}
-                >
-                  <Card style={{ gap: theme.spacing[2] }}>
-                    <View
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
-                    >
-                      <FidelityTreatment fidelity={o.fidelity} />
-                      <Text variant="body" style={{ flex: 1 }}>
-                        {o.payload.description || 'Meal'}
-                      </Text>
-                      <Text variant="bodySm" color={theme.colors.textMuted}>
-                        {localTimeLabel(o.occurredAt, o.tz)}
-                      </Text>
-                    </View>
+              const items = o.payload.items;
+              const expandable = items.length > 1;
+              const isOpen = expandedFood.has(o.id);
+              const mealName = o.payload.description || 'Meal';
+              const card = (
+                <Card style={{ gap: theme.spacing[2] }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                    <FidelityTreatment fidelity={o.fidelity} />
+                    <Text variant="body" style={{ flex: 1 }}>
+                      {mealName}
+                    </Text>
+                    <Text variant="bodySm" color={theme.colors.textMuted}>
+                      {localTimeLabel(o.occurredAt, o.tz)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
                     <Text
                       variant="bodySm"
                       color={theme.colors.textSecondary}
-                      style={{ opacity: treat.opacity }}
+                      style={{ flex: 1, opacity: treat.opacity }}
                     >
                       {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
                       {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
                     </Text>
-                  </Card>
+                    {expandable ? (
+                      <Text variant="bodySm" color={theme.colors.textMuted}>
+                        {isOpen ? '▴' : `${items.length} items ▾`}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {expandable && isOpen ? (
+                    <View
+                      style={{
+                        gap: theme.spacing[2],
+                        marginTop: theme.spacing[1],
+                        paddingTop: theme.spacing[2],
+                        borderTopWidth: 1,
+                        borderTopColor: theme.colors.border,
+                      }}
+                    >
+                      {items.map((it, i) => (
+                        <View key={i} style={{ gap: 2 }}>
+                          <Text variant="bodySm" color={theme.colors.text} numberOfLines={1}>
+                            {it.description ? `${it.description} · ` : ''}
+                            {Math.round(it.quantity)} g
+                          </Text>
+                          <Text variant="bodySm" color={theme.colors.textMuted}>
+                            {itemMacroSummary(it)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                </Card>
+              );
+              return (
+                <SwipeToDelete
+                  key={o.id}
+                  onDelete={() => removeAndReload(o.id)}
+                  confirmTitle={`Delete ${mealName}?`}
+                  confirmMessage="This is permanent."
+                >
+                  {expandable ? (
+                    <Pressable
+                      onPress={() => toggleExpanded(o.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${isOpen ? 'Collapse' : 'Expand'} ${mealName}`}
+                    >
+                      {card}
+                    </Pressable>
+                  ) : (
+                    card
+                  )}
                 </SwipeToDelete>
               );
             })}
