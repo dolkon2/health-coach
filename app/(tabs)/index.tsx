@@ -211,31 +211,39 @@ export default function TodayScreen() {
               ) : null}
             </Card>
 
-            {/* Each meal — name + fidelity dot; its macros at the fidelity's own opacity. */}
+            {/* Each meal — name + fidelity dot; its macros at the fidelity's own
+                opacity. Swipe to delete, like sessions + weigh-ins. */}
             {foodEntriesToday.map((o) => {
               const treat = fidelityTreatment(o.fidelity);
               return (
-                <Card key={o.id} style={{ gap: theme.spacing[2] }}>
-                  <View
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
-                  >
-                    <FidelityTreatment fidelity={o.fidelity} />
-                    <Text variant="body" style={{ flex: 1 }}>
-                      {o.payload.description || 'Meal'}
+                <SwipeToDelete
+                  key={o.id}
+                  onDelete={() => removeAndReload(o.id)}
+                  confirmTitle="Delete food?"
+                  confirmMessage={`${o.payload.description || 'Meal'} — permanent.`}
+                >
+                  <Card style={{ gap: theme.spacing[2] }}>
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
+                    >
+                      <FidelityTreatment fidelity={o.fidelity} />
+                      <Text variant="body" style={{ flex: 1 }}>
+                        {o.payload.description || 'Meal'}
+                      </Text>
+                      <Text variant="bodySm" color={theme.colors.textMuted}>
+                        {localTimeLabel(o.occurredAt, o.tz)}
+                      </Text>
+                    </View>
+                    <Text
+                      variant="bodySm"
+                      color={theme.colors.textSecondary}
+                      style={{ opacity: treat.opacity }}
+                    >
+                      {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
+                      {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
                     </Text>
-                    <Text variant="bodySm" color={theme.colors.textMuted}>
-                      {localTimeLabel(o.occurredAt, o.tz)}
-                    </Text>
-                  </View>
-                  <Text
-                    variant="bodySm"
-                    color={theme.colors.textSecondary}
-                    style={{ opacity: treat.opacity }}
-                  >
-                    {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
-                    {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
-                  </Text>
-                </Card>
+                  </Card>
+                </SwipeToDelete>
               );
             })}
           </View>
