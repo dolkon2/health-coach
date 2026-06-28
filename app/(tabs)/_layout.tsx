@@ -7,7 +7,7 @@
  */
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
-import { CalendarDays, LineChart, Settings } from 'lucide-react-native';
+import { CalendarDays, Dumbbell, LineChart, Settings } from 'lucide-react-native';
 import { useTheme } from '@/theme';
 
 export default function TabsLayout() {
@@ -49,6 +49,15 @@ export default function TabsLayout() {
           title: 'Today',
           tabBarIcon: ({ color }) => (
             <CalendarDays size={22} color={color} strokeWidth={1.5} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="training"
+        options={{
+          title: 'Training',
+          tabBarIcon: ({ color }) => (
+            <Dumbbell size={22} color={color} strokeWidth={1.5} />
           ),
         }}
       />

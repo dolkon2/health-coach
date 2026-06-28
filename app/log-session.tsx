@@ -83,17 +83,48 @@ const EFFORT: ChipOption<number>[] = Array.from({ length: 10 }, (_, i) => ({
   label: String(i + 1),
 }));
 
+/**
+ * A fresh form pre-set to `modality` — used when the screen opens via a deep-link
+ * that already chose one (the Training tab's activity picker). Seeds the gym
+ * surface with one empty exercise, mirroring pickModality, so the detail step has
+ * something to fill.
+ */
+function seededForm(modality: SessionModality): SessionForm {
+  const base = emptySessionForm();
+  return {
+    ...base,
+    modality,
+    gym:
+      modality === 'gym'
+        ? { exercises: [emptyExerciseDraft(uuidv7(), uuidv7())] }
+        : base.gym,
+  };
+}
+
 export default function LogSessionScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit, distanceUnit } = useSettings();
   const patternMemory = useExercisePatternMemory();
-  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { editId, modality: modalityParam } = useLocalSearchParams<{
+    editId?: string;
+    modality?: string;
+  }>();
   const isEdit = typeof editId === 'string' && editId.length > 0;
+  // A deep-link from the Training tab can pre-select a modality, skipping step 1.
+  // Only a modality the logger actually has a form for is honoured; anything else
+  // (e.g. swim/practice until their surfaces land) falls through to the picker.
+  const presetModality = !isEdit
+    ? MODALITIES.find((m) => m.value === modalityParam)?.value ?? null
+    : null;
 
-  const [form, setForm] = useState<SessionForm>(emptySessionForm);
-  // Edit-mode skips the modality picker — the session already has one.
-  const [step, setStep] = useState<'modality' | 'detail'>(isEdit ? 'detail' : 'modality');
+  const [form, setForm] = useState<SessionForm>(() =>
+    presetModality ? seededForm(presetModality) : emptySessionForm()
+  );
+  // Edit-mode or a preset skips the modality picker — the modality is already known.
+  const [step, setStep] = useState<'modality' | 'detail'>(
+    isEdit || presetModality ? 'detail' : 'modality'
+  );
   const [original, setOriginal] = useState<ObservationOf<'session'> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
