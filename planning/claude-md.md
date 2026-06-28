@@ -90,6 +90,8 @@ Two entry states, not two products: users with an existing plan who want it conn
 3. **Sleep \+ steps via HealthKit / Health Connect** — ingestion adapters that emit Observations. Trust step count and sleep hours; treat staged sleep scores as tier-3.  
 4. **AI coach, then social layer** — later rings. The coach obeys rule 3 absolutely. Social is framed around showing up, never around outcomes.
 
+**Forward reference — Ring 4 shapes Rings 1–3:** Cross-user accountability (cohorts, shared events) is likely the primary retention driver. It ships last, but session and observation data must be designed with sharing/privacy scoping in mind from the start — visibility toggling should be a permission change, not a schema migration. See `product-overview.md` § Social layer and `cohorts-spec.md`.
+
 ## Planning docs
 
 See `planning/` for the full product context:
