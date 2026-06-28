@@ -574,10 +574,13 @@ export default function LogSessionScreen() {
 
       {surface === 'practice' ? (
         <Card style={{ marginTop: theme.spacing[6] }}>
-          <Text variant="body" color={theme.colors.textMuted}>
-            A dedicated {label} surface is coming next. For now, record duration, effort and a
-            note below.
-          </Text>
+          <Field
+            label="Style (optional)"
+            value={form.practice.style}
+            onChangeText={(style) => update({ practice: { style } })}
+            placeholder="e.g. vinyasa, hatha, mobility"
+            keyboardType="default"
+          />
         </Card>
       ) : null}
 

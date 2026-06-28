@@ -136,6 +136,7 @@ export function reveal(session: ObservationOf<'session'>): string {
   if (p.lifting) return revealLifting(session);
   if (p.endurance) return revealEndurance(session);
   if (p.swimming) return revealSwimming(session);
+  if (p.practice) return revealPractice(session);
   if (p.climbing) return revealClimbing(session);
   return durationLine(session);
 }
@@ -198,6 +199,16 @@ function revealSwimming(session: ObservationOf<'session'>): string {
   }
   if (s.stroke) parts.push(s.stroke);
   return parts.join(' · ');
+}
+
+function revealPractice(session: ObservationOf<'session'>): string {
+  const pr = session.payload.practice;
+  if (pr?.style) {
+    const dur = formatMinutes(session.payload.durationMin);
+    return dur ? `${pr.style} · ${dur}` : pr.style;
+  }
+  // No style tag — the activity identity + duration says it best ("yoga · 45 min").
+  return durationLine(session);
 }
 
 function revealClimbing(session: ObservationOf<'session'>): string {

@@ -197,6 +197,14 @@ export type SwimmingBlock = {
   energySystem: EnergySystem; // lets the swim contribute energy-system minutes to the ledger
 };
 
+export type PracticeBlock = {
+  // Yoga / Pilates / mobility / meditation. Session-level only — no per-pose logging.
+  // An optional free style tag ('vinyasa', 'hatha', …). Carries no pattern or energy
+  // volume: like climb/hike it appears in sessionIds and contributes nothing
+  // fabricated to the ledger (constitution: never invent volume a surface can't report).
+  style?: string;
+};
+
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
@@ -216,6 +224,7 @@ export type SessionPayload = {
   climbing?: ClimbingBlock;
   paddling?: PaddlingBlock;
   swimming?: SwimmingBlock;
+  practice?: PracticeBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward

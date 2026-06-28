@@ -258,3 +258,50 @@ describe('Pass 5 — swimming surface', () => {
     expect(week.sessionIds).toContain(obs.id);
   });
 });
+
+describe('Pass 6 — practice surface', () => {
+  function yoga(style: string): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.practice = { style };
+    return f;
+  }
+
+  it('records a style tag and maps to the mobility modality', () => {
+    const obs = buildSessionObservation(yoga('vinyasa'), CTX);
+    expect(obs.payload.modality).toBe('mobility');
+    expect(obs.payload.practice?.style).toBe('vinyasa');
+    expect(reveal(obs)).toBe('vinyasa · 45 min');
+  });
+
+  it('falls back to the activity identity when no style is given (no fabricated block)', () => {
+    const obs = buildSessionObservation(yoga(''), CTX);
+    expect(obs.payload.practice).toBeUndefined();
+    expect(reveal(obs)).toBe('yoga · 45 min');
+  });
+
+  it('contributes no volume or energy bars — sessionIds only (honest)', () => {
+    const obs = buildSessionObservation(yoga('hatha'), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.sessionIds).toContain(obs.id);
+    expect(Object.keys(week.byPattern)).toHaveLength(0);
+    expect(week.byEnergySystem.aerobic.minutes).toBe(0);
+    expect(week.byEnergySystem.glycolytic.minutes).toBe(0);
+    expect(week.byEnergySystem.mixed.minutes).toBe(0);
+  });
+
+  it('round-trips the style through invert → rebuild', () => {
+    const obs = buildSessionObservation(yoga('yin'), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.practice.style).toBe('yin');
+    expect(inverted.activity).toBe('yoga');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'pr2' });
+    expect(rebuilt.payload.practice?.style).toBe('yin');
+  });
+});

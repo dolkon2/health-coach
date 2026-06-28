@@ -88,6 +88,7 @@ export type SessionForm = {
     stroke: SwimStroke;
     energySystem: EnergySystem;
   };
+  practice: { style: string }; // optional free style tag for yoga/pilates/mobility
 };
 
 export function emptySetDraft(id: string): SetDraft {
@@ -115,6 +116,7 @@ export function emptySessionForm(): SessionForm {
       stroke: 'freestyle',
       energySystem: 'aerobic',
     },
+    practice: { style: '' },
   };
 }
 
@@ -347,8 +349,13 @@ export function buildSessionObservation(
     // open-water estimate (which is a guess, like a manual GPS distance).
     fidelity =
       payload.swimming.poolLengthM != null && payload.swimming.laps != null ? 0.85 : 0.5;
+  } else if (surface === 'practice') {
+    // Session-level only; the optional style tag is the sole structured field. A
+    // styleless practice carries no block — the activity identity + duration says it.
+    const style = form.practice.style.trim();
+    if (style) payload.practice = { style };
   }
-  // practice → Pass 6, 'other' → duration + effort + notes only (no block).
+  // 'other' → duration + effort + notes only (no block).
 
   return {
     id: ctx.id,
@@ -484,6 +491,10 @@ export function sessionFormFromObservation(
       stroke: sw.stroke ?? 'freestyle',
       energySystem: sw.energySystem,
     };
+  }
+
+  if (p.practice) {
+    form.practice = { style: p.practice.style ?? '' };
   }
 
   return form;
