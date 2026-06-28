@@ -5,6 +5,7 @@
  */
 import { migration001 } from './001_initial';
 import { migration002 } from './002_cached_foods';
+import { migration003 } from './003_meal_templates';
 
 export type Migration = {
   version: number;
@@ -12,4 +13,4 @@ export type Migration = {
   sql: string;
 };
 
-export const migrations: Migration[] = [migration001, migration002];
+export const migrations: Migration[] = [migration001, migration002, migration003];

@@ -19,3 +19,10 @@ export {
   listRecentFoods,
   type CachedFood,
 } from './foodCache';
+export {
+  createMealTemplate,
+  getMealTemplateById,
+  listMealTemplates,
+  occurrencesFor,
+  type MealOccurrence,
+} from './mealTemplates';
