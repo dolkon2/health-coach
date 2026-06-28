@@ -28,6 +28,8 @@ export function Screen({ children, scroll, style }: ScreenProps) {
       <ScrollView
         style={{ flex: 1, backgroundColor: theme.colors.bg }}
         contentContainerStyle={[padding, style]}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
       >
         {children}
       </ScrollView>
