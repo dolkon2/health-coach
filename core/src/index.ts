@@ -13,3 +13,6 @@ export * from './trend';
 export * from './expenditure';
 export * from './stimulus';
 export * from './nutrition/fidelity';
+export * from './nutrition/adapter';
+export * from './nutrition/usda';
+export * from './nutrition/openfoodfacts';
