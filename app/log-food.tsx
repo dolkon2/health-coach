@@ -19,7 +19,7 @@ import { Screen, Text, Button, Card, Field, ChipSelect, FidelityTreatment, type 
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog } from '@/hooks/useFoodLog';
-import { heroNumber, fidelityTreatment, mealItemsLabel, type NutritionFocus } from '@/lib/foodLog';
+import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
 
 const MODE_OPTIONS: ChipOption<'weigh' | 'describe'>[] = [
@@ -157,7 +157,7 @@ export default function LogFood() {
           {/* Hero + macros treated by fidelity opacity: solid data looks solid, rough looks rough. */}
           <View style={{ opacity: fidelityTreatment(fl.preview.fidelity).opacity, gap: theme.spacing[3] }}>
             <View>
-              <Text variant="displayLg" style={{ fontSize: 40 }}>{macroStr(heroNumber(fl.preview.rollup, focus).value)}</Text>
+              <Text variant="displayLg" style={{ fontSize: 40, lineHeight: 48 }}>{macroStr(heroNumber(fl.preview.rollup, focus).value)}</Text>
               <Text variant="label" color={theme.colors.textSecondary}>
                 {heroNumber(fl.preview.rollup, focus).label} ({heroNumber(fl.preview.rollup, focus).unit})
               </Text>
@@ -171,13 +171,16 @@ export default function LogFood() {
           </View>
 
           {fl.items.map((it, i) => (
-            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing[3] }}>
-              <Text variant="bodySm" color={theme.colors.textSecondary} style={{ flex: 1 }} numberOfLines={1}>
-                {it.description ? `${it.description} · ` : ''}{Math.round(it.quantity)} g
-              </Text>
-              <Pressable onPress={() => fl.removeItem(i)} accessibilityRole="button">
-                <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
-              </Pressable>
+            <View key={i} style={{ gap: 2 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing[3] }}>
+                <Text variant="bodySm" color={theme.colors.text} style={{ flex: 1 }} numberOfLines={1}>
+                  {it.description ? `${it.description} · ` : ''}{Math.round(it.quantity)} g
+                </Text>
+                <Pressable onPress={() => fl.removeItem(i)} accessibilityRole="button">
+                  <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
+                </Pressable>
+              </View>
+              <Text variant="bodySm" color={theme.colors.textSecondary}>{itemMacroSummary(it)}</Text>
             </View>
           ))}
 

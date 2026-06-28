@@ -252,6 +252,16 @@ export function mealItemsLabel(items: FoodItem[]): string {
   return Array.from(new Set(names)).join(', ');
 }
 
+/** A compact per-item macro line for the meal breakdown — "513 cal · 96 P · 0 C ·
+ *  12 F", with "—" for a macro the item didn't capture (null ≠ 0, never inferred).
+ *  Display-only; shared by the logger preview and Today's expanded card. */
+export function itemMacroSummary(
+  item: Pick<FoodItem, 'kcal' | 'proteinG' | 'carbsG' | 'fatG'>
+): string {
+  const s = (v: number | null | undefined): string => (v == null ? '—' : String(Math.round(v)));
+  return `${s(item.kcal)} cal · ${s(item.proteinG)} P · ${s(item.carbsG)} C · ${s(item.fatG)} F`;
+}
+
 /** "Save this meal" → a MealTemplate (definition only). userConfirmed: the user
  *  saved it. A display-only `name` carries from the meal's description, falling back
  *  to its items' names, so the saved-meals picker is readable; it is omitted only

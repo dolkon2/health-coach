@@ -19,6 +19,7 @@ import {
   buildMealLog,
   mealTemplateFrom,
   mealItemsLabel,
+  itemMacroSummary,
   heroNumber,
   fidelityTreatment,
   type FoodLogInput,
@@ -209,6 +210,17 @@ describe('mealTemplateFrom (save this meal)', () => {
       canonicalItems: [foodItem()],
     });
     expect(t).not.toHaveProperty('earnedFidelity');
+  });
+});
+
+describe('itemMacroSummary (per-item breakdown line)', () => {
+  it('formats the four macros, "—" for a missing one (never 0)', () => {
+    expect(itemMacroSummary({ kcal: 513, proteinG: 96, carbsG: 0, fatG: 12 })).toBe(
+      '513 cal · 96 P · 0 C · 12 F'
+    );
+    expect(itemMacroSummary({ kcal: null, proteinG: 30, carbsG: null, fatG: null })).toBe(
+      '— cal · 30 P · — C · — F'
+    );
   });
 });
 
