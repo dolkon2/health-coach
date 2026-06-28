@@ -12,3 +12,4 @@ export * from './timeline';
 export * from './trend';
 export * from './expenditure';
 export * from './stimulus';
+export * from './nutrition/fidelity';
