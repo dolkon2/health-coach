@@ -96,6 +96,7 @@ export default function LogFoodScreen() {
         carbsG: scaled.carbsG,
         fatG: scaled.fatG,
         fiberG: scaled.fiberG,
+        grams: g,
       },
     };
 

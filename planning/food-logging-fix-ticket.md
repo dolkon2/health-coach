@@ -137,15 +137,20 @@ No match → fall back to text search with the partial info shown.
 
 ---
 
-### Phase 5 — Photo describe (deferred, lowest priority)
+### Phase 5 — Describe (AI estimation) + photo
 
-The old demo had a "Describe" tab. Reconsider whether it should exist as a tab at all — per the constitution, **AI lives in the plumbing, never on the surface.** A "Describe" tab is the AI showing its face.
+Describe is real and uses AI. Two entry points sharing the same backend:
 
-Better: one search field. If what you type matches a known food, you get USDA results (fidelity 0.7). If it doesn't match (free text like "8 oz ribeye, medium-rare, side of asparagus"), an AI call estimates macros and the entry persists with `source: { type: 'photoestimate' | 'aiestimate' }` and `fidelity: 0.4–0.5`. The user never picks "Search vs. Describe" — they just type and the system silently chooses.
+- **Free text**: user types "8 oz ribeye, medium-rare, side of asparagus." LLM call returns macros + a parsed description. Entry persists with `source: { type: 'photoestimate', modelVersion }` and `fidelity: 0.5` (text is more specific than a photo, less than a weighed amount).
+- **Photo**: small camera icon. Image → multimodal model → macros. `fidelity: 0.4`.
 
-Same for photo: a small camera icon in the search bar opens the camera; the photo gets sent to the AI and produces a low-fidelity entry. No separate "Describe" tab.
+Both write to the same `foodEntry` payload as Search & Weigh. The only difference is `source` and `fidelity`. The fidelity indicator on the entry row tells the truth about how it was captured.
 
-This phase only ships after Phases 1–4 are solid. Don't build the AI face until the rest of the system makes it obviously needed.
+This phase only ships after Phases 1–4 are solid.
+
+### Note: AI coach (separate concern)
+
+The user is considering an AI coach feature. **It does not belong on the home screen** — per the constitution, AI in the plumbing, never on the surface; pull not push. Any coach surface ships as its own tab or pull-only entry point, not as a notification, not as a card on Today. When this gets specced, it goes through the constitution checklist before any code.
 
 ---
 

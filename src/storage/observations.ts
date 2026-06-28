@@ -109,3 +109,38 @@ export async function supersedeObservation(
   const d = db ?? (await getDb());
   return createObservation({ ...newObs, supersedes: oldId }, d);
 }
+
+/**
+ * Hard-deletes an observation and any observations that supersede it (so the
+ * full edit chain is removed). Used by the food log for "remove this entry"
+ * actions where keeping a tombstone adds no value. Trends derived from
+ * persisted observations should be recomputed after a delete.
+ */
+export async function deleteObservation(
+  id: ObservationId,
+  db?: SqlDatabase
+): Promise<void> {
+  const d = db ?? (await getDb());
+  // Walk forward through the supersede chain so we delete every version.
+  const ids = new Set<string>([id]);
+  let frontier = [id];
+  while (frontier.length > 0) {
+    const next: string[] = [];
+    for (const cur of frontier) {
+      const successors = await d.getAllAsync<{ id: string }>(
+        'SELECT id FROM observations WHERE supersedes = ?;',
+        [cur]
+      );
+      for (const s of successors) {
+        if (!ids.has(s.id)) {
+          ids.add(s.id);
+          next.push(s.id);
+        }
+      }
+    }
+    frontier = next;
+  }
+  for (const i of ids) {
+    await d.runAsync('DELETE FROM observations WHERE id = ?;', [i]);
+  }
+}

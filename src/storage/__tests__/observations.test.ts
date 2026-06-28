@@ -10,6 +10,7 @@ import {
   listObservations,
   getObservationById,
   supersedeObservation,
+  deleteObservation,
 } from '../observations';
 import { makeTestDb } from './sqliteTestDb';
 
@@ -60,6 +61,21 @@ describe('observations storage', () => {
 
     // The old version is still retrievable by id (append-only).
     expect(await getObservationById('w1', db)).not.toBeNull();
+  });
+
+  it('deleteObservation removes the entry and any superseding versions', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createObservation(fakeWeighIn('w1', 80, '2026-06-26T14:00:00Z'), db);
+    await supersedeObservation('w1', fakeWeighIn('w2', 80.5, '2026-06-26T14:00:00Z'), db);
+
+    await deleteObservation('w1', db);
+
+    expect(await getObservationById('w1', db)).toBeNull();
+    expect(await getObservationById('w2', db)).toBeNull();
+    const list = await listObservations({ kinds: ['weighIn'] }, db);
+    expect(list).toHaveLength(0);
   });
 
   it('filters by date window', async () => {

@@ -136,6 +136,11 @@ export type FoodEntryPayload = {
   fatG: number;
   fiberG?: number;
   alcoholG?: number;
+  // Amount actually consumed, in grams. Optional for back-compat with non-weighed
+  // sources (e.g. free-text "had a burrito"), but populated whenever the source
+  // is API-search-with-quantity, barcode, or scale. Needed so edits can re-scale
+  // macros proportionally without losing information.
+  grams?: number;
 };
 
 export type SleepPayload = {

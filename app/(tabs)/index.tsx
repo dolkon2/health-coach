@@ -8,7 +8,7 @@
  */
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Button } from '@/components';
+import { Screen, Text, Card, Button, DailyIntakeCard } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
 
@@ -39,16 +39,9 @@ export default function TodayScreen() {
       </Card>
 
       {/* Food */}
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Food</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          No food logged today.
-        </Text>
-        <Button
-          label="Log food"
-          onPress={() => router.push('/log-food')}
-        />
-      </Card>
+      <View style={{ marginTop: theme.spacing[3] }}>
+        <DailyIntakeCard />
+      </View>
 
       {/* Sessions */}
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
