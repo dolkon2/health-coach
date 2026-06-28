@@ -44,6 +44,29 @@ A meal enters the timeline through one of four input methods. Fidelity is comput
 
 Each adjustment a user makes to an AI estimate is itself signal (consistently bumping a chicken estimate up implies something about their portions), feeding the earned-fidelity process below.
 
+> **Shippable surface (Phase 2) — `photo` is schema-reserved only.** Of the four methods, Phase 2 ships **`weighed`** and **`described`**. **`barcode`** is the 2.7 fast-follow (OFF UPC is free and no-auth). **`photo`** stays in the `InputMethod` union as a forward-compatible reservation, but has **no build surface in Phase 2**: no photo UI, no photo adapter, no free-provider hunt. The locked free data layer has no free vision provider and FatSecret's photo tier is deferred. This absence is intentional — do not re-litigate it.
+
+---
+
+## Nutrition focus and data-capture invariants
+
+Nutrition focus — the hero-number choice, e.g. a user who reads protein first versus one who reads calories first — is a **display concern only.** It changes which number surfaces prominently in the food UI. It never changes what gets written.
+
+**Invariant: full macros are always captured.** Every MealLog persists the full macro set (calories, protein, carbs, fat, fiber) whenever the system has them, regardless of focus. A user on "protein focus" still writes calories. This is non-negotiable: the expenditure engine back-calculates TDEE from calories in — if focus could suppress calorie capture, the engine would have nothing to consume and the outcome-measured spine would break. Focus is a lens over the data, never a gate on it.
+
+### Partial logs are a first-class honest state
+
+Capture integrity is separate from focus, but focus makes the underlying issue more visible, so it is settled here. When an input genuinely yields only some macros — a `described` entry like "42g protein" with no food or portion resolved — the missing macros are stored as **`null`**, never as **`0`**, and never **inferred** (no protein×4 calorie fill, no zero-padding).
+
+- **`null` means "not captured"; `0` means "captured, value is zero."** Conflating them is a data-integrity violation. A protein-only log must never read downstream as "you ate 168 calories" or "you ate 0 g fat."
+- **Partiality is structural, not a flag.** A MealLog is partial precisely when any required macro is `null`. There is no separate `is_partial` boolean to drift out of sync with the data; a derived `isPartial(meal)` helper reads the null presence. (The macro fields therefore become nullable in the schema — see the plan's Schema additions.)
+- **The expenditure engine treats `null` as missing, not zero.** Null macros are excluded from intake, and the per-window residual confidence drops in proportion to how partial the window's logs are. A day of protein-only logs lowers confidence; it never fabricates a low calorie total.
+- **No nagging.** The logging UI never pushes the user to "complete" a partial log. Partial is valid. An optional rough-total backfill prompt ("rough calories for that meal?") is explicitly deferred — not a Phase 2 surface.
+
+### Absent nutrition data is a valid user state, not a degraded one
+
+A user whose benchmarks don't frame nutrition as central isn't "missing data" — they're a user for whom this isn't the lens. The engine's only job is to be honest about what it knows; the Reflect tab (Phase 5) decides whether to surface a given confidence based on what the user said they care about. For Ring 2 specifically: expenditure confidence reports low as low (never tuned to "look high enough to display something"); the logging UI never nags toward more logging; and nothing built here contradicts the principle that benchmark intent and engine confidence together — not logging volume — govern what Reflect chooses to show. The full statement lands in the Reflect spec when it is written.
+
 ---
 
 ## Fidelity display: three tiers, no numbers
@@ -119,7 +142,9 @@ The person trying to game this would have to eat the same accurately-measured me
 - Fidelity stored as continuous `0..1`, displayed as three tiers, never as a number.  
 - Ceiling is method-bound and tracked per method; composite is a weighted blend.  
 - Earned fidelity accrues on templates, gated by an expenditure-engine residual-stability check. The logging layer **never promotes its own fidelity** — the template stores occurrences, the expenditure engine stores per-window residual confidence, and a separate process joins them.  
-- Earned fidelity is never surfaced; consumed only by forensics.
+- Earned fidelity is never surfaced; consumed only by forensics.  
+- **Phase 2 shippable surface:** `weighed` \+ `described` ship in Phase 2; `barcode` is the 2.7 fast-follow; `photo` is schema-reserved with no build surface in Phase 2 (see the input-contract reservation note).  
+- **Full macros are always captured regardless of nutrition focus.** Focus is display-only. Partial logs store missing macros as `null` — never `0`, never inferred. See § Nutrition focus and data-capture invariants.
 
 **Deferred to Phase 7 (genuinely hard, needs experimentation):**
 
