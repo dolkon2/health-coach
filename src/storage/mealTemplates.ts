@@ -19,10 +19,11 @@ export interface MealOccurrence {
   inputMethod: InputMethod;
 }
 
-const COLUMNS = 'id, createdAt, userConfirmed, canonicalItems';
+const COLUMNS = 'id, name, createdAt, userConfirmed, canonicalItems';
 
 interface MealTemplateRow {
   id: string;
+  name: string | null;
   createdAt: string;
   userConfirmed: number;
   canonicalItems: string;
@@ -31,6 +32,9 @@ interface MealTemplateRow {
 function rowToMealTemplate(r: MealTemplateRow): MealTemplate {
   return {
     id: r.id,
+    // Omit the name when the row has none (legacy rows, or an unnamed meal) — the
+    // same omit-when-absent rule the type uses, so callers fall back to item names.
+    ...(r.name ? { name: r.name } : {}),
     createdAt: r.createdAt,
     userConfirmed: r.userConfirmed === 1,
     canonicalItems: JSON.parse(r.canonicalItems) as FoodItem[],
@@ -43,8 +47,8 @@ export async function createMealTemplate(
 ): Promise<MealTemplate> {
   const d = db ?? (await getDb());
   await d.runAsync(
-    `INSERT INTO meal_templates (${COLUMNS}) VALUES (?, ?, ?, ?);`,
-    [t.id, t.createdAt, t.userConfirmed ? 1 : 0, JSON.stringify(t.canonicalItems)]
+    `INSERT INTO meal_templates (${COLUMNS}) VALUES (?, ?, ?, ?, ?);`,
+    [t.id, t.name ?? null, t.createdAt, t.userConfirmed ? 1 : 0, JSON.stringify(t.canonicalItems)]
   );
   return t;
 }

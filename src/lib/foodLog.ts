@@ -244,10 +244,30 @@ export function buildMealLog(input: FoodLogInput, ctx: FoodBuildContext): Observ
   };
 }
 
+/** A readable label for a meal built from its items' names — the unique item
+ *  descriptions joined ("Cheddar cheese, Crackers"), or '' when no item carries a
+ *  name (legacy items, or a source that returned none). Display-only. */
+export function mealItemsLabel(items: FoodItem[]): string {
+  const names = items.map((i) => i.description?.trim()).filter((d): d is string => !!d);
+  return Array.from(new Set(names)).join(', ');
+}
+
 /** "Save this meal" → a MealTemplate (definition only). userConfirmed: the user
- *  saved it. Earned fidelity is engine-derived later, never written here. */
-export function mealTemplateFrom(items: FoodItem[], ctx: { id: string; now: string }): MealTemplate {
-  return { id: ctx.id, createdAt: ctx.now, userConfirmed: true, canonicalItems: items };
+ *  saved it. A display-only `name` carries from the meal's description, falling back
+ *  to its items' names, so the saved-meals picker is readable; it is omitted only
+ *  when nothing named the meal. Earned fidelity is engine-derived later, never here. */
+export function mealTemplateFrom(
+  items: FoodItem[],
+  ctx: { id: string; now: string; name?: string }
+): MealTemplate {
+  const name = ctx.name?.trim() || mealItemsLabel(items);
+  return {
+    id: ctx.id,
+    ...(name ? { name } : {}),
+    createdAt: ctx.now,
+    userConfirmed: true,
+    canonicalItems: items,
+  };
 }
 
 // ─── Display: hero number (focus is display-only) ────────────────────────────

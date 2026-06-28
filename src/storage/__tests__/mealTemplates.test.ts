@@ -78,7 +78,7 @@ function mealObs(o: {
 let db: SqlDatabase;
 beforeEach(async () => {
   db = makeTestDb();
-  await runMigrations(db); // 001 + 002 + 003
+  await runMigrations(db); // 001..004
 });
 
 describe('meal-log persistence', () => {
@@ -112,6 +112,23 @@ describe('templates + occurrences (a query, not a counter)', () => {
     };
     await createMealTemplate(template, db);
     expect(await getMealTemplateById('t1', db)).toEqual(template);
+  });
+
+  it('persists and reads back a meal name (resolves the nameless-saved-meal quirk)', async () => {
+    const named = {
+      id: 'tn',
+      name: 'Chicken & rice bowl',
+      createdAt: '2026-06-02T00:00:00Z',
+      userConfirmed: true,
+      canonicalItems: [foodItem({ description: 'Chicken' }), foodItem({ description: 'Rice' })],
+    };
+    await createMealTemplate(named, db);
+    expect(await getMealTemplateById('tn', db)).toEqual(named); // name round-trips
+
+    // A nameless template stays nameless (no fabricated label at the storage layer).
+    const bare = { id: 'tb', createdAt: '2026-06-02T00:00:00Z', userConfirmed: true, canonicalItems: [foodItem()] };
+    await createMealTemplate(bare, db);
+    expect(await getMealTemplateById('tb', db)).not.toHaveProperty('name');
 
     const m = (id: string, day: number, method: InputMethod, templateId?: string) =>
       mealObs({
@@ -136,7 +153,7 @@ describe('templates + occurrences (a query, not a counter)', () => {
   it('the meal_templates table has no earned-fidelity column', async () => {
     const cols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(meal_templates);');
     const names = cols.map((c) => c.name);
-    expect(names).toEqual(['id', 'createdAt', 'userConfirmed', 'canonicalItems']);
+    expect(names).toEqual(['id', 'createdAt', 'userConfirmed', 'canonicalItems', 'name']);
     expect(names.some((n) => n.toLowerCase().includes('fidelity'))).toBe(false);
   });
 });

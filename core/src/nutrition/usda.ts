@@ -65,7 +65,7 @@ export function adaptUsdaFood(raw: UsdaFoodResponse, opts: AdaptOptions): FoodIt
   // Foundation/SR are lab-measured (slightly higher default); Branded is
   // label-declared with a small tolerance. fidelity.ts owns the actual numbers.
   const extraction: Extraction = { branded };
-  return buildFoodItem('usda', String(raw.fdcId), perGram, extraction, opts);
+  return buildFoodItem('usda', String(raw.fdcId), perGram, extraction, opts, raw.description);
 }
 
 /** Foundation / SR Legacy: flatten `foodNutrients[]` (per 100 g) → per gram. */

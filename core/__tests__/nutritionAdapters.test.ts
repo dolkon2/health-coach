@@ -155,3 +155,28 @@ describe('both adapters emit the identical internal shape', () => {
     }
   });
 });
+
+describe('adapters carry the food name (so items are not nameless)', () => {
+  const w = { method: 'weighed', quantityG: 30, quantityMethod: 'measured' } as const;
+
+  it('USDA Branded → description from raw.description', () => {
+    const item = adaptUsdaFood(load<UsdaFoodResponse>('usda-branded-peanut-butter.json'), w);
+    expect(item.description).toBe('PEANUT BUTTER');
+  });
+
+  it('USDA SR Legacy → description from raw.description', () => {
+    const item = adaptUsdaFood(load<UsdaFoodResponse>('usda-sr-legacy-cheddar.json'), w);
+    expect(item.description).toBe("Cheese, cheddar (Includes foods for USDA's Food Distribution Program)");
+  });
+
+  it('OFF → description from product.product_name', () => {
+    const item = adaptOpenFoodFactsProduct(load<OffProductResponse>('off-complete-thai-sauce.json'), {
+      method: 'barcode',
+      quantityG: 100,
+      quantityMethod: 'package',
+    });
+    expect(item.description).toBe(
+      'Thai peanut noodle kit includes stir-fry rice noodles & thai peanut seasoning'
+    );
+  });
+});

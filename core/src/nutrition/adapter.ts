@@ -65,7 +65,8 @@ export function buildFoodItem(
   foodId: string,
   perGram: PerGramMacros,
   extraction: Extraction,
-  opts: AdaptOptions
+  opts: AdaptOptions,
+  name?: string
 ): FoodItem {
   const q = opts.quantityG;
   const item: FoodItem = {
@@ -80,6 +81,10 @@ export function buildFoodItem(
     fidelity: defaultFidelity(opts.method, opts.extraction ?? extraction),
     fidelityCeiling: fidelityCeiling(opts.method),
   };
+  // The human name is display-only and omitted when the source didn't carry one
+  // (same omit-when-absent rule as the optional macros — never an empty string).
+  const trimmed = name?.trim();
+  if (trimmed) item.description = trimmed;
   const fiber = scale(perGram.fiberG, q);
   if (fiber != null) item.fiberG = fiber;
   const alcohol = scale(perGram.alcoholG, q);

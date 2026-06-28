@@ -19,7 +19,7 @@ import { Screen, Text, Button, Card, Field, ChipSelect, FidelityTreatment, type 
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog } from '@/hooks/useFoodLog';
-import { heroNumber, fidelityTreatment, type NutritionFocus } from '@/lib/foodLog';
+import { heroNumber, fidelityTreatment, mealItemsLabel, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
 
 const MODE_OPTIONS: ChipOption<'weigh' | 'describe'>[] = [
@@ -122,16 +122,22 @@ export default function LogFood() {
       {fl.savedMeals.length > 0 && fl.items.length === 0 ? (
         <View style={{ marginTop: theme.spacing[5], gap: theme.spacing[2] }}>
           <Text variant="label" color={theme.colors.textSecondary}>Saved meals</Text>
-          {fl.savedMeals.map((t) => (
-            <Pressable key={t.id} onPress={() => fl.loadSavedMeal(t)} accessibilityRole="button">
-              <Card>
-                <Text variant="body">
-                  {t.canonicalItems.length} item{t.canonicalItems.length === 1 ? '' : 's'}
-                </Text>
-                <Text variant="bodySm" color={theme.colors.textMuted}>saved {t.createdAt.slice(0, 10)}</Text>
-              </Card>
-            </Pressable>
-          ))}
+          {fl.savedMeals.map((t) => {
+            const count = t.canonicalItems.length;
+            const label = t.name || mealItemsLabel(t.canonicalItems);
+            return (
+              <Pressable key={t.id} onPress={() => fl.loadSavedMeal(t)} accessibilityRole="button">
+                <Card>
+                  <Text variant="body" numberOfLines={1}>
+                    {label || `${count} item${count === 1 ? '' : 's'}`}
+                  </Text>
+                  <Text variant="bodySm" color={theme.colors.textMuted}>
+                    {count} item{count === 1 ? '' : 's'} · saved {t.createdAt.slice(0, 10)}
+                  </Text>
+                </Card>
+              </Pressable>
+            );
+          })}
         </View>
       ) : null}
 
@@ -165,8 +171,10 @@ export default function LogFood() {
           </View>
 
           {fl.items.map((it, i) => (
-            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text variant="bodySm" color={theme.colors.textMuted}>{Math.round(it.quantity)} g · {it.sourceDb}</Text>
+            <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing[3] }}>
+              <Text variant="bodySm" color={theme.colors.textSecondary} style={{ flex: 1 }} numberOfLines={1}>
+                {it.description ? `${it.description} · ` : ''}{Math.round(it.quantity)} g
+              </Text>
               <Pressable onPress={() => fl.removeItem(i)} accessibilityRole="button">
                 <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
               </Pressable>

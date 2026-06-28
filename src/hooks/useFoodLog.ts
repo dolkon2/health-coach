@@ -166,7 +166,7 @@ export function useFoodLog() {
   const saveMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
     const id = uuidv7();
-    await createMealTemplate(mealTemplateFrom(items, { id, now: new Date().toISOString() }));
+    await createMealTemplate(mealTemplateFrom(items, { id, now: new Date().toISOString(), name: description }));
     setTemplateId(id); // a subsequent Log records the first occurrence of this template
     void refreshSavedMeals();
     return true;

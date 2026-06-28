@@ -18,6 +18,7 @@ import {
   validateFoodLog,
   buildMealLog,
   mealTemplateFrom,
+  mealItemsLabel,
   heroNumber,
   fidelityTreatment,
   type FoodLogInput,
@@ -208,5 +209,38 @@ describe('mealTemplateFrom (save this meal)', () => {
       canonicalItems: [foodItem()],
     });
     expect(t).not.toHaveProperty('earnedFidelity');
+  });
+});
+
+describe('mealItemsLabel + named templates (readable saved meals)', () => {
+  it('joins the unique item names', () => {
+    expect(
+      mealItemsLabel([foodItem({ description: 'Cheddar cheese' }), foodItem({ description: 'Crackers' })])
+    ).toBe('Cheddar cheese, Crackers');
+  });
+
+  it('dedupes repeats and skips unnamed items', () => {
+    expect(
+      mealItemsLabel([foodItem({ description: 'Rice' }), foodItem({ description: 'Rice' }), foodItem()])
+    ).toBe('Rice');
+  });
+
+  it('is empty when no item carries a name', () => {
+    expect(mealItemsLabel([foodItem(), foodItem()])).toBe('');
+  });
+
+  it('names a template from ctx.name, else from the items, else omits it', () => {
+    const explicit = mealTemplateFrom([foodItem({ description: 'Cheddar cheese' })], {
+      id: 't1',
+      now: CTX.now,
+      name: 'Snack plate',
+    });
+    expect(explicit.name).toBe('Snack plate');
+
+    const derived = mealTemplateFrom([foodItem({ description: 'Cheddar cheese' })], { id: 't2', now: CTX.now });
+    expect(derived.name).toBe('Cheddar cheese');
+
+    const unnamed = mealTemplateFrom([foodItem()], { id: 't3', now: CTX.now });
+    expect(unnamed).not.toHaveProperty('name');
   });
 });
