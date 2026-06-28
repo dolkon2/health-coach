@@ -131,10 +131,12 @@ export function useFoodLog() {
     setItems((xs) => xs.filter((_, i) => i !== index));
   }, []);
 
-  /** Load a saved meal's items to re-log it — the re-log carries its templateId. */
+  /** Load a saved meal's items to re-log it — the re-log carries its templateId and
+   *  inherits the saved name (so a re-log reads as its name, not the generic "Meal"). */
   const loadSavedMeal = useCallback((t: MealTemplate) => {
     setItems(t.canonicalItems);
     setTemplateId(t.id);
+    setDescription(t.name ?? '');
     setError(null);
   }, []);
 
