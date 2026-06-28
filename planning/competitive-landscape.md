@@ -6,7 +6,7 @@
 
 ## The one-line read
 
-Every competitor worth naming is **prescriptive and prediction-led.** They assume the user doesn't know what to do and sell a plan. The descriptive, outcome-measured, mirror-not-coach lane is still empty — which is the whole bet. The catch: from the outside the feature surfaces now look nearly identical (training \+ recovery \+ nutrition \+ wearables, all in one app), so the position can only be *felt*, not screenshotted. That's the standing problem this doc exists to keep in view.
+Every competitor worth naming is **prescriptive and prediction-led.** They assume the user doesn't know what to do and sell a plan. The descriptive, outcome-measured, mirror-not-coach lane is still empty — which is the whole bet. But the lane is empty on *two* axes, not one: no one combines real tracking depth (outcome-measured expenditure, fidelity, correlation) with the social gravity that drives daily opens. Cora is the primary overlap on the **tracking/intelligence axis** — same four pillars, same vocabulary, wrong posture. Strava is the primary overlap on the **retention axis** — the reason someone opens an app every day is to see that their friends trained, not to read a readiness score. The combination of Strava's daily-open social pull and genuine descriptive tracking depth doesn't exist anywhere. The catch: from the outside the feature surfaces now look nearly identical (training \+ recovery \+ nutrition \+ wearables, all in one app), so the position can only be *felt*, not screenshotted. That's the standing problem this doc exists to keep in view.
 
 The market has converged on one shape — "AI coach that tells you what to do, grounded in wearable data." Cora, trainhybrid, and Edge are three executions of that same shape. Nick Bare is the older content-and-program model the AI ones are eating. None of them measure outcomes and back the numbers out; all of them predict forward from activity and a population model, then hand you a plan.
 
@@ -23,13 +23,14 @@ The axis that matters isn't feature count — it's **predicted vs. measured** an
 | **Edge** | Built-for-you plan, 24/7 human coach chat | Predicted from plan/load | Real coaches in-app | Plan adherence, race prep | Subscription, coaching-heavy |
 | **Nick Bare** | Preset programs (Hybrid Athlete 1/2/3) | Not measured; manual logging | None — it's a content library | Reminders, challenges | Creator content (Playbook), \~$15/mo |
 | **STNDRD (cbum)** | Preset splits (PPL, Arnold, Olympia prep) | Not measured; manual logging | None — explicitly "NOT AI" | Discipline/transformation framing | Creator content, \~$15/mo |
+| **Strava** | None — user brings their own | GPS-measured (outdoor); manual/basic (gym) | None | Social feed, clubs, segments, user-created challenges | Freemium (\~$11.99/mo premium), ad-free feed |
 | **\[this product\]** | **None — you bring/keep the plan** | **Measured: back out of weight trend** | **None on surface; engine only** | **None, by constitution** | **Self-built; retention, not acquisition** |
 
 The whole right column is where everyone else lives. The bottom row is deliberately the inverse of every cell above it.
 
 ---
 
-## Cora — the loud twin (primary overlap)
+## Cora — the loud twin (primary overlap on the tracking/intelligence axis)
 
 **What it is.** AI fitness coach by PurplePill AI (YC W24, pivoted from "Purple," an AI leasing assistant). \~$9.99/mo, App Store rating in the high 4s — but review signal is thin and curated, and much of what ranks for "Cora reviews" is Cora's own SEO blog (their `/blog/best-fitness-app-reddit`, `/compare`, etc. — they're farming comparison and Reddit-intent keywords).
 
@@ -97,6 +98,29 @@ Naming note: "hybrid training" is a crowded keyword. trainhybrid.app (AI-native 
 **The instructive trap — why this one is worth a flag.** STNDRD's own marketing leads with *"This is NOT AI-generated workouts. Real programs. Real coaches."* On the surface that sounds adjacent to our anti-AI-slop instinct — and it's a useful data point that "AI-generated plan" has become a **negative** signal in this segment, fatigue we can ride. But it means the **opposite** of our position. Their answer to AI slop is *a human champion's fixed plan handed down* — maximally prescriptive, the same program for all 150k members. Our answer is *no prescription at all; AI in the plumbing, you keep the wheel.* Don't let the shared "not AI" surface language blur that: STNDRD is anti-AI-on-the-surface **and** anti-descriptive. We're anti-AI-on-the-surface but the AI is doing all the invisible work. Same three words, inverse product.
 
 - **Useful borrow:** the "discipline / set your standard" identity converts a static plan into a reason to keep showing up — same community lesson as Bare, same mapping to ring 4, same firewall against importing any of their gamified transformation framing.
+
+---
+
+## Strava — the social-gravity incumbent (primary overlap on the retention axis)
+
+**What it is.** GPS-first activity platform, 120M+ athletes, freemium with a \~$11.99/mo premium tier. Best-in-class outdoor tracking: running, cycling, swimming, paddling, hiking, skiing — anything with a GPS trace. Social feed of friends' activities, clubs, segments (leaderboard-on-a-stretch-of-road), user-created challenges, and route discovery. Gear tracking (shoes, bikes, boats) with mileage/session counters. The app that serious outdoor athletes already open every day.
+
+**Why it matters more than the feature grid suggests.** Strava is the closest competitor on the axis that actually drives daily opens — not tracking intelligence, but **cross-user accountability.** The social feed (ambient awareness that your friends trained this morning) is the primary reason users open it, not the feature set. No readiness score or AI nudge competes with seeing that your training partner already logged 6 miles before you got out of bed. That's the retention mechanism every AI coach is trying to manufacture with streaks and notifications, and Strava has it organically.
+
+**Where it overlaps with us.**
+
+- **The outdoor-first user is identical to ours.** The runner-who-lifts, the paddler who also does gym work, the hiker who cares about volume across modalities — Strava's core audience *is* the hybrid athlete, they just don't call it that.
+- **Strava's social layer validates the Ring 4 design.** Clubs, segments, and user-created challenges work precisely because the app never authors them — it only hosts infrastructure that users fill with their own stakes. No algorithmically generated "30-day challenge," no badges the app invented. That's the exact posture: platform, not author.
+- **Gear tracking validates contextual metadata.** Running shoe mileage, which bike, which kayak — metadata attached to sessions that compounds into a personal archive over months and years. Same instinct as our session-level context fields (which boat, which trail, which gym), and evidence that users will maintain that metadata if the payoff is a long-term record.
+
+**Where the daylight is — and it's structural.**
+
+- **Strava is a GPS company that added a social layer.** Its core data model is the GPS trace. Everything downstream — segments, pace charts, elevation profiles, estimated power — flows from the trace. A gym session has no trace. This means the gym is **structurally second-class**: manual entry, no stimulus organization, no volume tracking worth the name, no correlation between what you lifted and what happened to your run the next day. Strava can't treat a barbell session and a paddle session with equal weight because only one of them produces the data type the entire platform is built on.
+- **No nutrition.** Not thin nutrition — zero. No food logging, no expenditure, no TDEE, no caloric correlation. The whole energy-balance axis doesn't exist.
+- **No fidelity, no outcome-measured expenditure, no correlation engine.** Strava tells you what you did (descriptive, which is good) but stops there. It never closes the loop: did that training week move the needle? What's the actual cost of that session in kcal backed out of a weight trend? It's a **record**, not an **engine.**
+- **The timeline is segmented by sport, not unified.** Your running history and your cycling history are separate feeds with separate stats. There's no unified view of training stress across modalities — no way to see that your heavy squat day and your threshold run are drawing from the same recovery budget.
+
+**Key insight.** Cora overlaps on what the app *knows* (the tracking/intelligence axis). Strava overlaps on why someone *opens it* (the retention/social axis). Neither combines both. A product that has Strava's daily-open gravity — because your friends are there and the record is real — *plus* the descriptive depth that Strava can't build because its data model is the GPS trace, occupies a position neither can reach from where they stand. Strava can't add a correlation engine without rebuilding its core around sessions that aren't GPS traces. Cora can't add organic social gravity without abandoning the AI-coach surface that drives its engagement metrics. The combination is the gap.
 
 ---
 

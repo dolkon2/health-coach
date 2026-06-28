@@ -66,11 +66,12 @@ Everything on one timeline: gym sessions, runs, climbs, food logs, bodyweight, s
 - **Outcome-measured TDEE:** Calories in \+ weight trend → infer total expenditure as the residual. "Out" is never measured; it's solved for. The watch *guesses* active calories from motion; we *back them out* from outcome.  
 - **Stimulus-based programming:** Organize around movement patterns (upper push, upper pull, hip hinge, quad dominant, etc.) and energy systems (aerobic, glycolytic, ATP-CP) rather than app categories. A climbing session counts as upper-pull volume. A HIIT row covers glycolytic. Substitution stops being a hack and becomes a feature.  
 - **Plateau forensics (summoned AI):** After months of data, the user can ask: what changed when my weight stalled? The AI surfaces suspects ranked by how much each moved, uncertainty shown. Unique move: fidelity as a candidate cause — "your logging went 70% photo-estimate" means the deficit might be a measurement artifact, not a real stall.  
-- **Detection threshold (z-scores against personal baseline):** Each variable measured in its own noise units, baseline learned per-user. Threshold is visible and user-owned. Silence becomes information.
+- **Detection threshold (z-scores against personal baseline):** Each variable measured in its own noise units, baseline learned per-user. Threshold is visible and user-owned. Silence becomes information.  
+- **Gear & environmental context (schema consideration):** The observation schema should accommodate contextual metadata — gear/equipment (which shoes, which boat, which harness) and environmental conditions (weather, water levels, trail conditions). These aren't first-class features; they're optional fields that compound into a personal archive over time. Validated by Strava's gear tracking: simple metadata that becomes invaluable across hundreds of sessions (shoe mileage, board quiver usage, gear-correlated performance).
 
 ### Nutrition (ring 2 — via API, not from scratch)
 
-- Wire in a food database API (Nutritionix / USDA / Open Food Facts) plus photo estimation. Own the *adaptation logic*, not the database.  
+- Wire in a food database API (USDA / Open Food Facts) plus photo estimation. Own the *adaptation logic*, not the database.  
 - Every food log carries its fidelity: weighed \= high confidence, photo \= lower, quick text entry \= somewhere between. The fidelity field is what lets the AI tell you your plateau might be a *logging* problem, not a body problem.
 
 ### Sleep \+ steps (ring 2.5 — cheap, do it early)
@@ -95,7 +96,8 @@ Everything on one timeline: gym sessions, runs, climbs, food logs, bodyweight, s
 
 - The shareable unit is the act of showing up, not outcomes or body transformation.  
 - No shareable body-change content. No "Moments" celebrating streaks or perfect habit days.  
-- Full spec: `cohorts-spec.md` (events, challenges, profile, friend mechanic).
+- Full spec: `cohorts-spec.md` (events, challenges, profile, friend mechanic).  
+- **Architecturally foundational, not a late-stage addition.** Cross-user accountability is likely the primary driver of daily opens and long-term retention. It ships last, but it shapes what comes before: session and observation data models in Rings 1–3 must be privacy-aware and sharing-ready from the start so that toggling visibility is a permission change, not a migration.
 
 ---
 
