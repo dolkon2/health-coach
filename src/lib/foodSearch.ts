@@ -53,6 +53,28 @@ interface UsdaSearchFood {
 }
 
 /**
+ * USDA `dataType` → ordering rank (lower = shown first). Foundation and SR Legacy
+ * are lab-measured generic foods — the clean, canonical entries a text search
+ * usually wants; Survey (FNDDS) is generic but modeled; Branded is label/crowd
+ * data, noisy and typo-prone, so it sorts last. Unknown types fall after all known
+ * ones. This is the data-quality call the spec says we own (handoff §3).
+ */
+export function usdaDataTypeRank(dataType?: string): number {
+  switch (dataType) {
+    case 'Foundation':
+      return 0;
+    case 'SR Legacy':
+      return 1;
+    case 'Survey (FNDDS)':
+      return 2;
+    case 'Branded':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+/**
  * Search USDA for foods matching a free-text query → ranked candidates (USDA
  * relevance order). OFF is barcode-only, so it is not part of text search.
  */
@@ -64,13 +86,18 @@ export async function searchFoods(query: string, deps?: FoodSearchDeps): Promise
   const res = await fetchImpl(url);
   if (!res.ok) return [];
   const body = (await res.json()) as { foods?: UsdaSearchFood[] };
-  return (body.foods ?? []).map((f) => ({
+  const candidates: FoodCandidate[] = (body.foods ?? []).map((f) => ({
     sourceDb: 'usda' as const,
     foodId: String(f.fdcId),
     description: f.description ?? '',
     brand: f.brandOwner ?? f.brandName ?? undefined,
     dataType: f.dataType,
   }));
+  // We own ordering: float clean lab-measured generics (Foundation/SR Legacy) above
+  // noisy Branded label data, preserving USDA's relevance order within each tier
+  // (Array.sort is stable). "cheddar" surfaces "Cheese, cheddar", not a typo'd pack;
+  // a branded-only query (a product name) is unaffected — all one tier.
+  return candidates.sort((a, b) => usdaDataTypeRank(a.dataType) - usdaDataTypeRank(b.dataType));
 }
 
 /** Fetch a USDA food by fdcId and adapt it to the logged quantity. Cache-first. */

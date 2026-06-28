@@ -12,7 +12,7 @@ import { join } from 'path';
 import { makeTestDb } from '@/storage/__tests__/sqliteTestDb';
 import { runMigrations, type SqlDatabase } from '@/storage/db';
 import { getCachedFood } from '@/storage/foodCache';
-import { searchFoods, getUsdaFood, getFoodByBarcode, debounce } from '@/lib/foodSearch';
+import { searchFoods, getUsdaFood, getFoodByBarcode, debounce, usdaDataTypeRank } from '@/lib/foodSearch';
 
 const FX = join(__dirname, '..', '..', '..', 'core', 'src', 'nutrition', '__fixtures__');
 function load<T>(name: string): T {
@@ -43,6 +43,21 @@ describe('searchFoods', () => {
     expect(out[0].foodId).toBe('2057648');
     expect(out[0].description).toBe('CHEDDAR CHEESE');
     expect(out[0].brand).toBe('Grafton Village Cheese Co, LLC');
+  });
+
+  it('floats clean generic (Foundation/SR Legacy) above noisy Branded, keeping USDA order within a tier', async () => {
+    // USDA relevance puts two branded packs first; the clean lab entries come later.
+    const body = {
+      foods: [
+        { fdcId: 1, dataType: 'Branded', description: 'CHEDDAR CHEESE', brandOwner: 'Brand A' },
+        { fdcId: 2, dataType: 'Branded', description: 'Sharp Cheddar', brandOwner: 'Brand B' },
+        { fdcId: 3, dataType: 'SR Legacy', description: 'Cheese, cheddar' },
+        { fdcId: 4, dataType: 'Foundation', description: 'Cheese, cheddar (Foundation)' },
+      ],
+    };
+    const out = await searchFoods('cheddar', { fetchImpl: asFetch(jsonFetch(body)), db });
+    // Foundation (4) then SR Legacy (3) rise to the top; the two Branded keep order.
+    expect(out.map((c) => c.foodId)).toEqual(['4', '3', '1', '2']);
   });
 
   it('returns an empty list for a blank query without touching the network', async () => {
@@ -103,5 +118,14 @@ describe('debounce', () => {
     expect(fn).toHaveBeenCalledTimes(1);
     expect(fn).toHaveBeenCalledWith('c');
     jest.useRealTimers();
+  });
+});
+
+describe('usdaDataTypeRank', () => {
+  it('orders lab-measured generics ahead of Branded, unknown types last', () => {
+    expect(usdaDataTypeRank('Foundation')).toBeLessThan(usdaDataTypeRank('SR Legacy'));
+    expect(usdaDataTypeRank('SR Legacy')).toBeLessThan(usdaDataTypeRank('Survey (FNDDS)'));
+    expect(usdaDataTypeRank('Survey (FNDDS)')).toBeLessThan(usdaDataTypeRank('Branded'));
+    expect(usdaDataTypeRank('Branded')).toBeLessThan(usdaDataTypeRank(undefined));
   });
 });
