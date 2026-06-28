@@ -178,6 +178,11 @@ export type PaddlingBlock = {
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
+  // Identity label (e.g. 'calisthenics', 'wingfoil') — the activity the user
+  // picked. Maps to a logging surface and the nearest `modality` via the registry
+  // (src/lib/activity.ts). Optional: legacy sessions and the quick-log picker may
+  // carry only `modality`. Display + reveal() prefer it over the coarser modality.
+  activity?: string;
   durationMin: number;
   // Sport-specific blocks — only the relevant ones populated.
   lifting?: LiftingBlock;

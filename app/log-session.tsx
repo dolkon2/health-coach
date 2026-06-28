@@ -1,15 +1,19 @@
 /**
- * Log Session — a modal from Today. Pass 4: the real logger.
+ * Log Session — a modal from Today and the Training tab.
  *
- * Step 1 picks a modality (surface tiles). Step 2 is modality-dependent: a gym
- * set logger with a *required* movement-pattern tag per exercise, a lighter
- * duration/distance/HR form for endurance, or a style + sends form for climbing.
- * All modalities share a duration, perceived-effort and notes footer.
+ * Step 1 picks an *activity* (identity tiles — Today's quick-log path); the
+ * Training tab deep-links straight to step 2 with an activity already chosen. Step
+ * 2 is *surface*-dependent, resolved from the activity via the registry
+ * (lib/activity.ts): a gym set logger with a required movement-pattern tag per
+ * exercise, a GPS distance/HR form, a climbing style + sends form, or a "coming
+ * next" stub for the swim/practice surfaces (Passes 5–6). All share a duration,
+ * effort and notes footer.
  *
- * On save the form maps to a tier-1, fidelity-0.95 manual session Observation
- * (lib/session.ts builds it) and Today re-fetches on focus to show it. The
- * movement-pattern requirement is enforced by the same builder the test drives,
- * so an untagged set can't reach storage.
+ * On save the form maps to a tier-1 manual session Observation (lib/session.ts
+ * builds it) whose fidelity follows the surface (gym 0.95, manual GPS 0.5), and
+ * Today re-fetches on focus to show it. The movement-pattern requirement is
+ * enforced by the same builder the test drives, so an untagged set can't reach
+ * storage.
  */
 import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
@@ -32,24 +36,14 @@ import {
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
-  isEndurance,
+  resolveSurface,
   type SessionForm,
-  type SessionModality,
   type ExerciseDraft,
   type SetDraft,
   type ClimbStyle,
 } from '@/lib/session';
+import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import type { EnergySystem, MovementPattern, ObservationOf } from '@core/observation';
-
-const MODALITIES: { value: SessionModality; label: string }[] = [
-  { value: 'gym', label: 'Gym' },
-  { value: 'run', label: 'Run' },
-  { value: 'ride', label: 'Ride' },
-  { value: 'climb', label: 'Climb' },
-  { value: 'paddle', label: 'Paddle' },
-  { value: 'hike', label: 'Hike' },
-  { value: 'other', label: 'Other' },
-];
 
 const PATTERNS: ChipOption<MovementPattern>[] = [
   { value: 'upper-push', label: 'Upper push' },
@@ -84,20 +78,26 @@ const EFFORT: ChipOption<number>[] = Array.from({ length: 10 }, (_, i) => ({
 }));
 
 /**
- * A fresh form pre-set to `modality` — used when the screen opens via a deep-link
- * that already chose one (the Training tab's activity picker). Seeds the gym
- * surface with one empty exercise, mirroring pickModality, so the detail step has
+ * A fresh form pre-set to an `activity` — used when the screen opens via a
+ * deep-link that already chose one (the Training tab's activity picker, or the
+ * quick-log picker). The identity drives the surface; `modality` stays null and is
+ * resolved from the activity. Seeds the gym surface with one empty exercise and the
+ * GPS surface with the activity's default energy system, so the detail step has
  * something to fill.
  */
-function seededForm(modality: SessionModality): SessionForm {
+function seededFormForActivity(a: Activity): SessionForm {
   const base = emptySessionForm();
   return {
     ...base,
-    modality,
+    activity: a.id,
+    modality: null,
     gym:
-      modality === 'gym'
+      a.surface === 'gym'
         ? { exercises: [emptyExerciseDraft(uuidv7(), uuidv7())] }
         : base.gym,
+    endurance: a.defaultEnergySystem
+      ? { ...base.endurance, energySystem: a.defaultEnergySystem }
+      : base.endurance,
   };
 }
 
@@ -106,28 +106,28 @@ export default function LogSessionScreen() {
   const router = useRouter();
   const { weightUnit, distanceUnit } = useSettings();
   const patternMemory = useExercisePatternMemory();
-  const { editId, modality: modalityParam } = useLocalSearchParams<{
+  const { editId, activity: activityParam } = useLocalSearchParams<{
     editId?: string;
-    modality?: string;
+    activity?: string;
   }>();
   const isEdit = typeof editId === 'string' && editId.length > 0;
-  // A deep-link from the Training tab can pre-select a modality, skipping step 1.
-  // Only a modality the logger actually has a form for is honoured; anything else
-  // (e.g. swim/practice until their surfaces land) falls through to the picker.
-  const presetModality = !isEdit
-    ? MODALITIES.find((m) => m.value === modalityParam)?.value ?? null
-    : null;
+  // A deep-link from the Training tab pre-selects an activity, skipping step 1.
+  // Every registry activity has a surface (gym/gps/climbing render; swim/practice
+  // show a "coming next" stub), so a known id always resolves.
+  const presetActivity =
+    !isEdit && typeof activityParam === 'string' ? activityById(activityParam) : undefined;
 
   const [form, setForm] = useState<SessionForm>(() =>
-    presetModality ? seededForm(presetModality) : emptySessionForm()
+    presetActivity ? seededFormForActivity(presetActivity) : emptySessionForm()
   );
-  // Edit-mode or a preset skips the modality picker — the modality is already known.
-  const [step, setStep] = useState<'modality' | 'detail'>(
-    isEdit || presetModality ? 'detail' : 'modality'
+  // Edit-mode or a preset skips the activity picker — the identity is already known.
+  const [step, setStep] = useState<'activity' | 'detail'>(
+    isEdit || presetActivity ? 'detail' : 'activity'
   );
   const [original, setOriginal] = useState<ObservationOf<'session'> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false); // long tail in the activity picker
 
   // Prefill from the existing session when editing.
   useEffect(() => {
@@ -152,14 +152,18 @@ export default function LogSessionScreen() {
 
   const update = (patch: Partial<SessionForm>) => setForm((f) => ({ ...f, ...patch }));
 
-  function pickModality(modality: SessionModality) {
+  function pickActivity(a: Activity) {
     setForm((f) => ({
       ...f,
-      modality,
+      activity: a.id,
+      modality: null,
       // Seed the gym logger with one empty exercise so there's something to fill.
-      gym: modality === 'gym' && f.gym.exercises.length === 0
+      gym: a.surface === 'gym' && f.gym.exercises.length === 0
         ? { exercises: [emptyExerciseDraft(uuidv7(), uuidv7())] }
         : f.gym,
+      endurance: a.defaultEnergySystem
+        ? { ...f.endurance, energySystem: a.defaultEnergySystem }
+        : f.endurance,
     }));
     setStep('detail');
   }
@@ -289,7 +293,9 @@ export default function LogSessionScreen() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
-  if (step === 'modality') {
+  if (step === 'activity') {
+    const headline = headlineActivities();
+    const more = moreActivities();
     return (
       <Screen scroll>
         <Text variant="label" color={theme.colors.sandstone}>
@@ -306,49 +312,56 @@ export default function LogSessionScreen() {
             marginTop: theme.spacing[8],
           }}
         >
-          {MODALITIES.map((m) => (
-            <Pressable
-              key={m.value}
-              onPress={() => pickModality(m.value)}
-              accessibilityRole="button"
-              style={{
-                width: '30%',
-                aspectRatio: 1,
-                backgroundColor: theme.colors.surface,
-                borderRadius: theme.radius.md,
-                borderWidth: 1,
-                borderColor: theme.colors.border,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text variant="label" color={theme.colors.text}>
-                {m.label}
-              </Text>
-            </Pressable>
+          {headline.map((a) => (
+            <ActivityPickTile key={a.id} activity={a} onPress={() => pickActivity(a)} />
           ))}
         </View>
+        <Pressable
+          onPress={() => setShowMore((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={showMore ? 'Show fewer activities' : 'Show more activities'}
+          style={{ marginTop: theme.spacing[4] }}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            {showMore ? 'Less ▲' : 'More ▼'}
+          </Text>
+        </Pressable>
+        {showMore ? (
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: theme.spacing[3],
+              marginTop: theme.spacing[3],
+            }}
+          >
+            {more.map((a) => (
+              <ActivityPickTile key={a.id} activity={a} onPress={() => pickActivity(a)} />
+            ))}
+          </View>
+        ) : null}
         <View style={{ height: theme.spacing[8] }} />
         <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
       </Screen>
     );
   }
 
-  const modality = form.modality as SessionModality;
+  const surface = resolveSurface(form);
+  const label = form.activity ? activityById(form.activity)?.label ?? form.activity : form.modality ?? 'session';
 
   return (
     <Screen scroll>
-      <Pressable onPress={() => setStep('modality')} accessibilityRole="button">
+      <Pressable onPress={() => setStep('activity')} accessibilityRole="button">
         <Text variant="label" color={theme.colors.sandstone}>
-          ‹ {MODALITIES.find((m) => m.value === modality)?.label}
+          ‹ {label}
         </Text>
       </Pressable>
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
-        {isEdit ? `Edit ${modality}` : `Log ${modality}`}
+        {isEdit ? `Edit ${label}` : `Log ${label}`}
       </Text>
 
-      {/* Modality-dependent body */}
-      {modality === 'gym' ? (
+      {/* Surface-dependent body */}
+      {surface === 'gym' ? (
         <View style={{ marginTop: theme.spacing[6], gap: theme.spacing[3] }}>
           {form.gym.exercises.map((ex) => (
             <ExerciseEditor
@@ -366,7 +379,7 @@ export default function LogSessionScreen() {
         </View>
       ) : null}
 
-      {isEndurance(modality) ? (
+      {surface === 'gps' ? (
         <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
           <Field
             label={`Distance (${distanceUnit}, optional)`}
@@ -398,7 +411,7 @@ export default function LogSessionScreen() {
         </Card>
       ) : null}
 
-      {modality === 'climb' ? (
+      {surface === 'climbing' ? (
         <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
           <View style={{ gap: theme.spacing[2] }}>
             <Text variant="label">Style</Text>
@@ -438,6 +451,15 @@ export default function LogSessionScreen() {
             </View>
           ))}
           <Button label="+ Add send" variant="secondary" onPress={addSend} />
+        </Card>
+      ) : null}
+
+      {surface === 'swim' || surface === 'practice' ? (
+        <Card style={{ marginTop: theme.spacing[6] }}>
+          <Text variant="body" color={theme.colors.textMuted}>
+            A dedicated {label} surface is coming next. For now, record duration, effort and a
+            note below.
+          </Text>
         </Card>
       ) : null}
 
@@ -503,6 +525,32 @@ export default function LogSessionScreen() {
 }
 
 // ─── Subcomponents ─────────────────────────────────────────────────────────────
+
+/** A text tile in the step-1 activity picker (Today's quick-log path). */
+function ActivityPickTile({ activity, onPress }: { activity: Activity; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Log ${activity.label}`}
+      style={{
+        width: '30%',
+        aspectRatio: 1,
+        backgroundColor: theme.colors.surface,
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text variant="label" color={theme.colors.text}>
+        {activity.label}
+      </Text>
+    </Pressable>
+  );
+}
 
 function ExerciseEditor({
   exercise,

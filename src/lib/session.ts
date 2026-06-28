@@ -30,16 +30,13 @@ import {
   type DistanceUnit,
   type WeightUnit,
 } from './units';
+import { activityById, type Surface } from './activity';
 
-// The seven modalities the Phase-1 picker offers.
+// The legacy modality set the Today quick-log picker and older sessions use
+// directly. New sessions carry an `activity` identity instead; `resolveSurface`
+// maps either onto a logging surface.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
 export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
-
-export const ENDURANCE_MODALITIES: SessionModality[] = ['run', 'ride', 'paddle'];
-
-export function isEndurance(m: Modality): boolean {
-  return m === 'run' || m === 'ride' || m === 'paddle';
-}
 
 // ─── Form state ──────────────────────────────────────────────────────────────
 // All numeric fields are strings — raw TextInput values, parsed at build time.
@@ -67,6 +64,10 @@ export type SendDraft = {
 };
 
 export type SessionForm = {
+  // The chosen identity (registry id, e.g. 'calisthenics'). Resolves the logging
+  // surface and the engine modality. Optional: the Today quick-log picker can set
+  // `modality` directly without an identity. When both are present, `activity` wins.
+  activity?: string;
   modality: SessionModality | null;
   durationMin: string;
   perceivedEffort: number | null; // 1–10, optional
@@ -95,6 +96,59 @@ export function emptySessionForm(): SessionForm {
     climb: { style: 'gym', sends: [] },
   };
 }
+
+// ─── Surface + identity resolution ───────────────────────────────────────────
+// The body the logger shows and the block the builder writes are chosen by the
+// session's *surface*, resolved from the chosen activity (registry) or — for the
+// quick-log picker and legacy sessions that carry only a modality — from the
+// modality. The user never picks a surface; the router is invisible plumbing
+// (training-logging-spec.md, three-layer model). 'other' has no sport block.
+
+export type SessionSurface = Surface | 'other';
+
+const MODALITY_SURFACE: Record<SessionModality, SessionSurface> = {
+  gym: 'gym',
+  run: 'gps',
+  ride: 'gps',
+  paddle: 'gps',
+  hike: 'gps',
+  climb: 'climbing',
+  other: 'other',
+};
+
+/** The logging surface for a form: the activity's surface if one is chosen, else the modality's. */
+export function resolveSurface(form: Pick<SessionForm, 'activity' | 'modality'>): SessionSurface {
+  if (form.activity) {
+    const a = activityById(form.activity);
+    if (a) return a.surface;
+  }
+  return form.modality ? MODALITY_SURFACE[form.modality] : 'other';
+}
+
+/** The engine modality to store: the activity's nearest modality if chosen, else the picked one. */
+function resolveModality(form: Pick<SessionForm, 'activity' | 'modality'>): Modality {
+  if (form.activity) {
+    const a = activityById(form.activity);
+    if (a) return a.modality;
+  }
+  return (form.modality ?? 'other') as Modality;
+}
+
+/**
+ * Capture precision by surface (constitution: honest fidelity, never fabricated).
+ * Gym set-by-set logging is precise; a manually-typed GPS distance/HR is a guess
+ * without a wearable, so it drops to 0.5 (Phase 3 import will raise it). Climbing
+ * sends and the footer-only 'other' keep the prior 0.95 until their passes refine
+ * them; swim/practice are placeholders their surfaces (Pass 5/6) will tune.
+ */
+const SURFACE_FIDELITY: Record<SessionSurface, number> = {
+  gym: 0.95,
+  gps: 0.5,
+  swim: 0.5,
+  climbing: 0.95,
+  practice: 0.95,
+  other: 0.95,
+};
 
 // ─── Parsing helpers ─────────────────────────────────────────────────────────
 
@@ -128,12 +182,12 @@ function sendFilled(s: SendDraft): boolean {
  * buildSessionObservation() re-checks it so the rule holds at the data layer too.
  */
 export function validateSessionForm(form: SessionForm): string | null {
-  if (form.modality === null) return 'Pick a modality.';
+  if (form.activity == null && form.modality === null) return 'Pick an activity.';
 
   const duration = num(form.durationMin);
   if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
 
-  if (form.modality === 'gym') {
+  if (resolveSurface(form) === 'gym') {
     const active = form.gym.exercises.filter(isExerciseActive);
     if (active.length === 0) return 'Add an exercise with at least one set.';
 
@@ -194,19 +248,21 @@ export function buildSessionObservation(
   const reason = validateSessionForm(form);
   if (reason) throw new Error(reason);
 
-  const modality = form.modality as SessionModality; // non-null after validation
+  const surface = resolveSurface(form);
+  const modality = resolveModality(form);
   const durationMin = Number(form.durationMin);
 
   const payload: SessionPayload = {
     kind: 'session',
     modality,
+    ...(form.activity ? { activity: form.activity } : {}),
     durationMin,
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
   };
 
-  if (modality === 'gym') {
+  if (surface === 'gym') {
     payload.lifting = buildLifting(form.gym.exercises, ctx.weightUnit);
-  } else if (isEndurance(modality)) {
+  } else if (surface === 'gps') {
     const distance = num(form.endurance.distance);
     const avgHr = num(form.endurance.avgHr);
     payload.endurance = {
@@ -216,7 +272,7 @@ export function buildSessionObservation(
         : {}),
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
     };
-  } else if (modality === 'climb') {
+  } else if (surface === 'climbing') {
     payload.climbing = {
       style: form.climb.style,
       sends: form.climb.sends.filter(sendFilled).map((s) => ({
@@ -226,7 +282,7 @@ export function buildSessionObservation(
       })),
     };
   }
-  // hike / other: duration + effort + notes only — no sport block.
+  // swim → Pass 5, practice → Pass 6, 'other' → duration + effort + notes only (no block).
 
   return {
     id: ctx.id,
@@ -235,7 +291,7 @@ export function buildSessionObservation(
     loggedAt: ctx.now,
     tz: ctx.tz,
     tier: 1,
-    fidelity: 0.95, // manual logging is high fidelity but not perfect (mis-entry).
+    fidelity: SURFACE_FIDELITY[surface],
     source: { type: 'manual' },
     payload,
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
@@ -283,18 +339,20 @@ export function sessionFormFromObservation(
   idFactory: () => string
 ): SessionForm {
   const p = obs.payload;
-  const modality = normalizeModality(p.modality);
   const base = emptySessionForm();
 
   const form: SessionForm = {
     ...base,
-    modality,
+    ...(p.activity ? { activity: p.activity } : {}),
+    modality: normalizeModality(p.modality),
     durationMin: numStr(p.durationMin, 1),
     perceivedEffort: p.perceivedEffort ?? null,
     notes: obs.notes ?? '',
   };
 
-  if (modality === 'gym' && p.lifting) {
+  // Rebuild from whichever block is populated (not the coarse modality) so an
+  // identity that normalises to 'other' (Surf, Wingfoil) still restores its body.
+  if (p.lifting) {
     // Group flat sets back under their exercise (name + pattern). Same name
     // logged with different patterns becomes two groups, preserving order.
     const groups: ExerciseDraft[] = [];
@@ -323,7 +381,7 @@ export function sessionFormFromObservation(
     form.gym = { exercises: groups };
   }
 
-  if (isEndurance(modality) && p.endurance) {
+  if (p.endurance) {
     form.endurance = {
       distance:
         p.endurance.distanceM != null
@@ -334,7 +392,7 @@ export function sessionFormFromObservation(
     };
   }
 
-  if (modality === 'climb' && p.climbing) {
+  if (p.climbing) {
     form.climb = {
       style: p.climbing.style as ClimbStyle,
       sends: p.climbing.sends.map((s) => ({

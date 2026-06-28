@@ -125,19 +125,15 @@ export function computeWeeklyStimulus(
  */
 export function reveal(session: ObservationOf<'session'>): string {
   const p = session.payload;
-  switch (p.modality) {
-    case 'gym':
-      return revealLifting(session);
-    case 'run':
-    case 'ride':
-    case 'paddle':
-    case 'swim':
-      return revealEndurance(session);
-    case 'climb':
-      return revealClimbing(session);
-    default:
-      return durationLine(session);
-  }
+  // Follow the populated sport block, not the coarse modality. This lets every
+  // identity that shares a surface read correctly — a Hike or Surf (GPS surface)
+  // reveals its distance like a Run — and keeps the line honest when there's no
+  // block to speak from. The fallback durationLine prefers the activity identity
+  // over the modality (e.g. "wingfoil · 40 min", not "other · 40 min").
+  if (p.lifting) return revealLifting(session);
+  if (p.endurance) return revealEndurance(session);
+  if (p.climbing) return revealClimbing(session);
+  return durationLine(session);
 }
 
 // ─── Per-modality reveals ────────────────────────────────────────────────────
@@ -200,7 +196,11 @@ function revealClimbing(session: ObservationOf<'session'>): string {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function durationLine(session: ObservationOf<'session'>): string {
-  return `${session.payload.modality} · ${formatMinutes(session.payload.durationMin)}`;
+  const p = session.payload;
+  // Prefer the chosen identity over the coarse engine modality — it's the more
+  // specific, honest label (e.g. "wingfoil" rather than "other").
+  const label = p.activity ?? p.modality;
+  return `${label} · ${formatMinutes(p.durationMin)}`;
 }
 
 function formatMinutes(min: number): string {

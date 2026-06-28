@@ -74,10 +74,10 @@ export default function TrainingScreen() {
   );
 
   function logActivity(a: Activity) {
-    // Pass 1 routing: hand the logger the engine modality. It seeds the matching
-    // form when it recognises one; surfaces without a form yet (swim, practice)
-    // fall back to the logger's own picker. Identity-on-the-record lands in Pass 2.
-    router.push({ pathname: '/log-session', params: { modality: a.modality } });
+    // Hand the logger the chosen identity; it resolves the surface from the registry
+    // and stores the activity on the session. Swim/practice open a "coming next"
+    // stub (still a duration log) until their surfaces land (Passes 5–6).
+    router.push({ pathname: '/log-session', params: { activity: a.id } });
   }
 
   const headline = headlineActivities();
