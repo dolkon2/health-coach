@@ -60,6 +60,10 @@ function ThemedStack() {
         name="log-session"
         options={{ title: 'Log session', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="log-food"
+        options={{ title: 'Log food', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

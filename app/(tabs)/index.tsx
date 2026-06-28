@@ -38,6 +38,18 @@ export default function TodayScreen() {
         <Button label="Log weigh-in" onPress={() => router.push('/log-weigh-in')} />
       </Card>
 
+      {/* Food */}
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Food</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          No food logged today.
+        </Text>
+        <Button
+          label="Log food"
+          onPress={() => router.push('/log-food')}
+        />
+      </Card>
+
       {/* Sessions */}
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Today's sessions</Text>
