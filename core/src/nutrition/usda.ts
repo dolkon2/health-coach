@@ -48,6 +48,14 @@ const NUTRIENT_ID: Record<MacroKey, number> = {
   alcoholG: 1018,
 };
 
+// Foundation foods routinely OMIT the direct "Energy" (208/1008) and report only
+// Atwater energy — General (957/2047) and/or Specific (958/2048), both in kcal.
+// Without a fallback their calories read as null (quirk 22), and Task-3 ranking now
+// floats Foundation to the top, so this is the common path. Prefer the direct value,
+// then Atwater General (matches USDA's own headline), then Specific.
+const ENERGY_NUMBERS = ['208', '957', '958'];
+const ENERGY_IDS = [1008, 2047, 2048];
+
 // USDA labelNutrients keys for the Branded path.
 const LABEL_KEY: Record<MacroKey, string | null> = {
   kcal: 'calories',
@@ -78,6 +86,14 @@ function per100gPerGram(raw: UsdaFoodResponse): PerGramMacros {
     if (typeof fn.nutrient?.id === 'number') byId.set(fn.nutrient.id, fn.amount);
   }
   const perGram = (k: MacroKey): number | null => {
+    if (k === 'kcal') {
+      // Try direct Energy, then Atwater General, then Specific — first one present wins.
+      for (let i = 0; i < ENERGY_NUMBERS.length; i += 1) {
+        const per100 = byNumber.get(ENERGY_NUMBERS[i]) ?? byId.get(ENERGY_IDS[i]);
+        if (per100 != null) return per100 / 100;
+      }
+      return null;
+    }
     const per100 = byNumber.get(NUTRIENT_NUMBER[k]) ?? byId.get(NUTRIENT_ID[k]);
     return per100 == null ? null : per100 / 100;
   };
