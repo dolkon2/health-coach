@@ -75,8 +75,38 @@ tab is solid + sim-verified.
   `app/(tabs)/_layout`; slim Today's food to the glance (total + compact meal list +
   Log food); build the tab's day view (meals + per-item breakdown + **inline per-item
   delete** + tap-to-edit). Saved-meals management folds in here or a small follow-up.
-- **Pass 2 — History.** Past local days, per-day totals, tap-through to a day's detail.
-  New query (observations by day window, grouped); reuses the day-view rendering.
+- **Pass 2 — History.** Week strip + tap-into-a-past-day. Per-day totals, full
+  per-meal breakdown, edit + per-item delete still work on past days. New query
+  (food entries grouped by local day for a date range); reuses the Pass 1
+  day-view rendering.
+
+  Locked decisions for Pass 2 (Dylan, 2026-06-28, after reviewing MacroFactor):
+
+  1. **Layout: Option C (hybrid).** "Nutrition" stays as the tab identifier.
+     Below it: a `‹ [selected-day label] ›` row with prev/next arrows and a
+     "Today" badge when the selected day *is* today. Below that: the week
+     strip (oval cells, big date + small weekday letter, dot under any day
+     food was logged, filled outline on the selected cell). Below that: the
+     existing Pass 1 daily-total card + meal list, unchanged structurally.
+  2. **Navigation: in-tab local state.** Selecting a past day does NOT push a
+     stack screen; the tab's content swaps below the persistent strip + nav.
+     Mirrors MacroFactor and keeps the strip/nav anchored. Costs accepted:
+     no deep-linkable URL, no iOS back-gesture (covered by the `‹` arrow,
+     tapping today's cell, or tapping the date label to jump to today).
+  3. **Gutter upgrade.** Pass 1's 56px text gutter gains a thin vertical line
+     with the hour-of-day rendered in a rounded pill anchored on the line —
+     a small visual upgrade that makes the time read as an anchor, not a
+     label. Pure presentation; no behavior change.
+  4. **Week scroll-back.** Horizontal swipe on the strip pages back/forward
+     one week at a time. A subtle leading-edge chevron `‹` hints at
+     discoverability. Tapping a date label or the today-cell jumps back to
+     today.
+  5. **Past-day affordances.** Edit, per-item delete, swipe-to-delete all
+     work the same as today. The "Log food" button is hidden on past days —
+     logging always goes to the present (existing `/log-food` covers any
+     "I forgot to log yesterday" case via the date control inside the
+     logger). No fake zeros on empty past days — the empty card replaces
+     the totals card just as it does on Today.
 - **Pass 3 — Energy balance.** Wire `estimateExpenditure` to real day-keyed intake +
   weigh-ins; render intake vs. expenditure with the error band + confidence. The 2.6
   engine's first UI surface.
