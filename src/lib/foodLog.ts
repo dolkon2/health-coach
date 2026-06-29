@@ -244,6 +244,36 @@ export function buildMealLog(input: FoodLogInput, ctx: FoodBuildContext): Observ
   };
 }
 
+/**
+ * Drop one item from a meal payload and re-roll the macros. Returns `null` when
+ * `index` points at the meal's last remaining item — the caller deletes the whole
+ * observation in that case (a meal with zero foods is not a thing). The new
+ * payload re-rolls via the same `rollupMacros` rule the builder uses: a macro
+ * stays `null` if any remaining item is missing it (null ≠ 0, never inferred).
+ * Pure; the caller re-blends fidelity on the observation envelope.
+ */
+export function removeItemFromMeal(
+  payload: FoodEntryPayload,
+  index: number
+): FoodEntryPayload | null {
+  if (index < 0 || index >= payload.items.length) {
+    throw new Error(`removeItemFromMeal: index ${index} out of range`);
+  }
+  if (payload.items.length === 1) return null;
+  const items = payload.items.filter((_, i) => i !== index);
+  const roll = rollupMacros(items);
+  return {
+    ...payload,
+    items,
+    kcal: roll.kcal,
+    proteinG: roll.proteinG,
+    carbsG: roll.carbsG,
+    fatG: roll.fatG,
+    ...(roll.fiberG != null ? { fiberG: roll.fiberG } : {}),
+    ...(roll.alcoholG != null ? { alcoholG: roll.alcoholG } : {}),
+  };
+}
+
 /** A readable label for a meal built from its items' names — the unique item
  *  descriptions joined ("Cheddar cheese, Crackers"), or '' when no item carries a
  *  name (legacy items, or a source that returned none). Display-only. */

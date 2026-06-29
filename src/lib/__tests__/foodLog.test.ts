@@ -23,6 +23,7 @@ import {
   scaleMacros,
   heroNumber,
   fidelityTreatment,
+  removeItemFromMeal,
   type FoodLogInput,
 } from '@/lib/foodLog';
 
@@ -268,5 +269,61 @@ describe('mealItemsLabel + named templates (readable saved meals)', () => {
 
     const unnamed = mealTemplateFrom([foodItem()], { id: 't3', now: CTX.now });
     expect(unnamed).not.toHaveProperty('name');
+  });
+});
+
+describe('removeItemFromMeal (per-item delete in the Nutrition tab)', () => {
+  function payloadOf(items: FoodItem[], over: Partial<FoodEntryPayload> = {}): FoodEntryPayload {
+    const input: FoodLogInput = { description: 'Snack plate', items, inputMethod: 'weighed' };
+    return { ...buildMealLog(input, CTX).payload, ...over };
+  }
+
+  it('removes the item at index and re-rolls the macros', () => {
+    const a = foodItem({ kcal: 200, proteinG: 20, carbsG: 10, fatG: 5, description: 'A' });
+    const b = foodItem({ kcal: 100, proteinG: 5, carbsG: 30, fatG: 2, description: 'B' });
+    const c = foodItem({ kcal: 50, proteinG: 3, carbsG: 0, fatG: 1, description: 'C' });
+    const next = removeItemFromMeal(payloadOf([a, b, c]), 1);
+    expect(next).not.toBeNull();
+    expect(next!.items.map((i) => i.description)).toEqual(['A', 'C']);
+    expect(next!.kcal).toBe(250);
+    expect(next!.proteinG).toBe(23);
+    expect(next!.carbsG).toBe(10);
+    expect(next!.fatG).toBe(6);
+  });
+
+  it('returns null when removing the meal\'s last remaining item', () => {
+    const only = foodItem({ description: 'Solo' });
+    expect(removeItemFromMeal(payloadOf([only]), 0)).toBeNull();
+  });
+
+  it('preserves description, servings, inputMethod, fidelityCeiling, and templateId', () => {
+    const original = payloadOf([foodItem(), foodItem()], {
+      description: 'Lunch',
+      servings: 2,
+      templateId: 'tpl-1',
+    });
+    const next = removeItemFromMeal(original, 0)!;
+    expect(next.description).toBe('Lunch');
+    expect(next.servings).toBe(2);
+    expect(next.inputMethod).toBe('weighed');
+    expect(next.fidelityCeiling).toBe(original.fidelityCeiling);
+    expect(next.templateId).toBe('tpl-1');
+  });
+
+  it('keeps a remaining-item null macro honest — the total is null, never 0', () => {
+    const a = foodItem({ kcal: 200, proteinG: 20, carbsG: 10, fatG: 5 });
+    const partial = foodItem({ kcal: null, proteinG: 12, carbsG: null, fatG: null });
+    const fully = foodItem({ kcal: 80, proteinG: 4, carbsG: 1, fatG: 2 });
+    // drop the fully-known item → the rolled total inherits the partial item's nulls
+    const next = removeItemFromMeal(payloadOf([a, partial, fully]), 2)!;
+    expect(next.kcal).toBeNull();
+    expect(next.carbsG).toBeNull();
+    expect(next.fatG).toBeNull();
+    expect(next.proteinG).toBe(32);
+  });
+
+  it('throws on an out-of-range index', () => {
+    expect(() => removeItemFromMeal(payloadOf([foodItem(), foodItem()]), 5)).toThrow(/out of range/);
+    expect(() => removeItemFromMeal(payloadOf([foodItem()]), -1)).toThrow(/out of range/);
   });
 });
