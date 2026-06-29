@@ -97,7 +97,7 @@ export default function NutritionScreen() {
         Nutrition
       </Text>
 
-      <View style={{ marginTop: theme.spacing[4] }}>
+      <View style={{ marginTop: theme.spacing[2] }}>
         <DayNavHeader
           selectedDate={selectedDate}
           today={today}
@@ -105,6 +105,8 @@ export default function NutritionScreen() {
           onNext={nextDay}
           onJumpToToday={jumpToToday}
         />
+      </View>
+      <View style={{ marginTop: theme.spacing[3] }}>
         <WeekStrip
           selectedDate={selectedDate}
           weekContaining={weekContaining}

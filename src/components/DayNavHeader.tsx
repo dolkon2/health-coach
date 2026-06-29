@@ -40,17 +40,16 @@ export function DayNavHeader({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: theme.spacing[4],
-        paddingVertical: theme.spacing[2],
+        gap: theme.spacing[3],
       }}
     >
       <Pressable
         onPress={onPrev}
-        hitSlop={10}
+        hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel="Previous day"
       >
-        <ChevronLeft size={22} color={theme.colors.textSecondary} strokeWidth={1.5} />
+        <ChevronLeft size={28} color={theme.colors.textSecondary} strokeWidth={1.5} />
       </Pressable>
       <Pressable
         onPress={isToday ? undefined : onJumpToToday}
@@ -59,15 +58,15 @@ export function DayNavHeader({
         accessibilityLabel={isToday ? undefined : 'Jump to today'}
         hitSlop={6}
       >
-        <Text variant="body">{label}</Text>
+        <Text variant="displayLg">{label}</Text>
       </Pressable>
       <Pressable
         onPress={onNext}
-        hitSlop={10}
+        hitSlop={12}
         accessibilityRole="button"
         accessibilityLabel="Next day"
       >
-        <ChevronRight size={22} color={theme.colors.textSecondary} strokeWidth={1.5} />
+        <ChevronRight size={28} color={theme.colors.textSecondary} strokeWidth={1.5} />
       </Pressable>
     </View>
   );
