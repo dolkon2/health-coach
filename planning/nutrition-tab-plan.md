@@ -107,6 +107,12 @@ tab is solid + sim-verified.
      "I forgot to log yesterday" case via the date control inside the
      logger). No fake zeros on empty past days — the empty card replaces
      the totals card just as it does on Today.
+- **Pass 2.5 — Logger date-picker.** "When?" control inside the logger so meals
+  can be logged onto past days (backfill) or future days (meal planning). Reads
+  a `?date=YYYY-MM-DD` route param the Nutrition tab passes when the user taps
+  "Log food" from a non-today day; defaults to noon of that day. iOS native
+  compact picker; Android falls through to a tap-to-show pattern. Today's
+  button still records modal-open time (no param → no default).
 - **Pass 3 — Energy balance.** Wire `estimateExpenditure` to real day-keyed intake +
   weigh-ins; render intake vs. expenditure with the error band + confidence. The 2.6
   engine's first UI surface.

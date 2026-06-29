@@ -36,7 +36,8 @@
           "NSHealthShareUsageDescription": "This app reads your steps, sleep, and workouts so your timeline reflects what actually happened. Your data is never written back or shared.",
           "background": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

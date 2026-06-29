@@ -8,6 +8,7 @@
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/config-plugins": "~10.1.1",
     "@kingstinct/react-native-healthkit": "^14.0.2",
+    "@react-native-community/datetimepicker": "8.4.1",
     "expo": "^53.0.0",
     "expo-constants": "~17.1.8",
     "expo-crypto": "~14.1.5",

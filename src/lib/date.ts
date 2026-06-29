@@ -76,6 +76,18 @@ export function dayOfMonth(date: LocalDate): number {
   return Number(date.split('-')[2]);
 }
 
+/**
+ * The ISO instant for 12:00 PM on `date` in the device's local zone — the
+ * default `occurredAt` Pass 2.5 uses when the user opens the logger from a
+ * non-today day in the Nutrition tab. Noon avoids DST edge-case ambiguity
+ * (spring-forward in some zones skips 02:00; fall-back doubles up 01:00 —
+ * neither happens at 12:00) and reads as "midday, you can adjust if needed."
+ */
+export function noonOfLocalDate(date: LocalDate): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0).toISOString();
+}
+
 /** e.g. "2026" */
 export function yearLabel(d: Date = new Date()): string {
   return String(d.getFullYear());

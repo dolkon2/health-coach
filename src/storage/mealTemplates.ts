@@ -65,6 +65,14 @@ export async function getMealTemplateById(
   return row ? rowToMealTemplate(row) : null;
 }
 
+export async function deleteMealTemplate(
+  id: string,
+  db?: SqlDatabase
+): Promise<void> {
+  const d = db ?? (await getDb());
+  await d.runAsync(`DELETE FROM meal_templates WHERE id = ?;`, [id]);
+}
+
 export async function listMealTemplates(db?: SqlDatabase): Promise<MealTemplate[]> {
   const d = db ?? (await getDb());
   const rows = await d.getAllAsync<MealTemplateRow>(

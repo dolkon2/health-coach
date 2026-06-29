@@ -13,6 +13,7 @@ import type {
   Observation,
   ObservationId,
   ObservationKind,
+  FoodItem,
   ISOInstant,
 } from '@core/observation';
 import { getDb, type SqlDatabase, type SqlParam } from './db';
@@ -168,4 +169,44 @@ export async function updateObservation(
     ]
   );
   return merged;
+}
+
+export interface RecentFoodItem {
+  item: FoodItem;
+  lastLoggedAt: string;
+}
+
+/**
+ * Extracts distinct food items from recent foodEntry observations whose
+ * description matches the search term. Deduplicates by foodId, keeping
+ * only the most-recent occurrence of each.
+ */
+export async function getRecentFoodItems(
+  searchTerm: string,
+  db?: SqlDatabase
+): Promise<RecentFoodItem[]> {
+  const d = db ?? (await getDb());
+  const rows = await d.getAllAsync<{ payload: string; occurredAt: string }>(
+    `SELECT payload, occurredAt FROM observations
+     WHERE kind = 'foodEntry'
+       AND id NOT IN (SELECT supersedes FROM observations WHERE supersedes IS NOT NULL)
+     ORDER BY occurredAt DESC
+     LIMIT 100;`,
+    []
+  );
+
+  const term = searchTerm.toLowerCase();
+  const seen = new Map<string, RecentFoodItem>();
+
+  for (const row of rows) {
+    const payload = JSON.parse(row.payload) as { items?: FoodItem[] };
+    if (!payload.items) continue;
+    for (const item of payload.items) {
+      if (!item.description || !item.description.toLowerCase().includes(term)) continue;
+      if (seen.has(item.foodId)) continue;
+      seen.set(item.foodId, { item, lastLoggedAt: row.occurredAt });
+    }
+  }
+
+  return Array.from(seen.values());
 }

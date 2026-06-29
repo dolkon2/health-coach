@@ -27,8 +27,8 @@ import {
   type MacroRollup,
 } from '@/lib/foodLog';
 import type { MealTemplate } from '@core/observation';
-import { createObservation, getObservationById, updateObservation } from '@/storage/observations';
-import { createMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
+import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
+import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
 import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
 import { USDA_API_KEY } from '@/lib/config';
@@ -40,7 +40,7 @@ export interface FoodLogPreview {
   fidelity: number; // composite — drives the visual treatment only, never shown as a number
 }
 
-export function useFoodLog(editId?: string) {
+export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   const isEdit = typeof editId === 'string' && editId.length > 0;
   const [original, setOriginal] = useState<ObservationOf<'foodEntry'> | null>(null);
   const [mode, setMode] = useState<FoodLogMode>('weigh');
@@ -48,12 +48,22 @@ export function useFoodLog(editId?: string) {
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [items, setItems] = useState<FoodItem[]>([]);
+  const [recents, setRecents] = useState<RecentFoodItem[]>([]);
   const [selectedBasis, setSelectedBasis] = useState<FoodItem | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMeals, setSavedMeals] = useState<MealTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  // When the meal was/will be eaten. Three sources of truth, in priority order:
+  //   1. Picker — the user changes it (setOccurredAt below).
+  //   2. defaultOccurredAt — caller passes one (Nutrition tab → noon of the
+  //      selected past/future day).
+  //   3. Modal open time — falls through to "now" when neither above applies.
+  // In edit mode the original meal's occurredAt overrides on hydrate.
+  const [occurredAt, setOccurredAt] = useState<string>(
+    () => defaultOccurredAt ?? new Date().toISOString()
+  );
 
   const refreshSavedMeals = useCallback(async () => {
     try {
@@ -79,6 +89,7 @@ export function useFoodLog(editId?: string) {
         setDescription(m.payload.description);
         setMode(m.payload.inputMethod === 'described' ? 'describe' : 'weigh');
         setTemplateId(m.payload.templateId ?? null);
+        setOccurredAt(m.occurredAt);
       })
       .catch(() => setError('Could not load meal.'));
     return () => {
@@ -96,9 +107,12 @@ export function useFoodLog(editId?: string) {
   useEffect(() => {
     if (mode !== 'weigh') return;
     const q = query.trim();
-    if (!q) { setCandidates([]); setSearching(false); return; }
+    if (!q) { setCandidates([]); setRecents([]); setSearching(false); return; }
     setSearching(true);
     runSearch(q);
+    let cancelled = false;
+    getRecentFoodItems(q).then((r) => { if (!cancelled) setRecents(r); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [query, mode, runSearch]);
 
   /** Pre-fetch a candidate's macros (at 100 g) when it's selected, so the amount
@@ -114,6 +128,16 @@ export function useFoodLog(editId?: string) {
       setSelectedBasis(basis);
     },
     [deps]
+  );
+
+  const addRecent = useCallback(
+    (item: FoodItem) => {
+      setItems((xs) => [...xs, item]);
+      setQuery('');
+      setCandidates([]);
+      setRecents([]);
+    },
+    []
   );
 
   const addWeighed = useCallback(
@@ -195,17 +219,23 @@ export function useFoodLog(editId?: string) {
       ...(templateId ? { templateId } : {}),
     };
     if (isEdit && original) {
-      // Rebuild macros + fidelity from the edited items, but keep the meal's
-      // identity and when it was eaten (id, occurredAt, tz, loggedAt).
-      const obs = buildMealLog(input, { id: original.id, now: original.occurredAt, tz: original.tz });
+      // Rebuild macros + fidelity from the edited items. Identity (id, tz,
+      // loggedAt) carries from the original; occurredAt may have been
+      // changed via the picker, so it comes from state.
+      const obs = buildMealLog(input, { id: original.id, now: occurredAt, tz: original.tz });
       await updateObservation({ ...obs, loggedAt: original.loggedAt });
     } else {
-      const obs = buildMealLog(input, { id: uuidv7(), now: new Date().toISOString(), tz: deviceTz() });
+      const obs = buildMealLog(input, { id: uuidv7(), now: occurredAt, tz: deviceTz() });
       await createObservation(obs);
     }
     reset();
     return true;
-  }, [items, description, mode, templateId, isEdit, original, reset]);
+  }, [items, description, mode, templateId, isEdit, original, occurredAt, reset]);
+
+  const deleteSavedMeal = useCallback(async (id: string): Promise<void> => {
+    await deleteMealTemplate(id);
+    void refreshSavedMeals();
+  }, [refreshSavedMeals]);
 
   const saveMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
@@ -222,10 +252,11 @@ export function useFoodLog(editId?: string) {
 
   return {
     mode, setMode,
-    query, setQuery, candidates, searching,
-    items, description, setDescription, addWeighed, addDescribed, removeItem,
+    query, setQuery, candidates, recents, searching,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, removeItem,
     selectedBasis, selectFood,
-    savedMeals, loadSavedMeal,
+    savedMeals, loadSavedMeal, deleteSavedMeal,
+    occurredAt, setOccurredAt,
     logMeal, saveMeal, reset, preview, busy, error,
     isEdit,
   };
