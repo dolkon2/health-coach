@@ -12,7 +12,14 @@ import { join } from 'path';
 import { makeTestDb } from '@/storage/__tests__/sqliteTestDb';
 import { runMigrations, type SqlDatabase } from '@/storage/db';
 import { getCachedFood } from '@/storage/foodCache';
-import { searchFoods, getUsdaFood, getFoodByBarcode, debounce, usdaDataTypeRank } from '@/lib/foodSearch';
+import {
+  searchFoods,
+  getUsdaFood,
+  getFoodByBarcode,
+  debounce,
+  usdaDataTypeRank,
+  usdaSearchScore,
+} from '@/lib/foodSearch';
 
 const FX = join(__dirname, '..', '..', '..', 'core', 'src', 'nutrition', '__fixtures__');
 function load<T>(name: string): T {
@@ -45,19 +52,46 @@ describe('searchFoods', () => {
     expect(out[0].brand).toBe('Grafton Village Cheese Co, LLC');
   });
 
-  it('floats clean generic (Foundation/SR Legacy) above noisy Branded, keeping USDA order within a tier', async () => {
-    // USDA relevance puts two branded packs first; the clean lab entries come later.
+  it('demotes disqualifier entries: "bacon" surfaces real bacon over "Bacon, meatless"', async () => {
+    // Real-shape USDA page: FNDDS "Bacon, meatless" is what USDA ranks first;
+    // the new composite score pushes it to the bottom and floats plain pork bacon.
+    const fetchImpl = jsonFetch(load('usda-search-bacon.json'));
+    const out = await searchFoods('bacon', { fetchImpl: asFetch(fetchImpl), db });
+    expect(out[0].description).toBe('Bacon, cured, pan-fried'); // SR Legacy, plain pork
+    expect(out.map((c) => c.description)).toEqual([
+      'Bacon, cured, pan-fried',
+      'Bacon and beef sticks',
+      'BACON',
+      'Turkey bacon, cooked',
+      'Bacon, meatless',
+      'Bacon bits, meatless',
+    ]);
+  });
+
+  it('data-type rank breaks ties when relevance scores are equal', async () => {
+    // Both descriptions match equally — only the data-type rank differs, so the
+    // lab-measured SR Legacy entry wins over the Branded pack.
     const body = {
       foods: [
-        { fdcId: 1, dataType: 'Branded', description: 'CHEDDAR CHEESE', brandOwner: 'Brand A' },
-        { fdcId: 2, dataType: 'Branded', description: 'Sharp Cheddar', brandOwner: 'Brand B' },
-        { fdcId: 3, dataType: 'SR Legacy', description: 'Cheese, cheddar' },
-        { fdcId: 4, dataType: 'Foundation', description: 'Cheese, cheddar (Foundation)' },
+        { fdcId: 1, dataType: 'Branded', description: 'Cheddar cheese', brandOwner: 'Brand A' },
+        { fdcId: 2, dataType: 'SR Legacy', description: 'Cheddar cheese' },
       ],
     };
     const out = await searchFoods('cheddar', { fetchImpl: asFetch(jsonFetch(body)), db });
-    // Foundation (4) then SR Legacy (3) rise to the top; the two Branded keep order.
-    expect(out.map((c) => c.foodId)).toEqual(['4', '3', '1', '2']);
+    expect(out.map((c) => c.foodId)).toEqual(['2', '1']);
+  });
+
+  it('preserves USDA relevance order within a fully-tied tier', async () => {
+    // All entries score identically — stable sort keeps USDA's own order.
+    const body = {
+      foods: [
+        { fdcId: 1, dataType: 'Branded', description: 'CHEDDAR CHEESE', brandOwner: 'Brand A' },
+        { fdcId: 2, dataType: 'Branded', description: 'CHEDDAR CHEESE', brandOwner: 'Brand B' },
+        { fdcId: 3, dataType: 'Branded', description: 'CHEDDAR CHEESE', brandOwner: 'Brand C' },
+      ],
+    };
+    const out = await searchFoods('cheddar', { fetchImpl: asFetch(jsonFetch(body)), db });
+    expect(out.map((c) => c.foodId)).toEqual(['1', '2', '3']);
   });
 
   it('returns an empty list for a blank query without touching the network', async () => {
@@ -127,5 +161,28 @@ describe('usdaDataTypeRank', () => {
     expect(usdaDataTypeRank('SR Legacy')).toBeLessThan(usdaDataTypeRank('Survey (FNDDS)'));
     expect(usdaDataTypeRank('Survey (FNDDS)')).toBeLessThan(usdaDataTypeRank('Branded'));
     expect(usdaDataTypeRank('Branded')).toBeLessThan(usdaDataTypeRank(undefined));
+  });
+});
+
+describe('usdaSearchScore', () => {
+  it('rewards prefix and first-token matches', () => {
+    const a = usdaSearchScore('bacon', { description: 'Bacon, cured, pan-fried', dataType: 'SR Legacy' });
+    const b = usdaSearchScore('bacon', { description: 'Turkey bacon, cooked', dataType: 'SR Legacy' });
+    expect(a).toBeGreaterThan(b);
+  });
+
+  it('penalizes disqualifier words the user did not type', () => {
+    const plain = usdaSearchScore('bacon', { description: 'Bacon, cured', dataType: 'Survey (FNDDS)' });
+    const meatless = usdaSearchScore('bacon', { description: 'Bacon, meatless', dataType: 'Survey (FNDDS)' });
+    expect(plain).toBeGreaterThan(meatless);
+  });
+
+  it('does not penalize a disqualifier the user explicitly typed', () => {
+    const meatless = usdaSearchScore('meatless bacon', {
+      description: 'Bacon, meatless',
+      dataType: 'Survey (FNDDS)',
+    });
+    const plain = usdaSearchScore('meatless bacon', { description: 'Bacon, cured', dataType: 'Survey (FNDDS)' });
+    expect(meatless).toBeGreaterThan(plain);
   });
 });

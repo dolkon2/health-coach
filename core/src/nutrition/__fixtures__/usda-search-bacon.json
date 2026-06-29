@@ -1,0 +1,63 @@
+{
+  "totalHits": 1234,
+  "currentPage": 1,
+  "totalPages": 50,
+  "foodSearchCriteria": {
+    "query": "bacon",
+    "generalSearchInput": "bacon",
+    "pageNumber": 1,
+    "numberOfResultsPerPage": 25,
+    "pageSize": 25,
+    "requireAllWords": false
+  },
+  "foods": [
+    {
+      "fdcId": 901001,
+      "description": "Bacon, meatless",
+      "dataType": "Survey (FNDDS)",
+      "publishedDate": "2022-10-28",
+      "foodCode": "27315010",
+      "score": 950.0
+    },
+    {
+      "fdcId": 901002,
+      "description": "Bacon and beef sticks",
+      "dataType": "Survey (FNDDS)",
+      "publishedDate": "2022-10-28",
+      "foodCode": "25210050",
+      "score": 920.0
+    },
+    {
+      "fdcId": 901003,
+      "description": "Bacon bits, meatless",
+      "dataType": "Survey (FNDDS)",
+      "publishedDate": "2022-10-28",
+      "foodCode": "27315011",
+      "score": 900.0
+    },
+    {
+      "fdcId": 901004,
+      "description": "Turkey bacon, cooked",
+      "dataType": "SR Legacy",
+      "publishedDate": "2019-04-01",
+      "score": 880.0
+    },
+    {
+      "fdcId": 901005,
+      "description": "Bacon, cured, pan-fried",
+      "dataType": "SR Legacy",
+      "publishedDate": "2019-04-01",
+      "score": 870.0
+    },
+    {
+      "fdcId": 901006,
+      "description": "BACON",
+      "dataType": "Branded",
+      "gtinUpc": "012345678901",
+      "brandOwner": "Acme Pork Co",
+      "brandName": "ACME",
+      "publishedDate": "2021-10-28",
+      "score": 860.0
+    }
+  ]
+}
