@@ -28,7 +28,7 @@ import {
 } from '@/lib/foodLog';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation } from '@/storage/observations';
-import { createMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
+import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
 import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
 import { USDA_API_KEY } from '@/lib/config';
@@ -218,6 +218,11 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     return true;
   }, [items, description, mode, templateId, isEdit, original, occurredAt, reset]);
 
+  const deleteSavedMeal = useCallback(async (id: string): Promise<void> => {
+    await deleteMealTemplate(id);
+    void refreshSavedMeals();
+  }, [refreshSavedMeals]);
+
   const saveMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
     const id = uuidv7();
@@ -236,7 +241,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     query, setQuery, candidates, searching,
     items, description, setDescription, addWeighed, addDescribed, removeItem,
     selectedBasis, selectFood,
-    savedMeals, loadSavedMeal,
+    savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,
     logMeal, saveMeal, reset, preview, busy, error,
     isEdit,
