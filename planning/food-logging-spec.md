@@ -31,6 +31,8 @@ This is a self-funded side project with no business entity. The data layer is bu
 
 **Provenance → fidelity mapping** (defaults; see below): USDA lookup \+ weighed \= high · OFF barcode \= medium-high · photo \= low · described \= variable.
 
+**Adjacent rule — input parsing is not part of the data layer.** The free-only constraint above governs food *databases* (USDA, OFF, the deferred FatSecret). Tooling that *parses input* — regex parsers, NLP/LLM extractors, voice transcription — is a different category and is **not** subject to the data-layer rule. An LLM call that turns "two slices of pizza with mushrooms" into structured `{food, quantity, unit}` candidates is permitted; the extracted candidates still flow through the free food-database layer for resolution. Honesty binds across the boundary: a quantity the model can't see stays `null`, never invented; LLM-extracted items inherit the existing `described` input method and its fidelity ceiling, not a new tier. A regex fallback must remain in place so the logger keeps working without network or without a key.
+
 ---
 
 ## Input contract: four methods, fidelity from what's known
