@@ -33,8 +33,10 @@ const round1 = (x: number): number => Math.round(x * 10) / 10;
 // ─── Described parser (text → food + quantity + unit) ────────────────────────
 
 // Mass/volume units → grams. Volume uses a density≈1 approximation, documented
-// as a tunable heuristic (constitution: honest about guesses).
-const MASS_UNITS: Record<string, number> = {
+// as a tunable heuristic (constitution: honest about guesses). Exported so the
+// LLM extractor (foodNLP.ts) can use the same conversion table — single source
+// of truth for unit conversions across both parsers.
+export const MASS_UNITS: Record<string, number> = {
   g: 1, gram: 1, grams: 1, gm: 1,
   kg: 1000, kilogram: 1000, kilograms: 1000,
   oz: 28.3495, ounce: 28.3495, ounces: 28.3495,

@@ -32,6 +32,9 @@ export interface CallClaudeOptions {
   maxTokens?: number;
   /** Default 4000ms. First call after a schema change pays a one-time compile. */
   timeoutMs?: number;
+  /** Injectable for tests (mirrors foodSearch.ts's pattern). Defaults to the
+   *  module-level ANTHROPIC_API_KEY; tests pass a stub here. */
+  apiKey?: string;
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
   /** Caller-supplied cancellation (e.g. screen unmount). */
@@ -48,7 +51,8 @@ interface ApiResponse {
  * matching the schema, or `null` on any failure. Never throws.
  */
 export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<T | null> {
-  if (!ANTHROPIC_API_KEY) return null;
+  const apiKey = opts.apiKey ?? ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
 
   const fetchImpl = opts.fetchImpl ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 4000;
@@ -67,7 +71,7 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': ANTHROPIC_VERSION,
       },
       body: JSON.stringify({
