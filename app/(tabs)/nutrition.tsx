@@ -129,14 +129,21 @@ export default function NutritionScreen() {
           }
         />
 
-        {isToday ? (
-          <Button
-            label="Log food"
-            variant="secondary"
-            onPress={() => router.push('/log-food')}
-            style={{ marginTop: theme.spacing[3] }}
-          />
-        ) : null}
+        <Button
+          label="Log food"
+          variant="secondary"
+          // Today → no date param, so the logger defaults to modal-open time
+          // ("now", current behavior). Any other day → pass date so the
+          // logger defaults to noon of that day, adjustable in the picker.
+          onPress={() =>
+            router.push(
+              isToday
+                ? '/log-food'
+                : { pathname: '/log-food', params: { date: selectedDate } }
+            )
+          }
+          style={{ marginTop: theme.spacing[3] }}
+        />
       </View>
 
       <View style={{ height: theme.spacing[10] }} />
