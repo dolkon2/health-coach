@@ -12,3 +12,10 @@ export {
   getBenchmarkById,
   updateBenchmark,
 } from './benchmarks';
+export {
+  createTemplate,
+  listTemplates,
+  getTemplateById,
+  updateTemplate,
+  deleteTemplate,
+} from './sessionTemplates';

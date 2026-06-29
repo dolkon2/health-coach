@@ -14,6 +14,11 @@ import type {
   Modality,
 } from '@core/observation';
 import type { Benchmark } from '@core/benchmark';
+import type {
+  SessionTemplate,
+  TemplateShape,
+  TemplateSurface,
+} from '@core/sessionTemplate';
 
 // ─── Observation ────────────────────────────────────────────────────────────
 
@@ -101,5 +106,47 @@ export function rowToBenchmark(r: BenchmarkRow): Benchmark {
     ...(r.relatedModalities != null
       ? { relatedModalities: JSON.parse(r.relatedModalities) as Modality[] }
       : {}),
+  };
+}
+
+// ─── SessionTemplate ────────────────────────────────────────────────────────
+
+export type SessionTemplateRow = {
+  id: string;
+  name: string;
+  surface: string;
+  activity: string;
+  shape: string; // JSON
+  dayAssignment: number | null;
+  isActive: number; // 0 | 1
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function sessionTemplateToRow(t: SessionTemplate): SessionTemplateRow {
+  return {
+    id: t.id,
+    name: t.name,
+    surface: t.surface,
+    activity: t.activity,
+    shape: JSON.stringify(t.shape),
+    dayAssignment: t.dayAssignment ?? null,
+    isActive: t.isActive ? 1 : 0,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+  };
+}
+
+export function rowToSessionTemplate(r: SessionTemplateRow): SessionTemplate {
+  return {
+    id: r.id,
+    name: r.name,
+    surface: r.surface as TemplateSurface,
+    activity: r.activity,
+    shape: JSON.parse(r.shape) as TemplateShape,
+    ...(r.dayAssignment != null ? { dayAssignment: r.dayAssignment } : {}),
+    isActive: r.isActive === 1,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   };
 }

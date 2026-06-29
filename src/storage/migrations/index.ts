@@ -4,6 +4,7 @@
  * matter from day one… don't hand-edit").
  */
 import { migration001 } from './001_initial';
+import { migration002 } from './002_session_templates';
 
 export type Migration = {
   version: number;
@@ -11,4 +12,4 @@ export type Migration = {
   sql: string;
 };
 
-export const migrations: Migration[] = [migration001];
+export const migrations: Migration[] = [migration001, migration002];

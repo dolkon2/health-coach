@@ -8,6 +8,7 @@
  */
 export * from './observation';
 export * from './benchmark';
+export * from './sessionTemplate';
 export * from './timeline';
 export * from './trend';
 export * from './expenditure';
