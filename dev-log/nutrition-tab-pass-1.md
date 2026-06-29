@@ -59,6 +59,34 @@ two compose cleanly per Dylan's "easy to go A → B" sketch.
 2. `306fac4` — `feat(nutrition): add Nutrition tab with today-in-full view`
 3. `2f4a97c` — `refactor(today): slim today's food to a glance`
 
+## Pass 1 follow-ups (sim review, 2026-06-28)
+
+After Dylan reviewed the tab on the iOS sim: live macros + the X delete
+both confirmed working. Flagged: a 3-item meal was titled "Beef,
+tenderloin steak, raw" because the logger auto-seeded `description`
+with the first food added — pretending a multi-item meal was its first
+ingredient. Two follow-up commits:
+
+- **`f0c89b3` — `feat(nutrition): mealDisplayName`.** Pure display
+  helper: a real user-typed description (one that doesn't match any
+  single item's name) wins; otherwise "First item + N more" (or just
+  the item name for 1-item meals); empty meal → "Meal". Wired into both
+  card titles and the per-item delete confirm copy. 5 tests.
+- **`0396b8e` — `feat(nutrition): "Name this meal" field`.** An optional
+  text input on the meal-being-built card in the logger, plus removal
+  of the two auto-seeds in `useFoodLog`. Blank now means blank — the
+  display layer handles it honestly. Saved templates still get readable
+  names through `mealTemplateFrom`'s existing `mealItemsLabel` fallback.
+
+Verification: `npx jest` 135/135 (was 130 + 5 for mealDisplayName);
+`npx tsc --noEmit` clean.
+
+The bigger "do we still need meals?" question came up in the same
+review and resolved as: keep them — meals earn their keep via Save
+Meal (template → one-tap re-log) and grouping multiple foods into one
+event in time. Per-item delete didn't dissolve meals; it gave the user
+a way to fix one without re-logging the whole thing.
+
 ## Next (Pass 2 — History, sketched)
 
 The plan now is Option B's week strip + tap-into-a-past-day, which slots
