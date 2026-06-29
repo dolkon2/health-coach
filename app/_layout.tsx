@@ -63,6 +63,14 @@ function ThemedStack() {
         name="log-session"
         options={{ title: 'Log session', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="templates"
+        options={{ title: 'Library', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="edit-template"
+        options={{ title: 'Template', presentation: 'modal' }}
+      />
     </Stack>
   );
 }
