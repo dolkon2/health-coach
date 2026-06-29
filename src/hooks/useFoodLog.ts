@@ -26,6 +26,7 @@ import {
   type FoodLogInput,
   type MacroRollup,
 } from '@/lib/foodLog';
+import { extractFoodItems } from '@/lib/foodNLP';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
@@ -166,21 +167,37 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
       setBusy(true);
       setError(null);
       try {
-        const parsed = parseDescribed(text);
-        const cands = await searchFoods(parsed.foodText, deps);
-        if (cands.length === 0) { setError(`No match for "${parsed.foodText}".`); return; }
-        const item = await getUsdaFood(
-          cands[0].foodId,
-          {
-            method: 'described',
-            quantityG: describedQuantityG(parsed),
-            quantityMethod: 'estimated',
-            extraction: describedExtraction(parsed),
-          },
-          deps
-        );
-        if (!item) { setError('Could not load that food.'); return; }
-        setItems((xs) => [...xs, item]);
+        // The LLM extractor turns one phrase into N candidates ("two slices of
+        // pizza with mushrooms" → pizza + mushrooms). It returns [] on no key,
+        // no network, timeout, or any failure — then the regex parser handles
+        // the single-food case so the logger keeps working offline / keyless.
+        let parsedItems = await extractFoodItems(text);
+        if (parsedItems.length === 0) parsedItems = [parseDescribed(text)];
+
+        // Resolve each candidate independently. A candidate that doesn't match
+        // USDA is skipped, not fatal — a partial meal is a valid loggable state
+        // (food-logging-spec § partial logs). We surface an error only when
+        // NOTHING resolved.
+        let resolvedAny = false;
+        for (const parsed of parsedItems) {
+          const cands = await searchFoods(parsed.foodText, deps);
+          if (cands.length === 0) continue;
+          const item = await getUsdaFood(
+            cands[0].foodId,
+            {
+              method: 'described',
+              quantityG: describedQuantityG(parsed),
+              quantityMethod: 'estimated',
+              extraction: describedExtraction(parsed),
+            },
+            deps
+          );
+          if (item) {
+            setItems((xs) => [...xs, item]);
+            resolvedAny = true;
+          }
+        }
+        if (!resolvedAny) setError(`No match for "${text}".`);
       } finally {
         setBusy(false);
       }
