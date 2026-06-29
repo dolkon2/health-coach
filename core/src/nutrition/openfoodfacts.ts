@@ -75,5 +75,5 @@ export function adaptOpenFoodFactsProduct(raw: OffProductResponse, opts: AdaptOp
   const extraction: Extraction = { completeness };
 
   const foodId = raw.product?.code ?? raw.code ?? '';
-  return buildFoodItem('openfoodfacts', foodId, perGram, extraction, opts);
+  return buildFoodItem('openfoodfacts', foodId, perGram, extraction, opts, raw.product?.product_name);
 }

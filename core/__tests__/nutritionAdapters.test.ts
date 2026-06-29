@@ -155,3 +155,61 @@ describe('both adapters emit the identical internal shape', () => {
     }
   });
 });
+
+describe('USDA energy falls back to Atwater when direct kcal (208) is absent', () => {
+  const w100 = { method: 'weighed', quantityG: 100, quantityMethod: 'measured' } as const;
+
+  it('resolves kcal from Atwater General (957) for a Foundation food with no 208', () => {
+    const raw = {
+      fdcId: 2727573,
+      dataType: 'Foundation',
+      description: 'Beef, tenderloin steak, raw',
+      foodNutrients: [
+        { nutrient: { number: '957', id: 2047, name: 'Energy (Atwater General Factors)', unitName: 'kcal' }, amount: 143.2 },
+        { nutrient: { number: '958', id: 2048, name: 'Energy (Atwater Specific Factors)', unitName: 'kcal' }, amount: 149 },
+        { nutrient: { number: '203', id: 1003, name: 'Protein', unitName: 'g' }, amount: 21 },
+      ],
+    } as UsdaFoodResponse;
+    const item = adaptUsdaFood(raw, w100);
+    expect(item.kcal).toBeCloseTo(143.2, 5); // General preferred over Specific
+    expect(item.kcal).not.toBeNull();
+    expect(item.proteinG).toBe(21);
+  });
+
+  it('prefers the direct Energy (208) over Atwater when both are present', () => {
+    const raw = {
+      fdcId: 1,
+      dataType: 'Foundation',
+      foodNutrients: [
+        { nutrient: { number: '208', id: 1008 }, amount: 100 },
+        { nutrient: { number: '957', id: 2047 }, amount: 143 },
+      ],
+    } as UsdaFoodResponse;
+    expect(adaptUsdaFood(raw, w100).kcal).toBe(100);
+  });
+});
+
+describe('adapters carry the food name (so items are not nameless)', () => {
+  const w = { method: 'weighed', quantityG: 30, quantityMethod: 'measured' } as const;
+
+  it('USDA Branded → description from raw.description', () => {
+    const item = adaptUsdaFood(load<UsdaFoodResponse>('usda-branded-peanut-butter.json'), w);
+    expect(item.description).toBe('PEANUT BUTTER');
+  });
+
+  it('USDA SR Legacy → description from raw.description', () => {
+    const item = adaptUsdaFood(load<UsdaFoodResponse>('usda-sr-legacy-cheddar.json'), w);
+    expect(item.description).toBe("Cheese, cheddar (Includes foods for USDA's Food Distribution Program)");
+  });
+
+  it('OFF → description from product.product_name', () => {
+    const item = adaptOpenFoodFactsProduct(load<OffProductResponse>('off-complete-thai-sauce.json'), {
+      method: 'barcode',
+      quantityG: 100,
+      quantityMethod: 'package',
+    });
+    expect(item.description).toBe(
+      'Thai peanut noodle kit includes stir-fry rice noodles & thai peanut seasoning'
+    );
+  });
+});

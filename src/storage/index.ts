@@ -12,3 +12,17 @@ export {
   getBenchmarkById,
   updateBenchmark,
 } from './benchmarks';
+export {
+  getCachedFood,
+  putCachedFood,
+  touchCachedFood,
+  listRecentFoods,
+  type CachedFood,
+} from './foodCache';
+export {
+  createMealTemplate,
+  getMealTemplateById,
+  listMealTemplates,
+  occurrencesFor,
+  type MealOccurrence,
+} from './mealTemplates';

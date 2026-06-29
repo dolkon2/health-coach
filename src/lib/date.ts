@@ -38,3 +38,17 @@ export function localDayWindow(d: Date = new Date()): { startUtc: string; endUtc
 export function daysAgoUtc(days: number, d: Date = new Date()): string {
   return new Date(d.getTime() - days * 86_400_000).toISOString();
 }
+
+/**
+ * The wall-clock time of `iso`, e.g. "8:14 AM". Formatted in `tz` — the zone the
+ * Observation was logged in, not the device's current one — so a meal reads at the
+ * time you actually ate it, even after you've travelled. Falls back to the device
+ * zone when `tz` is omitted.
+ */
+export function localTimeLabel(iso: string, tz?: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+    ...(tz ? { timeZone: tz } : {}),
+  });
+}

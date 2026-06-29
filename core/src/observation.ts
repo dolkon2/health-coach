@@ -94,6 +94,7 @@ export type QuantityMethod = 'measured' | 'package' | 'estimated';
 export interface FoodItem {
   sourceDb: FoodSourceDb;
   foodId: string;
+  description?: string; // the food's human name (e.g. 'Cheddar cheese') from the source record; display-only, never gates anything
   quantity: number; // canonical quantity; the 2.2 adapter reconciles unit bases
   quantityMethod: QuantityMethod;
   kcal: number | null;
@@ -119,6 +120,7 @@ export interface FoodItem {
  */
 export interface MealTemplate {
   id: string;
+  name?: string; // a readable label for the saved meal (its meal description, or its items' names joined); display-only
   canonicalItems: FoodItem[];
   userConfirmed: boolean; // v1: created by the user saving a meal
   createdAt: ISOInstant;

@@ -6,6 +6,7 @@ export { Field } from './Field';
 export { ChipSelect, type ChipOption } from './ChipSelect';
 export { SessionCard } from './SessionCard';
 export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './FidelityIndicator';
+export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';

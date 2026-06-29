@@ -6,10 +6,17 @@
 
 ## Phase 2 / Ring 2 (nutrition)
 
+**Next (post live on-device smoke test, 2026-06-28) — priority order. Each: plan files → jest green → tsc clean (last) → single-concern commit + dev-log.** Core engine (passes 2.1–2.6) is built, green, and verified live on the iOS sim (search → USDA → adapter → rollup → fidelity → Log meal all work end-to-end). These are the follow-ups the smoke test surfaced:
+
+1. **Today's food + daily total** — logging persists but nothing surfaces it; Today looks unchanged after "Log meal". Add a "Today's food" section to `app/(tabs)/index.tsx`: today's foodEntry observations (food name + macros + fidelity-tier dot) + a running daily total (cal + P/C/F), nulls excluded (never summed as 0). The loop-closer — top priority.
+2. **Food names on items** (resolves quirk 19) — the meal preview + saved-meals picker show `50 g · usda` with no food name, so a saved meal is unreadable. Add `description?: string` to `FoodItem` (flagged core touch in `core/src/observation.ts`; the search candidate + USDA/OFF detail already carry it), populate it in the 2.2 adapters, render it in the preview + picker, and carry a name onto `MealTemplate`.
+3. **Search ranking** — USDA results are noisy: typo'd/junk branded entries (e.g. "MILD CHEDDAR SLICEED CHEES") rank above the clean generic "Cheese, Cheddar" (Foundation/SR Legacy). Rank Foundation/SR-Legacy above Branded (or use USDA `dataType`/relevance sort) in `src/lib/foodSearch.ts`. The connection is fine — this is data quality + ordering, which we own.
+4. **2.7 barcode** — "will be key" (Dylan). OFF UPC is free/no-auth and the schema reserves `barcode`, but it needs a native scanner dep (`expo-camera` / `react-native-vision-camera`) + a dev build (Expo Go can't run a custom scanner). STOP and confirm the dep + dev-build move before building. (ring2-food-logging-plan.md fast-follow 2.7)
+
 - Supersede pattern for editing sessions — deferred from Pass 6 logging deep-dive, lands here. `supersede` already exists for weigh-ins (`storage/observations.ts`); sessions need the same affordance. (game-plan-and-prompts.md HALT)
 - Delete-a-session affordance on Today's session cards. (game-plan-and-prompts.md HALT)
 - Earned-fidelity mechanic for food logging — direction unspecified, but the fidelity-as-first-class principle wants something more than a static field. (constitution principle 3, product-overview.md)
-- Composite meals — should `FoodEntryPayload` support `items: FoodEntryPayload[]` for ingredient-built meals? Phase 1 keeps it flat. (data-model.md open question)
+- ✅ Composite meals — DONE in Ring 2 Pass 2.1: `FoodEntryPayload` carries `items: FoodItem[]`, flat macros are their rollup. (data-model.md open question, resolved)
 - iCloud / encrypted SQLite backup — losing 6 months of data to a phone wipe would suck. (phase-1-build-spec.md open question)
 - Progress photo storage — `kind: 'progressPhoto'` Observation with file path in payload? Settings feature, not Phase 1. (data-model.md open question)
 
