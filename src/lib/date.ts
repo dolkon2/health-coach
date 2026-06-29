@@ -2,6 +2,7 @@
  * Local civil-day helpers. Time is the user's local day (data-model principle 4):
  * an 11:30pm and a 12:30am entry are different days.
  */
+import type { LocalDate } from '@core/observation';
 
 /** e.g. "Thursday, June 26" — rendered uppercase by the display type variant. */
 export function todayLocalLabel(d: Date = new Date()): string {
@@ -37,6 +38,37 @@ export function localDayWindow(d: Date = new Date()): { startUtc: string; endUtc
 /** ISO instant for `days` ago from `d`, used as the lower bound on trend queries. */
 export function daysAgoUtc(days: number, d: Date = new Date()): string {
   return new Date(d.getTime() - days * 86_400_000).toISOString();
+}
+
+/**
+ * A UTC window guaranteed to contain every observation whose *local-day* (in
+ * whatever zone it was logged in) falls within `localDates`. We can't predict
+ * the stored `tz` of each observation, and a meal logged near midnight in a
+ * different zone can bleed across UTC dates — so the window pads ±24h around
+ * the min/max requested days. Callers post-filter via `localDayOf` (the engine
+ * already does this in `bucketByLocalDay`) to land each entry on its real day.
+ *
+ * Throws on an empty input — a zero-day window has no meaningful bounds, and
+ * silently widening to "all time" would mask a caller bug.
+ */
+export function paddedDayWindow(
+  localDates: ReadonlyArray<LocalDate>
+): { startUtc: string; endUtc: string } {
+  if (localDates.length === 0) {
+    throw new Error('paddedDayWindow: localDates must not be empty');
+  }
+  let min = localDates[0];
+  let max = localDates[0];
+  for (const d of localDates) {
+    if (d < min) min = d;
+    if (d > max) max = d;
+  }
+  const day = 86_400_000;
+  const minMs = Date.parse(`${min}T00:00:00.000Z`);
+  const maxMs = Date.parse(`${max}T00:00:00.000Z`);
+  const startUtc = new Date(minMs - day).toISOString();
+  const endUtc = new Date(maxMs + 2 * day - 1).toISOString();
+  return { startUtc, endUtc };
 }
 
 /**
