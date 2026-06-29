@@ -29,6 +29,7 @@
       "expo-router",
       "expo-sqlite",
       "./plugins/withFmtFix",
+      "expo-notifications",
       [
         "@kingstinct/react-native-healthkit",
         {

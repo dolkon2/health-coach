@@ -62,7 +62,8 @@
 
 ## Phase 6 (Plan tab / scheduling)
 
-- Planning system needs its own spec session before any build — program structure (recurring splits, multi-week date-anchored blocks, freeform saved-workout stacks), scheduling workouts onto days, the Today ↔ planned-workout handoff, and saved workouts that flex across all surfaces (gym template, cycling route, running route). Do not build ahead of this planning session. (phase-4-training-plan.md, game-plan-and-prompts.md)
+- **Spec session done → `phase-6-plan-tab-spec.md` (v0.1, 2026-06-28).** The vision is locked: the Training tab *is* the planning surface (week view + user-authored library), planning is opt-in, the connected flow (template → live session → Finish → Reflect) reuses the Phase-4 machinery, and the three plan flavors (placed workouts / cadence goals / open activities) coexist in one week. Cadence goals resolve to benchmarks (`benchmarks-spec.md`), not a second system. **Still open before a build plan:** week-view shape, recurrence model, placement granularity, routes-as-sub-shape, planned-vs-actual surfacing — see that spec's Open Questions. Do not build ahead of a blessed pass-by-pass plan.
+- Original framing (now subsumed by the spec): program structure (recurring splits, multi-week date-anchored blocks, freeform saved-workout stacks), scheduling workouts onto days, the Today ↔ planned-workout handoff, and saved workouts that flex across all surfaces (gym template, cycling route, running route). (phase-4-training-plan.md, game-plan-and-prompts.md)
 
 ---
 

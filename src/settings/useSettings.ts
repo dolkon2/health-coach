@@ -13,12 +13,16 @@ export type Settings = {
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
   nutritionFocus: NutritionFocus; // display-only: which macro renders large in food UI
+  restTimerSec: number; // default between-sets rest; the gym timer starts from this.
+  defaultPoolLengthM: number; // remembered pool length; the swim form prefills it.
 };
 
 const DEFAULTS: Settings = {
   weightUnit: 'lb', // Dylan logs in pounds; storage stays kg (see units.ts).
   distanceUnit: 'km', // endurance distance; storage stays metres (see units.ts).
   nutritionFocus: 'calories', // the hero number; a lens over the data, never a gate on it.
+  restTimerSec: 120, // 2 min — a sensible default until a Settings screen persists it.
+  defaultPoolLengthM: 25, // a 25 m pool is the common default.
 };
 
 export function useSettings(): Settings {

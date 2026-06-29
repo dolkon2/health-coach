@@ -85,9 +85,27 @@ export default function TrainingScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
-        Training
-      </Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <Text variant="label" color={theme.colors.sandstone}>
+          Training
+        </Text>
+        <Pressable
+          onPress={() => router.push('/templates')}
+          accessibilityRole="button"
+          accessibilityLabel="Open template library"
+          hitSlop={8}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            Library →
+          </Text>
+        </Pressable>
+      </View>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
         Log a session
       </Text>

@@ -180,6 +180,33 @@ export type PaddlingBlock = {
   segmentTimes?: Array<{ name: string; durationSec: number }>;
 };
 
+export type SwimStroke =
+  | 'freestyle'
+  | 'breaststroke'
+  | 'backstroke'
+  | 'butterfly'
+  | 'medley'
+  | 'mixed';
+
+export type SwimmingBlock = {
+  // Total distance. In a pool it's laps × poolLengthM — higher fidelity than a raw
+  // guess; open-water is the swimmer's estimate. Optional: a timed swim with no
+  // distance is still valid (null ≠ 0).
+  distanceM?: number;
+  poolLengthM?: number; // recorded for pool swims so the total stays auditable
+  laps?: number;
+  stroke?: SwimStroke;
+  energySystem: EnergySystem; // lets the swim contribute energy-system minutes to the ledger
+};
+
+export type PracticeBlock = {
+  // Yoga / Pilates / mobility / meditation. Session-level only — no per-pose logging.
+  // An optional free style tag ('vinyasa', 'hatha', …). Carries no pattern or energy
+  // volume: like climb/hike it appears in sessionIds and contributes nothing
+  // fabricated to the ledger (constitution: never invent volume a surface can't report).
+  style?: string;
+};
+
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
@@ -188,12 +215,18 @@ export type SessionPayload = {
   // (src/lib/activity.ts). Optional: legacy sessions and the quick-log picker may
   // carry only `modality`. Display + reveal() prefer it over the coarser modality.
   activity?: string;
-  durationMin: number;
+  // Minutes. Optional because a gym session's duration is *derived* from the set-
+  // timestamp spread (deriveSessionDuration); when the session was batch-entered
+  // the spread is unknowable, so duration is simply absent — never a fabricated 0
+  // (constitution: null ≠ 0). Non-gym surfaces always carry a manual value.
+  durationMin?: number;
   // Sport-specific blocks — only the relevant ones populated.
   lifting?: LiftingBlock;
   endurance?: EnduranceBlock;
   climbing?: ClimbingBlock;
   paddling?: PaddlingBlock;
+  swimming?: SwimmingBlock;
+  practice?: PracticeBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward

@@ -22,7 +22,8 @@ export function SessionCard({ session, contribution }: SessionCardProps) {
   const theme = useTheme();
   const p = session.payload;
 
-  const meta: string[] = [`${Math.round(p.durationMin)} min`];
+  const meta: string[] = [];
+  if (p.durationMin != null) meta.push(`${Math.round(p.durationMin)} min`);
   if (p.perceivedEffort != null) meta.push(`RPE ${p.perceivedEffort}`);
 
   return (

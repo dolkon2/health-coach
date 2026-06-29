@@ -105,7 +105,10 @@ export function computeWeeklyStimulus(
     }
 
     if (p.endurance) {
-      week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin;
+      week.byEnergySystem[p.endurance.energySystem].minutes += p.durationMin ?? 0;
+    }
+    if (p.swimming) {
+      week.byEnergySystem[p.swimming.energySystem].minutes += p.durationMin ?? 0;
     }
     // climb / hike / other: no measurable pattern volume — sessionIds only.
   }
@@ -132,6 +135,8 @@ export function reveal(session: ObservationOf<'session'>): string {
   // over the modality (e.g. "wingfoil · 40 min", not "other · 40 min").
   if (p.lifting) return revealLifting(session);
   if (p.endurance) return revealEndurance(session);
+  if (p.swimming) return revealSwimming(session);
+  if (p.practice) return revealPractice(session);
   if (p.climbing) return revealClimbing(session);
   return durationLine(session);
 }
@@ -169,7 +174,9 @@ function revealEndurance(session: ObservationOf<'session'>): string {
   const e = session.payload.endurance;
   if (!e) return durationLine(session);
 
-  const parts: string[] = [e.energySystem, `${formatMinutes(session.payload.durationMin)}`];
+  const parts: string[] = [e.energySystem];
+  const dur = formatMinutes(session.payload.durationMin);
+  if (dur) parts.push(dur);
   if (e.distanceM != null && e.distanceM > 0) {
     parts.push(`${(e.distanceM / 1000).toFixed(1)} km`);
   }
@@ -177,6 +184,31 @@ function revealEndurance(session: ObservationOf<'session'>): string {
     parts.push(`${Math.round(e.avgHr)} bpm`);
   }
   return parts.join(' · ');
+}
+
+function revealSwimming(session: ObservationOf<'session'>): string {
+  const s = session.payload.swimming;
+  if (!s) return durationLine(session);
+
+  const parts: string[] = [s.energySystem];
+  const dur = formatMinutes(session.payload.durationMin);
+  if (dur) parts.push(dur);
+  if (s.distanceM != null && s.distanceM > 0) {
+    // Swimming reads in metres (the pool's native unit), not km.
+    parts.push(`${groupThousands(Math.round(s.distanceM))} m`);
+  }
+  if (s.stroke) parts.push(s.stroke);
+  return parts.join(' · ');
+}
+
+function revealPractice(session: ObservationOf<'session'>): string {
+  const pr = session.payload.practice;
+  if (pr?.style) {
+    const dur = formatMinutes(session.payload.durationMin);
+    return dur ? `${pr.style} · ${dur}` : pr.style;
+  }
+  // No style tag — the activity identity + duration says it best ("yoga · 45 min").
+  return durationLine(session);
 }
 
 function revealClimbing(session: ObservationOf<'session'>): string {
@@ -190,7 +222,8 @@ function revealClimbing(session: ObservationOf<'session'>): string {
   if (c.totalProblems != null && c.totalProblems > 0) {
     return `${c.style} · ${c.totalProblems} problems`;
   }
-  return `${c.style} · ${formatMinutes(session.payload.durationMin)}`;
+  const dur = formatMinutes(session.payload.durationMin);
+  return dur ? `${c.style} · ${dur}` : c.style;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -200,11 +233,12 @@ function durationLine(session: ObservationOf<'session'>): string {
   // Prefer the chosen identity over the coarse engine modality — it's the more
   // specific, honest label (e.g. "wingfoil" rather than "other").
   const label = p.activity ?? p.modality;
-  return `${label} · ${formatMinutes(p.durationMin)}`;
+  const dur = formatMinutes(p.durationMin);
+  return dur ? `${label} · ${dur}` : label;
 }
 
-function formatMinutes(min: number): string {
-  return `${Math.round(min)} min`;
+function formatMinutes(min: number | undefined): string | null {
+  return min != null ? `${Math.round(min)} min` : null;
 }
 
 /** 4200 -> "4,200". Integers only; the caller rounds first. */

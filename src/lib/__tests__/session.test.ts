@@ -8,12 +8,13 @@
  * — no storage needed.
  */
 import { describe, it, expect } from '@jest/globals';
-import { reveal } from '@core/stimulus';
+import { reveal, computeWeeklyStimulus } from '@core/stimulus';
 import {
   buildSessionObservation,
   emptySessionForm,
   resolveSurface,
   sessionFormFromObservation,
+  validateSessionForm,
   type BuildContext,
   type SessionForm,
 } from '../session';
@@ -124,11 +125,11 @@ describe('Pass 2 — activity identity + surface routing', () => {
   });
 });
 
-describe('Pass 3a — derived gym duration', () => {
+describe('Pass 3 — gym duration derived from set timestamps (no manual fallback)', () => {
   function gymFormWithStamps(stamps: ReadonlyArray<string | undefined>): SessionForm {
     const f = emptySessionForm();
     f.activity = 'gym';
-    f.durationMin = '99'; // manual value — should be overridden when stamps span time
+    f.durationMin = '99'; // a manual value gym must now IGNORE — duration is derived
     f.gym.exercises = [
       {
         id: 'e1',
@@ -157,18 +158,27 @@ describe('Pass 3a — derived gym duration', () => {
     expect(obs.payload.lifting?.sets[0].completedAt).toBe('2026-06-26T17:00:00Z');
   });
 
-  it('keeps the manual duration when no timestamps are present (current path, pre-3b)', () => {
+  it('leaves duration absent (unknown, not 0) when no timestamps are present', () => {
     const obs = buildSessionObservation(gymFormWithStamps([undefined, undefined]), CTX);
-    expect(obs.payload.durationMin).toBe(99);
-    expect(obs.fidelity).toBe(0.95);
+    expect(obs.payload.durationMin).toBeUndefined(); // gym ignores the manual field
+    expect(obs.fidelity).toBe(0.95); // the set data itself is still precisely captured
   });
 
-  it('keeps the manual duration when stamps are clustered (batch entry)', () => {
+  it('leaves duration absent when stamps are clustered (batch entry)', () => {
     const obs = buildSessionObservation(
       gymFormWithStamps(['2026-06-26T17:00:00Z', '2026-06-26T17:00:30Z']),
       CTX
     );
-    expect(obs.payload.durationMin).toBe(99); // clustered → derivation null → manual stands
+    expect(obs.payload.durationMin).toBeUndefined(); // clustered spread → unknown, never fabricated
+  });
+
+  it('builds and validates a gym session with no manual duration at all', () => {
+    const f = gymFormWithStamps([undefined, undefined]);
+    f.durationMin = ''; // nothing entered — gym must not require it
+    expect(validateSessionForm(f)).toBeNull();
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.durationMin).toBeUndefined();
+    expect(obs.payload.lifting?.sets).toHaveLength(2);
   });
 
   it('round-trips completedAt through invert → rebuild', () => {
@@ -187,5 +197,111 @@ describe('Pass 3a — derived gym duration', () => {
     );
     const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's9' });
     expect(rebuilt.payload.durationMin).toBe(45); // derived again from the preserved stamps
+  });
+});
+
+describe('Pass 5 — swimming surface', () => {
+  function poolSwim(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'swim';
+    f.durationMin = '30';
+    f.swim = {
+      mode: 'pool',
+      poolLengthM: '25',
+      laps: '60',
+      distance: '',
+      stroke: 'freestyle',
+      energySystem: 'aerobic',
+    };
+    return f;
+  }
+
+  it('pool distance is laps × pool length (audited), at higher fidelity', () => {
+    const obs = buildSessionObservation(poolSwim(), CTX);
+    expect(obs.payload.modality).toBe('swim');
+    expect(obs.payload.swimming?.distanceM).toBe(1500); // 60 × 25
+    expect(obs.payload.swimming?.poolLengthM).toBe(25);
+    expect(obs.payload.swimming?.laps).toBe(60);
+    expect(obs.fidelity).toBe(0.85);
+    expect(reveal(obs)).toBe('aerobic · 30 min · 1,500 m · freestyle');
+  });
+
+  it('open-water swim takes a direct estimate at lower fidelity', () => {
+    const f = poolSwim();
+    f.swim = { ...f.swim, mode: 'open', distance: '2' }; // 2 km
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.swimming?.distanceM).toBeCloseTo(2000, 1);
+    expect(obs.payload.swimming?.poolLengthM).toBeUndefined();
+    expect(obs.fidelity).toBe(0.5);
+  });
+
+  it('round-trips a pool swim through invert → rebuild', () => {
+    const obs = buildSessionObservation(poolSwim(), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.swim.mode).toBe('pool');
+    expect(inverted.swim.poolLengthM).toBe('25');
+    expect(inverted.swim.laps).toBe('60');
+    expect(inverted.swim.stroke).toBe('freestyle');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'sw2' });
+    expect(rebuilt.payload.swimming?.distanceM).toBe(1500);
+  });
+
+  it('contributes energy-system minutes to the weekly ledger (not sessionIds-only)', () => {
+    const obs = buildSessionObservation(poolSwim(), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.byEnergySystem.aerobic.minutes).toBe(30);
+    expect(week.sessionIds).toContain(obs.id);
+  });
+});
+
+describe('Pass 6 — practice surface', () => {
+  function yoga(style: string): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.practice = { style };
+    return f;
+  }
+
+  it('records a style tag and maps to the mobility modality', () => {
+    const obs = buildSessionObservation(yoga('vinyasa'), CTX);
+    expect(obs.payload.modality).toBe('mobility');
+    expect(obs.payload.practice?.style).toBe('vinyasa');
+    expect(reveal(obs)).toBe('vinyasa · 45 min');
+  });
+
+  it('falls back to the activity identity when no style is given (no fabricated block)', () => {
+    const obs = buildSessionObservation(yoga(''), CTX);
+    expect(obs.payload.practice).toBeUndefined();
+    expect(reveal(obs)).toBe('yoga · 45 min');
+  });
+
+  it('contributes no volume or energy bars — sessionIds only (honest)', () => {
+    const obs = buildSessionObservation(yoga('hatha'), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.sessionIds).toContain(obs.id);
+    expect(Object.keys(week.byPattern)).toHaveLength(0);
+    expect(week.byEnergySystem.aerobic.minutes).toBe(0);
+    expect(week.byEnergySystem.glycolytic.minutes).toBe(0);
+    expect(week.byEnergySystem.mixed.minutes).toBe(0);
+  });
+
+  it('round-trips the style through invert → rebuild', () => {
+    const obs = buildSessionObservation(yoga('yin'), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.practice.style).toBe('yin');
+    expect(inverted.activity).toBe('yoga');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'pr2' });
+    expect(rebuilt.payload.practice?.style).toBe('yin');
   });
 });

@@ -7,6 +7,7 @@ import { migration001 } from './001_initial';
 import { migration002 } from './002_cached_foods';
 import { migration003 } from './003_meal_templates';
 import { migration004 } from './004_meal_template_name';
+import { migration005 } from './005_session_templates';
 
 export type Migration = {
   version: number;
@@ -14,4 +15,10 @@ export type Migration = {
   sql: string;
 };
 
-export const migrations: Migration[] = [migration001, migration002, migration003, migration004];
+export const migrations: Migration[] = [
+  migration001,
+  migration002,
+  migration003,
+  migration004,
+  migration005,
+];

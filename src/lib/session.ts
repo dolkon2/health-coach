@@ -21,6 +21,8 @@ import type {
   MovementPattern,
   ObservationOf,
   SessionPayload,
+  SwimmingBlock,
+  SwimStroke,
 } from '@core/observation';
 import {
   displayToKg,
@@ -38,6 +40,7 @@ import { deriveSessionDuration } from '@core/sessionTiming';
 // maps either onto a logging surface.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
 export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+export type SwimMode = 'pool' | 'open'; // pool: laps × length; open: estimated distance
 
 // ─── Form state ──────────────────────────────────────────────────────────────
 // All numeric fields are strings — raw TextInput values, parsed at build time.
@@ -77,6 +80,15 @@ export type SessionForm = {
   gym: { exercises: ExerciseDraft[] };
   endurance: { distance: string; avgHr: string; energySystem: EnergySystem };
   climb: { style: ClimbStyle; sends: SendDraft[] };
+  swim: {
+    mode: SwimMode;
+    poolLengthM: string; // pool length in metres (pool mode)
+    laps: string; // lap count (pool mode)
+    distance: string; // estimated distance in display units (open-water mode)
+    stroke: SwimStroke;
+    energySystem: EnergySystem;
+  };
+  practice: { style: string }; // optional free style tag for yoga/pilates/mobility
 };
 
 export function emptySetDraft(id: string): SetDraft {
@@ -96,6 +108,15 @@ export function emptySessionForm(): SessionForm {
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
     climb: { style: 'gym', sends: [] },
+    swim: {
+      mode: 'pool',
+      poolLengthM: '',
+      laps: '',
+      distance: '',
+      stroke: 'freestyle',
+      energySystem: 'aerobic',
+    },
+    practice: { style: '' },
   };
 }
 
@@ -186,10 +207,16 @@ function sendFilled(s: SendDraft): boolean {
 export function validateSessionForm(form: SessionForm): string | null {
   if (form.activity == null && form.modality === null) return 'Pick an activity.';
 
-  const duration = num(form.durationMin);
-  if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+  const surface = resolveSurface(form);
 
-  if (resolveSurface(form) === 'gym') {
+  // Gym duration is derived from the set-timestamp spread, not entered, so it
+  // isn't required. Every other surface still needs a manual duration.
+  if (surface !== 'gym') {
+    const duration = num(form.durationMin);
+    if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+  }
+
+  if (surface === 'gym') {
     const active = form.gym.exercises.filter(isExerciseActive);
     if (active.length === 0) return 'Add an exercise with at least one set.';
 
@@ -239,10 +266,30 @@ function buildLifting(exercises: ExerciseDraft[], weightUnit: WeightUnit): Lifti
   return { sets };
 }
 
+function buildSwimming(swim: SessionForm['swim'], distanceUnit: DistanceUnit): SwimmingBlock {
+  const block: SwimmingBlock = { energySystem: swim.energySystem, stroke: swim.stroke };
+  if (swim.mode === 'pool') {
+    const poolLengthM = num(swim.poolLengthM);
+    const laps = num(swim.laps);
+    if (poolLengthM !== null && poolLengthM > 0) block.poolLengthM = poolLengthM;
+    if (laps !== null && laps > 0) block.laps = Math.round(laps);
+    // Total distance is laps × pool length — an audited figure, not an estimate.
+    if (block.poolLengthM != null && block.laps != null) {
+      block.distanceM = block.poolLengthM * block.laps;
+    }
+  } else {
+    const distance = num(swim.distance);
+    if (distance !== null && distance > 0) {
+      block.distanceM = displayToMeters(distance, distanceUnit);
+    }
+  }
+  return block;
+}
+
 /**
- * Maps validated form state to a tier-1, fidelity-0.95 manual session
- * Observation. Throws (via validateSessionForm / buildLifting) if the form is
- * incomplete — most importantly if any exercise lacks a movement pattern.
+ * Maps validated form state to a tier-1 manual session Observation. Throws (via
+ * validateSessionForm / buildLifting) if the form is incomplete — most importantly
+ * if any gym exercise lacks a movement pattern. Fidelity follows the surface.
  */
 export function buildSessionObservation(
   form: SessionForm,
@@ -259,15 +306,19 @@ export function buildSessionObservation(
     kind: 'session',
     modality,
     ...(form.activity ? { activity: form.activity } : {}),
-    durationMin: Number(form.durationMin),
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
   };
 
+  // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
+  // duration is derived from the set-timestamp spread below; when that spread is
+  // unknowable (batch/clustered entry) the field stays absent — honest, never a
+  // fabricated 0 (constitution: null ≠ 0).
+  if (surface !== 'gym') {
+    payload.durationMin = Number(form.durationMin);
+  }
+
   if (surface === 'gym') {
     payload.lifting = buildLifting(form.gym.exercises, ctx.weightUnit);
-    // Duration falls out of the set-timestamp spread when the session was lived
-    // set-by-set; otherwise the manually entered value stands (the gym duration
-    // field is removed in Pass 3b, when the live set-complete affordance lands).
     const derived = deriveSessionDuration(payload.lifting.sets);
     if (derived.durationMin != null) {
       payload.durationMin = derived.durationMin;
@@ -292,8 +343,19 @@ export function buildSessionObservation(
         sent: s.sent,
       })),
     };
+  } else if (surface === 'swim') {
+    payload.swimming = buildSwimming(form.swim, ctx.distanceUnit);
+    // A pool total (laps × length) is audited, so it earns higher fidelity than an
+    // open-water estimate (which is a guess, like a manual GPS distance).
+    fidelity =
+      payload.swimming.poolLengthM != null && payload.swimming.laps != null ? 0.85 : 0.5;
+  } else if (surface === 'practice') {
+    // Session-level only; the optional style tag is the sole structured field. A
+    // styleless practice carries no block — the activity identity + duration says it.
+    const style = form.practice.style.trim();
+    if (style) payload.practice = { style };
   }
-  // swim → Pass 5, practice → Pass 6, 'other' → duration + effort + notes only (no block).
+  // 'other' → duration + effort + notes only (no block).
 
   return {
     id: ctx.id,
@@ -414,6 +476,25 @@ export function sessionFormFromObservation(
         sent: s.sent,
       })),
     };
+  }
+
+  if (p.swimming) {
+    const sw = p.swimming;
+    form.swim = {
+      mode: sw.poolLengthM != null ? 'pool' : 'open',
+      poolLengthM: sw.poolLengthM != null ? numStr(sw.poolLengthM, 0) : '',
+      laps: sw.laps != null ? String(sw.laps) : '',
+      distance:
+        sw.poolLengthM == null && sw.distanceM != null
+          ? numStr(metersToDisplay(sw.distanceM, units.distanceUnit), 2)
+          : '',
+      stroke: sw.stroke ?? 'freestyle',
+      energySystem: sw.energySystem,
+    };
+  }
+
+  if (p.practice) {
+    form.practice = { style: p.practice.style ?? '' };
   }
 
   return form;

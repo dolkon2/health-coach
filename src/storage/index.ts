@@ -26,3 +26,10 @@ export {
   occurrencesFor,
   type MealOccurrence,
 } from './mealTemplates';
+export {
+  createTemplate,
+  listTemplates,
+  getTemplateById,
+  updateTemplate,
+  deleteTemplate,
+} from './sessionTemplates';
