@@ -48,6 +48,7 @@ export function useFoodLog(editId?: string) {
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [items, setItems] = useState<FoodItem[]>([]);
+  const [selectedBasis, setSelectedBasis] = useState<FoodItem | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +100,21 @@ export function useFoodLog(editId?: string) {
     setSearching(true);
     runSearch(q);
   }, [query, mode, runSearch]);
+
+  /** Pre-fetch a candidate's macros (at 100 g) when it's selected, so the amount
+   *  field can preview "what this portion gives you" live, before adding. */
+  const selectFood = useCallback(
+    async (candidate: FoodCandidate) => {
+      setSelectedBasis(null);
+      const basis = await getUsdaFood(
+        candidate.foodId,
+        { method: 'weighed', quantityG: 100, quantityMethod: 'measured' },
+        deps
+      );
+      setSelectedBasis(basis);
+    },
+    [deps]
+  );
 
   const addWeighed = useCallback(
     async (candidate: FoodCandidate, grams: number) => {
@@ -210,6 +226,7 @@ export function useFoodLog(editId?: string) {
     mode, setMode,
     query, setQuery, candidates, searching,
     items, description, setDescription, addWeighed, addDescribed, removeItem,
+    selectedBasis, selectFood,
     savedMeals, loadSavedMeal,
     logMeal, saveMeal, reset, preview, busy, error,
     isEdit,

@@ -20,6 +20,7 @@ import {
   mealTemplateFrom,
   mealItemsLabel,
   itemMacroSummary,
+  scaleMacros,
   heroNumber,
   fidelityTreatment,
   type FoodLogInput,
@@ -210,6 +211,19 @@ describe('mealTemplateFrom (save this meal)', () => {
       canonicalItems: [foodItem()],
     });
     expect(t).not.toHaveProperty('earnedFidelity');
+  });
+});
+
+describe('scaleMacros (live portion preview)', () => {
+  const basis = { kcal: 400, proteinG: 20, carbsG: 10, fatG: 30, quantity: 100 };
+
+  it('scales a per-100g basis to the typed grams', () => {
+    expect(scaleMacros(basis, 50)).toEqual({ kcal: 200, proteinG: 10, carbsG: 5, fatG: 15 });
+    expect(scaleMacros(basis, 20)).toEqual({ kcal: 80, proteinG: 4, carbsG: 2, fatG: 6 });
+  });
+
+  it('preserves a null macro (never fabricates one)', () => {
+    expect(scaleMacros({ ...basis, kcal: null }, 50).kcal).toBeNull();
   });
 });
 

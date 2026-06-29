@@ -19,7 +19,7 @@ import { Screen, Text, Button, Card, Field, ChipSelect, FidelityTreatment, type 
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog } from '@/hooks/useFoodLog';
-import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, type NutritionFocus } from '@/lib/foodLog';
+import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
 
 const MODE_OPTIONS: ChipOption<'weigh' | 'describe'>[] = [
@@ -79,7 +79,7 @@ export default function LogFood() {
           {fl.searching ? <Text variant="bodySm" color={theme.colors.textMuted}>Searching…</Text> : null}
           {!selected &&
             fl.candidates.map((c) => (
-              <Pressable key={`${c.sourceDb}:${c.foodId}`} onPress={() => setSelected(c)}>
+              <Pressable key={`${c.sourceDb}:${c.foodId}`} onPress={() => { setSelected(c); fl.selectFood(c); }}>
                 <Card>
                   <Text variant="body">{c.description}</Text>
                   {c.brand ? <Text variant="bodySm" color={theme.colors.textMuted}>{c.brand}</Text> : null}
@@ -90,6 +90,12 @@ export default function LogFood() {
             <Card raised style={{ gap: theme.spacing[3] }}>
               <Text variant="body">{selected.description}</Text>
               <Field label="Amount" value={grams} onChangeText={setGrams} suffix="g" autoFocus />
+              {/* Live "what this portion gives you" — updates as you type the amount. */}
+              {Number(grams) > 0 && fl.selectedBasis ? (
+                <Text variant="data" color={theme.colors.textSecondary}>
+                  {itemMacroSummary(scaleMacros(fl.selectedBasis, Number(grams)))}
+                </Text>
+              ) : null}
               <Button
                 label="Add to meal"
                 onPress={async () => {

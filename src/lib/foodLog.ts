@@ -262,6 +262,22 @@ export function itemMacroSummary(
   return `${s(item.kcal)} cal · ${s(item.proteinG)} P · ${s(item.carbsG)} C · ${s(item.fatG)} F`;
 }
 
+/**
+ * Macros for `grams` of a food, scaled from a fetched basis item (its macros at
+ * `basis.quantity` g). Null-preserving — a basis with an unknown macro stays
+ * unknown. Powers the logger's live "what this portion gives you" preview as you
+ * type the amount, before adding. (The committed value is re-derived exactly from
+ * per-gram on Add; this preview matches it at display precision.)
+ */
+export function scaleMacros(
+  basis: Pick<FoodItem, 'kcal' | 'proteinG' | 'carbsG' | 'fatG' | 'quantity'>,
+  grams: number
+): Pick<FoodItem, 'kcal' | 'proteinG' | 'carbsG' | 'fatG'> {
+  const factor = basis.quantity > 0 ? grams / basis.quantity : 0;
+  const f = (v: number | null | undefined): number | null => (v == null ? null : round1(v * factor));
+  return { kcal: f(basis.kcal), proteinG: f(basis.proteinG), carbsG: f(basis.carbsG), fatG: f(basis.fatG) };
+}
+
 /** "Save this meal" → a MealTemplate (definition only). userConfirmed: the user
  *  saved it. A display-only `name` carries from the meal's description, falling back
  *  to its items' names, so the saved-meals picker is readable; it is omitted only
