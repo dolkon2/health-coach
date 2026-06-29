@@ -10,3 +10,9 @@ export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './Fidelity
 export { WeightTrendChart } from './WeightTrendChart';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';
+export {
+  GymExerciseEditor,
+  RemoveButton,
+  Checkbox,
+  type GymExerciseEditorProps,
+} from './surface/GymExerciseEditor';
