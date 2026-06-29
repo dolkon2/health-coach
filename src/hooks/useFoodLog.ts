@@ -128,7 +128,6 @@ export function useFoodLog(editId?: string) {
         );
         if (!item) { setError('Could not load that food.'); return; }
         setItems((xs) => [...xs, item]);
-        setDescription((d) => d || candidate.description);
         setQuery('');
         setCandidates([]);
       } finally {
@@ -158,7 +157,6 @@ export function useFoodLog(editId?: string) {
         );
         if (!item) { setError('Could not load that food.'); return; }
         setItems((xs) => [...xs, item]);
-        setDescription((d) => d || text.trim());
       } finally {
         setBusy(false);
       }
