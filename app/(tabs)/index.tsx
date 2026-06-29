@@ -1,13 +1,10 @@
 /**
  * Today — the home of the daily loop. Open it, see today, log a weigh-in, log a
- * session, leave.
- *
- * Pass 3: the weigh-in card is live. Two states — not-logged (a tap target) and
- * logged (today's weight + the smoothed trend delta from core/trend.ts). The
- * delta line only renders when the engine has enough data for an honest answer;
- * it never fabricates one. Sessions stay a placeholder until Pass 4.
+ * session, leave. Food shows as the daily total + a compact list of today's
+ * meals (tap → edit). Per-item breakdown and per-item delete live in the
+ * Nutrition tab — Today is a glance.
  */
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Screen, Text, Card, Button, SessionCard, SwipeToDelete, FidelityTreatment } from '@/components';
@@ -18,7 +15,7 @@ import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
-import { dailyTotals, fidelityTreatment, itemMacroSummary, type DailyMacroTotal } from '@/lib/foodLog';
+import { dailyTotals, fidelityTreatment, type DailyMacroTotal } from '@/lib/foodLog';
 import { deleteObservation } from '@/storage/observations';
 
 // A captured macro renders as a rounded integer; a genuinely unknown one as "—",
@@ -47,17 +44,6 @@ export default function TodayScreen() {
   const { delta, reload: reloadTrend } = useWeightTrend();
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
-
-  // Which multi-item meals are expanded to show their per-item breakdown.
-  const [expandedFood, setExpandedFood] = useState<Set<string>>(() => new Set());
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedFood((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   useFocusEffect(
@@ -222,13 +208,10 @@ export default function TodayScreen() {
               ) : null}
             </Card>
 
-            {/* Each meal — tap the card to edit (like sessions + weigh-ins), tap the
-                "N items" toggle to see the per-item breakdown, swipe to delete. */}
+            {/* Compact per-meal row — tap to edit, swipe to delete. The per-item
+                breakdown + per-item delete live in the Nutrition tab. */}
             {foodEntriesToday.map((o) => {
               const treat = fidelityTreatment(o.fidelity);
-              const items = o.payload.items;
-              const expandable = items.length > 1;
-              const isOpen = expandedFood.has(o.id);
               const mealName = o.payload.description || 'Meal';
               return (
                 <SwipeToDelete
@@ -237,14 +220,12 @@ export default function TodayScreen() {
                   confirmTitle={`Delete ${mealName}?`}
                   confirmMessage="This is permanent."
                 >
-                  <Card style={{ gap: theme.spacing[2] }}>
-                    {/* The card body opens the editor for this meal. */}
-                    <Pressable
-                      onPress={() => router.push({ pathname: '/log-food', params: { editId: o.id } })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit ${mealName}`}
-                      style={{ gap: theme.spacing[2] }}
-                    >
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/log-food', params: { editId: o.id } })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${mealName}`}
+                  >
+                    <Card style={{ gap: theme.spacing[2] }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
                         <FidelityTreatment fidelity={o.fidelity} />
                         <Text variant="body" style={{ flex: 1 }}>
@@ -262,47 +243,8 @@ export default function TodayScreen() {
                         {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
                         {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
                       </Text>
-                    </Pressable>
-
-                    {/* Separate tap target so expanding doesn't open the editor. */}
-                    {expandable ? (
-                      <Pressable
-                        onPress={() => toggleExpanded(o.id)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${isOpen ? 'Hide' : 'Show'} the ${items.length} foods in ${mealName}`}
-                        hitSlop={6}
-                        style={{ alignSelf: 'flex-start' }}
-                      >
-                        <Text variant="bodySm" color={theme.colors.textMuted}>
-                          {isOpen ? 'Hide items ▴' : `${items.length} items ▾`}
-                        </Text>
-                      </Pressable>
-                    ) : null}
-
-                    {expandable && isOpen ? (
-                      <View
-                        style={{
-                          gap: theme.spacing[2],
-                          marginTop: theme.spacing[1],
-                          paddingTop: theme.spacing[2],
-                          borderTopWidth: 1,
-                          borderTopColor: theme.colors.border,
-                        }}
-                      >
-                        {items.map((it, i) => (
-                          <View key={i} style={{ gap: 2 }}>
-                            <Text variant="bodySm" color={theme.colors.text} numberOfLines={1}>
-                              {it.description ? `${it.description} · ` : ''}
-                              {Math.round(it.quantity)} g
-                            </Text>
-                            <Text variant="bodySm" color={theme.colors.textMuted}>
-                              {itemMacroSummary(it)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                  </Card>
+                    </Card>
+                  </Pressable>
                 </SwipeToDelete>
               );
             })}
