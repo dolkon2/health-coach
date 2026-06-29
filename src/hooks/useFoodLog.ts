@@ -40,7 +40,7 @@ export interface FoodLogPreview {
   fidelity: number; // composite — drives the visual treatment only, never shown as a number
 }
 
-export function useFoodLog(editId?: string) {
+export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   const isEdit = typeof editId === 'string' && editId.length > 0;
   const [original, setOriginal] = useState<ObservationOf<'foodEntry'> | null>(null);
   const [mode, setMode] = useState<FoodLogMode>('weigh');
@@ -54,6 +54,15 @@ export function useFoodLog(editId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [savedMeals, setSavedMeals] = useState<MealTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  // When the meal was/will be eaten. Three sources of truth, in priority order:
+  //   1. Picker — the user changes it (setOccurredAt below).
+  //   2. defaultOccurredAt — caller passes one (Nutrition tab → noon of the
+  //      selected past/future day).
+  //   3. Modal open time — falls through to "now" when neither above applies.
+  // In edit mode the original meal's occurredAt overrides on hydrate.
+  const [occurredAt, setOccurredAt] = useState<string>(
+    () => defaultOccurredAt ?? new Date().toISOString()
+  );
 
   const refreshSavedMeals = useCallback(async () => {
     try {
@@ -79,6 +88,7 @@ export function useFoodLog(editId?: string) {
         setDescription(m.payload.description);
         setMode(m.payload.inputMethod === 'described' ? 'describe' : 'weigh');
         setTemplateId(m.payload.templateId ?? null);
+        setOccurredAt(m.occurredAt);
       })
       .catch(() => setError('Could not load meal.'));
     return () => {
@@ -195,17 +205,18 @@ export function useFoodLog(editId?: string) {
       ...(templateId ? { templateId } : {}),
     };
     if (isEdit && original) {
-      // Rebuild macros + fidelity from the edited items, but keep the meal's
-      // identity and when it was eaten (id, occurredAt, tz, loggedAt).
-      const obs = buildMealLog(input, { id: original.id, now: original.occurredAt, tz: original.tz });
+      // Rebuild macros + fidelity from the edited items. Identity (id, tz,
+      // loggedAt) carries from the original; occurredAt may have been
+      // changed via the picker, so it comes from state.
+      const obs = buildMealLog(input, { id: original.id, now: occurredAt, tz: original.tz });
       await updateObservation({ ...obs, loggedAt: original.loggedAt });
     } else {
-      const obs = buildMealLog(input, { id: uuidv7(), now: new Date().toISOString(), tz: deviceTz() });
+      const obs = buildMealLog(input, { id: uuidv7(), now: occurredAt, tz: deviceTz() });
       await createObservation(obs);
     }
     reset();
     return true;
-  }, [items, description, mode, templateId, isEdit, original, reset]);
+  }, [items, description, mode, templateId, isEdit, original, occurredAt, reset]);
 
   const saveMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
@@ -226,6 +237,7 @@ export function useFoodLog(editId?: string) {
     items, description, setDescription, addWeighed, addDescribed, removeItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal,
+    occurredAt, setOccurredAt,
     logMeal, saveMeal, reset, preview, busy, error,
     isEdit,
   };

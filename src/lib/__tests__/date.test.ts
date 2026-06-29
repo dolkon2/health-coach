@@ -10,6 +10,7 @@ import {
   dayNavLabel,
   dayOfMonth,
   localTimeLabel,
+  noonOfLocalDate,
   paddedDayWindow,
   todayLocalDate,
   weekOf,
@@ -157,6 +158,43 @@ describe('dayNavLabel — Today/Yesterday/Tomorrow/date', () => {
     expect(dayNavLabel('2026-06-22', today)).toMatch(/Mon.*Jun.*22/);
     // 2026-07-04 was a Saturday.
     expect(dayNavLabel('2026-07-04', today)).toMatch(/Sat.*Jul.*4/);
+  });
+});
+
+describe('noonOfLocalDate — default occurredAt for past/future logging', () => {
+  it('returns noon of the given local date (device-tz interpretation)', () => {
+    const iso = noonOfLocalDate('2026-06-22');
+    const dt = new Date(iso);
+    expect(dt.getFullYear()).toBe(2026);
+    expect(dt.getMonth()).toBe(5); // June (0-indexed)
+    expect(dt.getDate()).toBe(22);
+    expect(dt.getHours()).toBe(12);
+    expect(dt.getMinutes()).toBe(0);
+    expect(dt.getSeconds()).toBe(0);
+  });
+
+  it('returns a well-formed UTC ISO instant', () => {
+    expect(noonOfLocalDate('2026-06-22')).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    );
+  });
+
+  it('handles year boundaries', () => {
+    const iso = noonOfLocalDate('2026-01-01');
+    const dt = new Date(iso);
+    expect(dt.getFullYear()).toBe(2026);
+    expect(dt.getMonth()).toBe(0);
+    expect(dt.getDate()).toBe(1);
+    expect(dt.getHours()).toBe(12);
+  });
+
+  it('handles a far-future date (meal-plan tomorrow next year)', () => {
+    const iso = noonOfLocalDate('2027-12-31');
+    const dt = new Date(iso);
+    expect(dt.getFullYear()).toBe(2027);
+    expect(dt.getMonth()).toBe(11);
+    expect(dt.getDate()).toBe(31);
+    expect(dt.getHours()).toBe(12);
   });
 });
 
