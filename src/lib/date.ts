@@ -13,6 +13,69 @@ export function todayLocalLabel(d: Date = new Date()): string {
   });
 }
 
+/**
+ * Today's LocalDate ('YYYY-MM-DD') in the device's local zone — the canonical
+ * "today" the week strip + day-nav compare against. Pure modulo `d`, so callers
+ * can pass a fixed `Date` in tests.
+ */
+export function todayLocalDate(d: Date = new Date()): LocalDate {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+/**
+ * `date` ± `n` days, civil-day arithmetic in the device's local zone.
+ * Negative `n` walks backward; zero is a no-op. Crosses month/year boundaries
+ * via the `Date` constructor's normalization (which DST-shifts correctly).
+ */
+export function addDays(date: LocalDate, n: number): LocalDate {
+  const [y, m, d] = date.split('-').map(Number);
+  return todayLocalDate(new Date(y, m - 1, d + n));
+}
+
+/**
+ * The Sun–Sat civil week containing `date`, as 7 LocalDate strings (Sunday
+ * first). US convention; locale-aware first-day-of-week is deferred to a
+ * settings pass (no v1 user has asked).
+ */
+export function weekOf(date: LocalDate): LocalDate[] {
+  const [y, m, d] = date.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay(); // 0 = Sun … 6 = Sat
+  const sun = addDays(date, -dow);
+  return [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(sun, i));
+}
+
+/**
+ * The label that sits above the week strip — "Today" / "Yesterday" /
+ * "Tomorrow" for adjacent days, falling back to "Sun, Jun 22" elsewhere.
+ * Symmetric across past + future since Pass 2 allows future-day viewing
+ * (meal planning).
+ */
+export function dayNavLabel(date: LocalDate, today: LocalDate): string {
+  if (date === today) return 'Today';
+  if (date === addDays(today, -1)) return 'Yesterday';
+  if (date === addDays(today, 1)) return 'Tomorrow';
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** e.g. "S" / "M" / "T" — the single-letter weekday for the strip's day cells. */
+export function weekdayLetter(date: LocalDate): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return ['S', 'M', 'T', 'W', 'T', 'F', 'S'][new Date(y, m - 1, d).getDay()];
+}
+
+/** The day-of-month integer for the strip's date cell, e.g. 22 for "2026-06-22". */
+export function dayOfMonth(date: LocalDate): number {
+  return Number(date.split('-')[2]);
+}
+
 /** e.g. "2026" */
 export function yearLabel(d: Date = new Date()): string {
   return String(d.getFullYear());

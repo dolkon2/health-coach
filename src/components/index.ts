@@ -10,3 +10,6 @@ export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';
+export { WeekStrip } from './WeekStrip';
+export { DayNavHeader } from './DayNavHeader';
+export { DayMealList, type DayMealListProps } from './DayMealList';
