@@ -155,9 +155,21 @@ export default function LogFood() {
 
       {fl.preview ? (
         <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[3] }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-            <Text variant="label" color={theme.colors.textSecondary}>{fl.description || 'Meal'}</Text>
-            <FidelityTreatment fidelity={fl.preview.fidelity} />
+          {/* Optional meal name. Blank by default — the display layer falls back
+              to "First item + N more" via mealDisplayName, so an unnamed meal
+              never masquerades as one ingredient on the cards. */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[2] }}>
+            <View style={{ flex: 1 }}>
+              <Field
+                label="Name this meal"
+                value={fl.description}
+                onChangeText={fl.setDescription}
+                placeholder="optional"
+              />
+            </View>
+            <View style={{ paddingBottom: theme.spacing[2] }}>
+              <FidelityTreatment fidelity={fl.preview.fidelity} />
+            </View>
           </View>
 
           <ChipSelect options={FOCUS_OPTIONS} value={focus} onChange={setFocus} />

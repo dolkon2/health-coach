@@ -23,6 +23,8 @@ import {
   scaleMacros,
   heroNumber,
   fidelityTreatment,
+  removeItemFromMeal,
+  mealDisplayName,
   type FoodLogInput,
 } from '@/lib/foodLog';
 
@@ -268,5 +270,99 @@ describe('mealItemsLabel + named templates (readable saved meals)', () => {
 
     const unnamed = mealTemplateFrom([foodItem()], { id: 't3', now: CTX.now });
     expect(unnamed).not.toHaveProperty('name');
+  });
+});
+
+describe('removeItemFromMeal (per-item delete in the Nutrition tab)', () => {
+  function payloadOf(items: FoodItem[], over: Partial<FoodEntryPayload> = {}): FoodEntryPayload {
+    const input: FoodLogInput = { description: 'Snack plate', items, inputMethod: 'weighed' };
+    return { ...buildMealLog(input, CTX).payload, ...over };
+  }
+
+  it('removes the item at index and re-rolls the macros', () => {
+    const a = foodItem({ kcal: 200, proteinG: 20, carbsG: 10, fatG: 5, description: 'A' });
+    const b = foodItem({ kcal: 100, proteinG: 5, carbsG: 30, fatG: 2, description: 'B' });
+    const c = foodItem({ kcal: 50, proteinG: 3, carbsG: 0, fatG: 1, description: 'C' });
+    const next = removeItemFromMeal(payloadOf([a, b, c]), 1);
+    expect(next).not.toBeNull();
+    expect(next!.items.map((i) => i.description)).toEqual(['A', 'C']);
+    expect(next!.kcal).toBe(250);
+    expect(next!.proteinG).toBe(23);
+    expect(next!.carbsG).toBe(10);
+    expect(next!.fatG).toBe(6);
+  });
+
+  it('returns null when removing the meal\'s last remaining item', () => {
+    const only = foodItem({ description: 'Solo' });
+    expect(removeItemFromMeal(payloadOf([only]), 0)).toBeNull();
+  });
+
+  it('preserves description, servings, inputMethod, fidelityCeiling, and templateId', () => {
+    const original = payloadOf([foodItem(), foodItem()], {
+      description: 'Lunch',
+      servings: 2,
+      templateId: 'tpl-1',
+    });
+    const next = removeItemFromMeal(original, 0)!;
+    expect(next.description).toBe('Lunch');
+    expect(next.servings).toBe(2);
+    expect(next.inputMethod).toBe('weighed');
+    expect(next.fidelityCeiling).toBe(original.fidelityCeiling);
+    expect(next.templateId).toBe('tpl-1');
+  });
+
+  it('keeps a remaining-item null macro honest — the total is null, never 0', () => {
+    const a = foodItem({ kcal: 200, proteinG: 20, carbsG: 10, fatG: 5 });
+    const partial = foodItem({ kcal: null, proteinG: 12, carbsG: null, fatG: null });
+    const fully = foodItem({ kcal: 80, proteinG: 4, carbsG: 1, fatG: 2 });
+    // drop the fully-known item → the rolled total inherits the partial item's nulls
+    const next = removeItemFromMeal(payloadOf([a, partial, fully]), 2)!;
+    expect(next.kcal).toBeNull();
+    expect(next.carbsG).toBeNull();
+    expect(next.fatG).toBeNull();
+    expect(next.proteinG).toBe(32);
+  });
+
+  it('throws on an out-of-range index', () => {
+    expect(() => removeItemFromMeal(payloadOf([foodItem(), foodItem()]), 5)).toThrow(/out of range/);
+    expect(() => removeItemFromMeal(payloadOf([foodItem()]), -1)).toThrow(/out of range/);
+  });
+});
+
+describe('mealDisplayName (the card-level meal name, honest about authorship)', () => {
+  const item = (description: string) => foodItem({ description });
+
+  it('uses a real user-typed description that does not match any item', () => {
+    expect(mealDisplayName({ description: 'Sunday brunch', items: [item('Eggs'), item('Bacon')] })).toBe(
+      'Sunday brunch'
+    );
+  });
+
+  it('treats a description matching one item as the auto-seed and falls back', () => {
+    // The logger pre-fills `description` with the first added food's name when
+    // the user hasn't typed one; that lie shows here as a 3-item meal pretending
+    // to be a single beef tenderloin. Display rule rescues us.
+    expect(
+      mealDisplayName({
+        description: 'Beef, tenderloin steak, raw',
+        items: [item('Beef, tenderloin steak, raw'), item('Cheese'), item('Hot sauce')],
+      })
+    ).toBe('Beef, tenderloin steak, raw + 2 more');
+  });
+
+  it('falls back to "First item + N more" when description is blank', () => {
+    expect(mealDisplayName({ description: '', items: [item('Oats'), item('Milk'), item('Berries')] })).toBe(
+      'Oats + 2 more'
+    );
+  });
+
+  it('collapses to the single item name when the meal has just one food', () => {
+    expect(mealDisplayName({ description: '', items: [item('Apple')] })).toBe('Apple');
+    expect(mealDisplayName({ description: 'Apple', items: [item('Apple')] })).toBe('Apple');
+  });
+
+  it('returns "Meal" when there are no items or no item names to fall back on', () => {
+    expect(mealDisplayName({ description: '', items: [] })).toBe('Meal');
+    expect(mealDisplayName({ description: '', items: [foodItem({ description: undefined })] })).toBe('Meal');
   });
 });

@@ -52,3 +52,17 @@ export function localTimeLabel(iso: string, tz?: string): string {
     ...(tz ? { timeZone: tz } : {}),
   });
 }
+
+/**
+ * The hour-of-day label used as the Nutrition tab's left-gutter anchor — "10 AM",
+ * "12 PM", "3 PM" — derived from the instant's local time in `tz`. Minutes are
+ * intentionally absent: this is the *bucket*, not the time of the meal (that
+ * still renders inside the row via `localTimeLabel`).
+ */
+export function hourBucketLabel(iso: string, tz?: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    hour12: true,
+    ...(tz ? { timeZone: tz } : {}),
+  });
+}

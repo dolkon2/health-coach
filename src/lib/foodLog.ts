@@ -244,6 +244,59 @@ export function buildMealLog(input: FoodLogInput, ctx: FoodBuildContext): Observ
   };
 }
 
+/**
+ * Drop one item from a meal payload and re-roll the macros. Returns `null` when
+ * `index` points at the meal's last remaining item — the caller deletes the whole
+ * observation in that case (a meal with zero foods is not a thing). The new
+ * payload re-rolls via the same `rollupMacros` rule the builder uses: a macro
+ * stays `null` if any remaining item is missing it (null ≠ 0, never inferred).
+ * Pure; the caller re-blends fidelity on the observation envelope.
+ */
+export function removeItemFromMeal(
+  payload: FoodEntryPayload,
+  index: number
+): FoodEntryPayload | null {
+  if (index < 0 || index >= payload.items.length) {
+    throw new Error(`removeItemFromMeal: index ${index} out of range`);
+  }
+  if (payload.items.length === 1) return null;
+  const items = payload.items.filter((_, i) => i !== index);
+  const roll = rollupMacros(items);
+  return {
+    ...payload,
+    items,
+    kcal: roll.kcal,
+    proteinG: roll.proteinG,
+    carbsG: roll.carbsG,
+    fatG: roll.fatG,
+    ...(roll.fiberG != null ? { fiberG: roll.fiberG } : {}),
+    ...(roll.alcoholG != null ? { alcoholG: roll.alcoholG } : {}),
+  };
+}
+
+/**
+ * The meal name to show on a card — honest about whether the user actually
+ * named the meal. If the stored `description` is non-empty AND doesn't match
+ * any single item's name, it's a real user-typed name and wins. Otherwise it's
+ * either blank or the logger's auto-seed (the first food's name pre-filled),
+ * which would lie at the card level for a multi-item meal — we fall back to
+ * "First item + N more" so a 3-item meal can't masquerade as one ingredient.
+ * Single-item meals collapse to just the item's name. Empty meal → "Meal".
+ */
+export function mealDisplayName(
+  payload: Pick<FoodEntryPayload, 'description' | 'items'>
+): string {
+  const desc = payload.description?.trim() ?? '';
+  const items = payload.items;
+  const itemNames = new Set(
+    items.map((i) => i.description?.trim()).filter((d): d is string => !!d)
+  );
+  if (desc && !itemNames.has(desc)) return desc;
+  const first = items[0]?.description?.trim();
+  if (!first) return 'Meal';
+  return items.length > 1 ? `${first} + ${items.length - 1} more` : first;
+}
+
 /** A readable label for a meal built from its items' names — the unique item
  *  descriptions joined ("Cheddar cheese, Crackers"), or '' when no item carries a
  *  name (legacy items, or a source that returned none). Display-only. */
