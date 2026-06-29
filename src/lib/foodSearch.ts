@@ -57,7 +57,7 @@ interface UsdaSearchFood {
  * are lab-measured generic foods — the clean, canonical entries a text search
  * usually wants; Survey (FNDDS) is generic but modeled; Branded is label/crowd
  * data, noisy and typo-prone, so it sorts last. Unknown types fall after all known
- * ones. This is the data-quality call the spec says we own (handoff §3).
+ * ones. Used as the final tiebreaker inside `usdaSearchScore`.
  */
 export function usdaDataTypeRank(dataType?: string): number {
   switch (dataType) {
@@ -72,6 +72,68 @@ export function usdaDataTypeRank(dataType?: string): number {
     default:
       return 4;
   }
+}
+
+/**
+ * Words that mark a description as "not the thing the user typed". When the user
+ * types a meat name and USDA returns "Bacon, meatless", the data-type rank can't
+ * see the mismatch — only the noun in the description does. We only penalize when
+ * the user didn't ask for the modifier, so a literal "meatless bacon" query still
+ * finds it.
+ */
+const DISQUALIFIER_TERMS = [
+  'meatless',
+  'imitation',
+  'substitute',
+  'alternative',
+  'vegan',
+  'vegetarian',
+  'meat-free',
+];
+
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .split(/[\s,()/\-]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Composite relevance score for a USDA candidate against a free-text query.
+ * Higher = better. Combines four signals; `usdaDataTypeRank` is the final
+ * tiebreaker so USDA's own page order is preserved inside ties (stable sort).
+ *
+ *   +60   description starts with the query verbatim
+ *   +30   first description token matches the first query token
+ *   +20   per query token that appears as a whole word in the description
+ *  -100   per disqualifier term the description has but the query didn't
+ *   −rank  Foundation 0 … Branded 3, unknown 4 (so lab generics win ties)
+ */
+export function usdaSearchScore(
+  query: string,
+  c: { description?: string; dataType?: string }
+): number {
+  const desc = (c.description ?? '').toLowerCase();
+  const q = query.trim().toLowerCase();
+  if (!q) return -usdaDataTypeRank(c.dataType);
+
+  const descTokens = tokenize(desc);
+  const queryTokens = tokenize(q);
+  let score = 0;
+
+  if (desc.startsWith(q)) score += 60;
+  if (descTokens[0] && descTokens[0] === queryTokens[0]) score += 30;
+
+  for (const t of queryTokens) {
+    if (descTokens.includes(t)) score += 20;
+  }
+
+  for (const term of DISQUALIFIER_TERMS) {
+    if (descTokens.includes(term) && !queryTokens.includes(term)) score -= 100;
+  }
+
+  score -= usdaDataTypeRank(c.dataType);
+  return score;
 }
 
 /**
@@ -93,11 +155,11 @@ export async function searchFoods(query: string, deps?: FoodSearchDeps): Promise
     brand: f.brandOwner ?? f.brandName ?? undefined,
     dataType: f.dataType,
   }));
-  // We own ordering: float clean lab-measured generics (Foundation/SR Legacy) above
-  // noisy Branded label data, preserving USDA's relevance order within each tier
-  // (Array.sort is stable). "cheddar" surfaces "Cheese, cheddar", not a typo'd pack;
-  // a branded-only query (a product name) is unaffected — all one tier.
-  return candidates.sort((a, b) => usdaDataTypeRank(a.dataType) - usdaDataTypeRank(b.dataType));
+  // We own ordering: a composite relevance score (see `usdaSearchScore`) so that
+  // typing "bacon" surfaces real bacon over "Bacon, meatless", with data-type
+  // rank as the final tiebreaker. USDA's own relevance order is preserved inside
+  // ties via Array.sort stability.
+  return candidates.sort((a, b) => usdaSearchScore(q, b) - usdaSearchScore(q, a));
 }
 
 /** Fetch a USDA food by fdcId and adapt it to the logged quantity. Cache-first. */
