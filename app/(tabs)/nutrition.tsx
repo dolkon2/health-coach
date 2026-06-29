@@ -22,6 +22,7 @@ import {
   dailyTotals,
   fidelityTreatment,
   itemMacroSummary,
+  mealDisplayName,
   removeItemFromMeal,
   type DailyMacroTotal,
 } from '@/lib/foodLog';
@@ -95,7 +96,8 @@ export default function NutritionScreen() {
     (meal: FoodObs, index: number) => {
       const item = meal.payload.items[index];
       const label = item?.description?.trim() || `item ${index + 1}`;
-      Alert.alert(`Delete ${label}?`, 'This is permanent.', [
+      const mealLabel = mealDisplayName(meal.payload);
+      Alert.alert(`Delete ${label}?`, `Removes it from ${mealLabel}. This is permanent.`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -173,7 +175,7 @@ export default function NutritionScreen() {
                     const items = o.payload.items;
                     const expandable = items.length > 1;
                     const isOpen = expanded.has(o.id);
-                    const mealName = o.payload.description || 'Meal';
+                    const mealName = mealDisplayName(o.payload);
                     return (
                       <SwipeToDelete
                         key={o.id}

@@ -15,7 +15,7 @@ import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
-import { dailyTotals, fidelityTreatment, type DailyMacroTotal } from '@/lib/foodLog';
+import { dailyTotals, fidelityTreatment, mealDisplayName, type DailyMacroTotal } from '@/lib/foodLog';
 import { deleteObservation } from '@/storage/observations';
 
 // A captured macro renders as a rounded integer; a genuinely unknown one as "—",
@@ -212,7 +212,7 @@ export default function TodayScreen() {
                 breakdown + per-item delete live in the Nutrition tab. */}
             {foodEntriesToday.map((o) => {
               const treat = fidelityTreatment(o.fidelity);
-              const mealName = o.payload.description || 'Meal';
+              const mealName = mealDisplayName(o.payload);
               return (
                 <SwipeToDelete
                   key={o.id}

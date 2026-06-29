@@ -24,6 +24,7 @@ import {
   heroNumber,
   fidelityTreatment,
   removeItemFromMeal,
+  mealDisplayName,
   type FoodLogInput,
 } from '@/lib/foodLog';
 
@@ -325,5 +326,43 @@ describe('removeItemFromMeal (per-item delete in the Nutrition tab)', () => {
   it('throws on an out-of-range index', () => {
     expect(() => removeItemFromMeal(payloadOf([foodItem(), foodItem()]), 5)).toThrow(/out of range/);
     expect(() => removeItemFromMeal(payloadOf([foodItem()]), -1)).toThrow(/out of range/);
+  });
+});
+
+describe('mealDisplayName (the card-level meal name, honest about authorship)', () => {
+  const item = (description: string) => foodItem({ description });
+
+  it('uses a real user-typed description that does not match any item', () => {
+    expect(mealDisplayName({ description: 'Sunday brunch', items: [item('Eggs'), item('Bacon')] })).toBe(
+      'Sunday brunch'
+    );
+  });
+
+  it('treats a description matching one item as the auto-seed and falls back', () => {
+    // The logger pre-fills `description` with the first added food's name when
+    // the user hasn't typed one; that lie shows here as a 3-item meal pretending
+    // to be a single beef tenderloin. Display rule rescues us.
+    expect(
+      mealDisplayName({
+        description: 'Beef, tenderloin steak, raw',
+        items: [item('Beef, tenderloin steak, raw'), item('Cheese'), item('Hot sauce')],
+      })
+    ).toBe('Beef, tenderloin steak, raw + 2 more');
+  });
+
+  it('falls back to "First item + N more" when description is blank', () => {
+    expect(mealDisplayName({ description: '', items: [item('Oats'), item('Milk'), item('Berries')] })).toBe(
+      'Oats + 2 more'
+    );
+  });
+
+  it('collapses to the single item name when the meal has just one food', () => {
+    expect(mealDisplayName({ description: '', items: [item('Apple')] })).toBe('Apple');
+    expect(mealDisplayName({ description: 'Apple', items: [item('Apple')] })).toBe('Apple');
+  });
+
+  it('returns "Meal" when there are no items or no item names to fall back on', () => {
+    expect(mealDisplayName({ description: '', items: [] })).toBe('Meal');
+    expect(mealDisplayName({ description: '', items: [foodItem({ description: undefined })] })).toBe('Meal');
   });
 });

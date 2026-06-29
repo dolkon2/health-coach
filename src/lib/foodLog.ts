@@ -274,6 +274,29 @@ export function removeItemFromMeal(
   };
 }
 
+/**
+ * The meal name to show on a card — honest about whether the user actually
+ * named the meal. If the stored `description` is non-empty AND doesn't match
+ * any single item's name, it's a real user-typed name and wins. Otherwise it's
+ * either blank or the logger's auto-seed (the first food's name pre-filled),
+ * which would lie at the card level for a multi-item meal — we fall back to
+ * "First item + N more" so a 3-item meal can't masquerade as one ingredient.
+ * Single-item meals collapse to just the item's name. Empty meal → "Meal".
+ */
+export function mealDisplayName(
+  payload: Pick<FoodEntryPayload, 'description' | 'items'>
+): string {
+  const desc = payload.description?.trim() ?? '';
+  const items = payload.items;
+  const itemNames = new Set(
+    items.map((i) => i.description?.trim()).filter((d): d is string => !!d)
+  );
+  if (desc && !itemNames.has(desc)) return desc;
+  const first = items[0]?.description?.trim();
+  if (!first) return 'Meal';
+  return items.length > 1 ? `${first} + ${items.length - 1} more` : first;
+}
+
 /** A readable label for a meal built from its items' names — the unique item
  *  descriptions joined ("Cheddar cheese, Crackers"), or '' when no item carries a
  *  name (legacy items, or a source that returned none). Display-only. */
