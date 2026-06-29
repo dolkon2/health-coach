@@ -191,6 +191,18 @@ export default function LogFood() {
               autoFocus
             />
             {fl.searching ? <Text variant="bodySm" color={theme.colors.textMuted}>Searching…</Text> : null}
+            {!selected && fl.recents.length > 0 && (
+              <View style={{ gap: theme.spacing[2] }}>
+                <Text variant="label" color={theme.colors.textSecondary}>Recent</Text>
+                {fl.recents.map((r) => (
+                  <Pressable key={`recent:${r.item.foodId}`} onPress={() => fl.addRecent(r.item)}>
+                    <Card>
+                      <Text variant="body">{r.item.description} · {Math.round(r.item.quantity)} g</Text>
+                    </Card>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             {!selected &&
               fl.candidates.map((c) => (
                 <Pressable key={`${c.sourceDb}:${c.foodId}`} onPress={() => { setSelected(c); fl.selectFood(c); }}>

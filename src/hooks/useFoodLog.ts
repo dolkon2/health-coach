@@ -27,7 +27,7 @@ import {
   type MacroRollup,
 } from '@/lib/foodLog';
 import type { MealTemplate } from '@core/observation';
-import { createObservation, getObservationById, updateObservation } from '@/storage/observations';
+import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
 import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
@@ -48,6 +48,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [items, setItems] = useState<FoodItem[]>([]);
+  const [recents, setRecents] = useState<RecentFoodItem[]>([]);
   const [selectedBasis, setSelectedBasis] = useState<FoodItem | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -106,9 +107,12 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   useEffect(() => {
     if (mode !== 'weigh') return;
     const q = query.trim();
-    if (!q) { setCandidates([]); setSearching(false); return; }
+    if (!q) { setCandidates([]); setRecents([]); setSearching(false); return; }
     setSearching(true);
     runSearch(q);
+    let cancelled = false;
+    getRecentFoodItems(q).then((r) => { if (!cancelled) setRecents(r); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [query, mode, runSearch]);
 
   /** Pre-fetch a candidate's macros (at 100 g) when it's selected, so the amount
@@ -124,6 +128,16 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
       setSelectedBasis(basis);
     },
     [deps]
+  );
+
+  const addRecent = useCallback(
+    (item: FoodItem) => {
+      setItems((xs) => [...xs, item]);
+      setQuery('');
+      setCandidates([]);
+      setRecents([]);
+    },
+    []
   );
 
   const addWeighed = useCallback(
@@ -238,8 +252,8 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
 
   return {
     mode, setMode,
-    query, setQuery, candidates, searching,
-    items, description, setDescription, addWeighed, addDescribed, removeItem,
+    query, setQuery, candidates, recents, searching,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, removeItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,
