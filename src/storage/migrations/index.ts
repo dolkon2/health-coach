@@ -8,6 +8,7 @@ import { migration002 } from './002_cached_foods';
 import { migration003 } from './003_meal_templates';
 import { migration004 } from './004_meal_template_name';
 import { migration005 } from './005_session_templates';
+import { migration006 } from './006_wearable_state';
 
 export type Migration = {
   version: number;
@@ -21,4 +22,5 @@ export const migrations: Migration[] = [
   migration003,
   migration004,
   migration005,
+  migration006,
 ];
