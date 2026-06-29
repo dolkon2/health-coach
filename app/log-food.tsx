@@ -12,13 +12,15 @@
  * missing macros read as "—", with no "complete this" nag. All the logic lives
  * in the tested lib/foodLog + hooks/useFoodLog; this screen is a thin consumer.
  */
-import { useState } from 'react';
-import { View, Pressable } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Platform, View, Pressable } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Screen, Text, Button, Card, Field, ChipSelect, FidelityTreatment, type ChipOption } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog } from '@/hooks/useFoodLog';
+import { noonOfLocalDate } from '@/lib/date';
 import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
 
@@ -49,12 +51,23 @@ export default function LogFood() {
   const theme = useTheme();
   const router = useRouter();
   const settings = useSettings();
-  const { editId } = useLocalSearchParams<{ editId?: string }>();
-  const fl = useFoodLog(editId);
+  const { editId, date: dateParam } = useLocalSearchParams<{ editId?: string; date?: string }>();
+  // When the Nutrition tab opens this screen from a past or future day,
+  // it passes ?date=YYYY-MM-DD — default the meal's occurredAt to noon of
+  // that day. Today's "Log food" passes no `date`, so this stays undefined
+  // and useFoodLog falls through to "now" (preserves Pass 1 behavior).
+  const defaultOccurredAt = useMemo(
+    () => (dateParam ? noonOfLocalDate(dateParam) : undefined),
+    [dateParam]
+  );
+  const fl = useFoodLog(editId, defaultOccurredAt);
   const [focus, setFocus] = useState<NutritionFocus>(settings.nutritionFocus);
   const [grams, setGrams] = useState('');
   const [selected, setSelected] = useState<FoodCandidate | null>(null);
   const [describeText, setDescribeText] = useState('');
+  // Android renders DateTimePicker as a modal opened on tap; iOS uses the
+  // inline compact button. The state only gates the Android branch.
+  const [showPicker, setShowPicker] = useState(false);
 
   const onLog = async () => {
     if (await fl.logMeal()) router.back();
@@ -170,6 +183,48 @@ export default function LogFood() {
             <View style={{ paddingBottom: theme.spacing[2] }}>
               <FidelityTreatment fidelity={fl.preview.fidelity} />
             </View>
+          </View>
+
+          {/* When? — defaults to now / noon of the chosen day / original eaten time
+              (edit mode), adjustable via the native picker. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] }}>
+            <Text variant="label" color={theme.colors.textSecondary}>When?</Text>
+            {Platform.OS === 'ios' ? (
+              <DateTimePicker
+                value={new Date(fl.occurredAt)}
+                mode="datetime"
+                display="compact"
+                themeVariant="dark"
+                onChange={(_e, d) => {
+                  if (d) fl.setOccurredAt(d.toISOString());
+                }}
+              />
+            ) : (
+              <>
+                <Pressable onPress={() => setShowPicker(true)} accessibilityRole="button">
+                  <Text variant="body">
+                    {new Date(fl.occurredAt).toLocaleString(undefined, {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </Pressable>
+                {showPicker ? (
+                  <DateTimePicker
+                    value={new Date(fl.occurredAt)}
+                    mode="datetime"
+                    display="default"
+                    onChange={(_e, d) => {
+                      setShowPicker(false);
+                      if (d) fl.setOccurredAt(d.toISOString());
+                    }}
+                  />
+                ) : null}
+              </>
+            )}
           </View>
 
           <ChipSelect options={FOCUS_OPTIONS} value={focus} onChange={setFocus} />
