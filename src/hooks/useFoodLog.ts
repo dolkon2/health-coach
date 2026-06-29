@@ -8,7 +8,7 @@
  * rollup, composite fidelity, the build) live in the pure, tested functions.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FoodItem } from '@core/observation';
+import type { FoodItem, ObservationOf } from '@core/observation';
 import { blendComposite } from '@core/nutrition/fidelity';
 import {
   searchFoods,
@@ -23,10 +23,11 @@ import {
   buildMealLog,
   mealTemplateFrom,
   rollupMacros,
+  type FoodLogInput,
   type MacroRollup,
 } from '@/lib/foodLog';
 import type { MealTemplate } from '@core/observation';
-import { createObservation } from '@/storage/observations';
+import { createObservation, getObservationById, updateObservation } from '@/storage/observations';
 import { createMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
 import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
@@ -39,7 +40,9 @@ export interface FoodLogPreview {
   fidelity: number; // composite — drives the visual treatment only, never shown as a number
 }
 
-export function useFoodLog() {
+export function useFoodLog(editId?: string) {
+  const isEdit = typeof editId === 'string' && editId.length > 0;
+  const [original, setOriginal] = useState<ObservationOf<'foodEntry'> | null>(null);
   const [mode, setMode] = useState<FoodLogMode>('weigh');
   const [query, setQuery] = useState('');
   const [candidates, setCandidates] = useState<FoodCandidate[]>([]);
@@ -61,6 +64,26 @@ export function useFoodLog() {
   useEffect(() => {
     void refreshSavedMeals();
   }, [refreshSavedMeals]);
+
+  // Edit mode: hydrate the editor from the meal being edited (items, name, method).
+  useEffect(() => {
+    if (!isEdit) return;
+    let cancelled = false;
+    getObservationById(editId!)
+      .then((obs) => {
+        if (cancelled || !obs || obs.kind !== 'foodEntry') return;
+        const m = obs as ObservationOf<'foodEntry'>;
+        setOriginal(m);
+        setItems(m.payload.items);
+        setDescription(m.payload.description);
+        setMode(m.payload.inputMethod === 'described' ? 'describe' : 'weigh');
+        setTemplateId(m.payload.templateId ?? null);
+      })
+      .catch(() => setError('Could not load meal.'));
+    return () => {
+      cancelled = true;
+    };
+  }, [editId, isEdit]);
 
   const deps = useMemo(() => ({ usdaApiKey: USDA_API_KEY }), []);
   const runSearch = useMemo(
@@ -151,19 +174,24 @@ export function useFoodLog() {
 
   const logMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
-    const obs = buildMealLog(
-      {
-        description: description || 'Meal',
-        items,
-        inputMethod: mode === 'weigh' ? 'weighed' : 'described',
-        ...(templateId ? { templateId } : {}),
-      },
-      { id: uuidv7(), now: new Date().toISOString(), tz: deviceTz() }
-    );
-    await createObservation(obs);
+    const input: FoodLogInput = {
+      description: description || 'Meal',
+      items,
+      inputMethod: mode === 'weigh' ? 'weighed' : 'described',
+      ...(templateId ? { templateId } : {}),
+    };
+    if (isEdit && original) {
+      // Rebuild macros + fidelity from the edited items, but keep the meal's
+      // identity and when it was eaten (id, occurredAt, tz, loggedAt).
+      const obs = buildMealLog(input, { id: original.id, now: original.occurredAt, tz: original.tz });
+      await updateObservation({ ...obs, loggedAt: original.loggedAt });
+    } else {
+      const obs = buildMealLog(input, { id: uuidv7(), now: new Date().toISOString(), tz: deviceTz() });
+      await createObservation(obs);
+    }
     reset();
     return true;
-  }, [items, description, mode, templateId, reset]);
+  }, [items, description, mode, templateId, isEdit, original, reset]);
 
   const saveMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
@@ -184,5 +212,6 @@ export function useFoodLog() {
     items, description, setDescription, addWeighed, addDescribed, removeItem,
     savedMeals, loadSavedMeal,
     logMeal, saveMeal, reset, preview, busy, error,
+    isEdit,
   };
 }

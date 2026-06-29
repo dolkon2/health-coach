@@ -14,7 +14,7 @@
  */
 import { useState } from 'react';
 import { View, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Screen, Text, Button, Card, Field, ChipSelect, FidelityTreatment, type ChipOption } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
@@ -49,7 +49,8 @@ export default function LogFood() {
   const theme = useTheme();
   const router = useRouter();
   const settings = useSettings();
-  const fl = useFoodLog();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const fl = useFoodLog(editId);
   const [focus, setFocus] = useState<NutritionFocus>(settings.nutritionFocus);
   const [grams, setGrams] = useState('');
   const [selected, setSelected] = useState<FoodCandidate | null>(null);
@@ -61,6 +62,7 @@ export default function LogFood() {
 
   return (
     <Screen scroll>
+      <Stack.Screen options={{ title: fl.isEdit ? 'Edit meal' : 'Log food' }} />
       <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); }} />
       <View style={{ height: theme.spacing[4] }} />
 
@@ -184,10 +186,14 @@ export default function LogFood() {
             </View>
           ))}
 
-          <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
-            <Button label="Log meal" onPress={onLog} style={{ flex: 1 }} />
-            <Button label="Save meal" variant="outline" onPress={() => fl.saveMeal()} style={{ flex: 1 }} />
-          </View>
+          {fl.isEdit ? (
+            <Button label="Save changes" onPress={onLog} />
+          ) : (
+            <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+              <Button label="Log meal" onPress={onLog} style={{ flex: 1 }} />
+              <Button label="Save meal" variant="outline" onPress={() => fl.saveMeal()} style={{ flex: 1 }} />
+            </View>
+          )}
         </Card>
       ) : null}
     </Screen>

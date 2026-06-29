@@ -222,65 +222,14 @@ export default function TodayScreen() {
               ) : null}
             </Card>
 
-            {/* Each meal — name + fidelity dot; its macros at the fidelity's own
-                opacity. Swipe to delete; tap a multi-item meal to see its breakdown. */}
+            {/* Each meal — tap the card to edit (like sessions + weigh-ins), tap the
+                "N items" toggle to see the per-item breakdown, swipe to delete. */}
             {foodEntriesToday.map((o) => {
               const treat = fidelityTreatment(o.fidelity);
               const items = o.payload.items;
               const expandable = items.length > 1;
               const isOpen = expandedFood.has(o.id);
               const mealName = o.payload.description || 'Meal';
-              const card = (
-                <Card style={{ gap: theme.spacing[2] }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                    <FidelityTreatment fidelity={o.fidelity} />
-                    <Text variant="body" style={{ flex: 1 }}>
-                      {mealName}
-                    </Text>
-                    <Text variant="bodySm" color={theme.colors.textMuted}>
-                      {localTimeLabel(o.occurredAt, o.tz)}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                    <Text
-                      variant="bodySm"
-                      color={theme.colors.textSecondary}
-                      style={{ flex: 1, opacity: treat.opacity }}
-                    >
-                      {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
-                      {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
-                    </Text>
-                    {expandable ? (
-                      <Text variant="bodySm" color={theme.colors.textMuted}>
-                        {isOpen ? '▴' : `${items.length} items ▾`}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {expandable && isOpen ? (
-                    <View
-                      style={{
-                        gap: theme.spacing[2],
-                        marginTop: theme.spacing[1],
-                        paddingTop: theme.spacing[2],
-                        borderTopWidth: 1,
-                        borderTopColor: theme.colors.border,
-                      }}
-                    >
-                      {items.map((it, i) => (
-                        <View key={i} style={{ gap: 2 }}>
-                          <Text variant="bodySm" color={theme.colors.text} numberOfLines={1}>
-                            {it.description ? `${it.description} · ` : ''}
-                            {Math.round(it.quantity)} g
-                          </Text>
-                          <Text variant="bodySm" color={theme.colors.textMuted}>
-                            {itemMacroSummary(it)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </Card>
-              );
               return (
                 <SwipeToDelete
                   key={o.id}
@@ -288,17 +237,72 @@ export default function TodayScreen() {
                   confirmTitle={`Delete ${mealName}?`}
                   confirmMessage="This is permanent."
                 >
-                  {expandable ? (
+                  <Card style={{ gap: theme.spacing[2] }}>
+                    {/* The card body opens the editor for this meal. */}
                     <Pressable
-                      onPress={() => toggleExpanded(o.id)}
+                      onPress={() => router.push({ pathname: '/log-food', params: { editId: o.id } })}
                       accessibilityRole="button"
-                      accessibilityLabel={`${isOpen ? 'Collapse' : 'Expand'} ${mealName}`}
+                      accessibilityLabel={`Edit ${mealName}`}
+                      style={{ gap: theme.spacing[2] }}
                     >
-                      {card}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                        <FidelityTreatment fidelity={o.fidelity} />
+                        <Text variant="body" style={{ flex: 1 }}>
+                          {mealName}
+                        </Text>
+                        <Text variant="bodySm" color={theme.colors.textMuted}>
+                          {localTimeLabel(o.occurredAt, o.tz)}
+                        </Text>
+                      </View>
+                      <Text
+                        variant="bodySm"
+                        color={theme.colors.textSecondary}
+                        style={{ opacity: treat.opacity }}
+                      >
+                        {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
+                        {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
+                      </Text>
                     </Pressable>
-                  ) : (
-                    card
-                  )}
+
+                    {/* Separate tap target so expanding doesn't open the editor. */}
+                    {expandable ? (
+                      <Pressable
+                        onPress={() => toggleExpanded(o.id)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${isOpen ? 'Hide' : 'Show'} the ${items.length} foods in ${mealName}`}
+                        hitSlop={6}
+                        style={{ alignSelf: 'flex-start' }}
+                      >
+                        <Text variant="bodySm" color={theme.colors.textMuted}>
+                          {isOpen ? 'Hide items ▴' : `${items.length} items ▾`}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+
+                    {expandable && isOpen ? (
+                      <View
+                        style={{
+                          gap: theme.spacing[2],
+                          marginTop: theme.spacing[1],
+                          paddingTop: theme.spacing[2],
+                          borderTopWidth: 1,
+                          borderTopColor: theme.colors.border,
+                        }}
+                      >
+                        {items.map((it, i) => (
+                          <View key={i} style={{ gap: 2 }}>
+                            <Text variant="bodySm" color={theme.colors.text} numberOfLines={1}>
+                              {it.description ? `${it.description} · ` : ''}
+                              {Math.round(it.quantity)} g
+                            </Text>
+                            <Text variant="bodySm" color={theme.colors.textMuted}>
+                              {itemMacroSummary(it)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </Card>
                 </SwipeToDelete>
               );
             })}
