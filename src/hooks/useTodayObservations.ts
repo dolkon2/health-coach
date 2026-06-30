@@ -18,6 +18,8 @@ type TodayObservations = {
   weighInToday: ObservationOf<'weighIn'> | null;
   sessionsToday: ObservationOf<'session'>[];
   foodEntriesToday: ObservationOf<'foodEntry'>[];
+  stepsToday: ObservationOf<'steps'> | null;
+  sleepToday: ObservationOf<'sleep'> | null;
   loading: boolean;
   error: Error | null;
   reload: () => void;
@@ -68,5 +70,23 @@ export function useTodayObservations(): TodayObservations {
     isKind(o, 'foodEntry')
   );
 
-  return { observations, weighInToday, sessionsToday, foodEntriesToday, loading, error, reload };
+  // Steps/sleep are auto-imported tier-1 facts: at most one per civil day per
+  // kind. If somehow multiple landed (e.g. a re-import race), the latest wins
+  // — same convention as weigh-in above.
+  const steps = observations.filter((o): o is ObservationOf<'steps'> => isKind(o, 'steps'));
+  const stepsToday = steps.length > 0 ? steps[steps.length - 1] : null;
+  const sleeps = observations.filter((o): o is ObservationOf<'sleep'> => isKind(o, 'sleep'));
+  const sleepToday = sleeps.length > 0 ? sleeps[sleeps.length - 1] : null;
+
+  return {
+    observations,
+    weighInToday,
+    sessionsToday,
+    foodEntriesToday,
+    stepsToday,
+    sleepToday,
+    loading,
+    error,
+    reload,
+  };
 }

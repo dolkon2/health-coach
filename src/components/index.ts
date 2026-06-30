@@ -6,6 +6,8 @@ export { Field } from './Field';
 export { ChipSelect, type ChipOption } from './ChipSelect';
 export { SessionCard } from './SessionCard';
 export { RestTimer } from './RestTimer';
+export { StepsCard } from './StepsCard';
+export { SleepCard } from './SleepCard';
 export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './FidelityIndicator';
 export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';

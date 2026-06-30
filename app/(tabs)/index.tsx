@@ -7,12 +7,13 @@
 import { useCallback } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, SessionCard, SwipeToDelete, FidelityTreatment } from '@/components';
+import { Screen, Text, Card, Button, SessionCard, StepsCard, SleepCard, SwipeToDelete, FidelityTreatment } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel, localTimeLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
+import { useWearableSync } from '@/hooks/useWearableSync';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
 import { dailyTotals, fidelityTreatment, mealDisplayName, type DailyMacroTotal } from '@/lib/foodLog';
@@ -40,17 +41,27 @@ export default function TodayScreen() {
   const router = useRouter();
   const { weightUnit } = useSettings();
 
-  const { weighInToday, sessionsToday, foodEntriesToday, reload: reloadToday } = useTodayObservations();
+  const {
+    weighInToday,
+    sessionsToday,
+    foodEntriesToday,
+    stepsToday,
+    sleepToday,
+    reload: reloadToday,
+  } = useTodayObservations();
   const { delta, reload: reloadTrend } = useWeightTrend();
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
+  const wearable = useWearableSync(reloadToday);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
+  // Also polls HealthKit (throttled, no-op until the user has connected).
   useFocusEffect(
     useCallback(() => {
       reloadToday();
       reloadTrend();
-    }, [reloadToday, reloadTrend])
+      wearable.syncNow();
+    }, [reloadToday, reloadTrend, wearable])
   );
 
   const removeAndReload = useCallback(
@@ -129,6 +140,31 @@ export default function TodayScreen() {
           </Card>
         )}
       </View>
+
+      {/* Steps + sleep — auto-imported from HealthKit, glance-only.
+          Connect CTA appears only until the user has opted in (Apple HIG:
+          permission request must arise from user interaction). */}
+      {wearable.connected ? (
+        <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+          <StepsCard observation={stepsToday} />
+          <SleepCard observation={sleepToday} />
+        </View>
+      ) : (
+        <View style={{ marginTop: theme.spacing[3] }}>
+          <Card style={{ gap: theme.spacing[3] }}>
+            <Text variant="body" color={theme.colors.textMuted}>
+              Connect Apple Health to bring in steps and sleep automatically.
+            </Text>
+            <Button
+              label={wearable.syncing ? 'Connecting…' : 'Connect Apple Health'}
+              onPress={() => {
+                wearable.connect();
+              }}
+              variant="secondary"
+            />
+          </Card>
+        </View>
+      )}
 
       {/* Sessions */}
       <View style={{ marginTop: theme.spacing[3] }}>
