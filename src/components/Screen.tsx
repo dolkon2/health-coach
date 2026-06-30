@@ -18,7 +18,7 @@ export function Screen({ children, scroll, style }: ScreenProps) {
   const insets = useSafeAreaInsets();
 
   const padding: ViewStyle = {
-    paddingTop: insets.top + theme.spacing[4],
+    paddingTop: theme.spacing[4],
     paddingHorizontal: theme.spacing[6],
     paddingBottom: theme.spacing[6],
   };
