@@ -11,22 +11,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FoodItem, ObservationOf } from '@core/observation';
 import { blendComposite } from '@core/nutrition/fidelity';
 import {
-  searchFoods,
   getUsdaFood,
   createDebouncedSearch,
   type FoodCandidate,
 } from '@/lib/foodSearch';
 import {
-  parseDescribed,
-  describedExtraction,
-  describedQuantityG,
   buildMealLog,
   mealTemplateFrom,
   rollupMacros,
   type FoodLogInput,
   type MacroRollup,
 } from '@/lib/foodLog';
-import { extractFoodItems } from '@/lib/foodNLP';
+import { estimateMeal, describedToItems, ESTIMATOR_MODEL } from '@/lib/foodEstimate';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
@@ -164,45 +160,28 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
 
   const addDescribed = useCallback(
     async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
       setBusy(true);
       setError(null);
       try {
-        // The LLM extractor turns one phrase into N candidates ("two slices of
-        // pizza with mushrooms" → pizza + mushrooms). It returns [] on no key,
-        // no network, timeout, or any failure — then the regex parser handles
-        // the single-food case so the logger keeps working offline / keyless.
-        let parsedItems = await extractFoodItems(text);
-        if (parsedItems.length === 0) parsedItems = [parseDescribed(text)];
-
-        // Resolve each candidate independently. A candidate that doesn't match
-        // USDA is skipped, not fatal — a partial meal is a valid loggable state
-        // (food-logging-spec § partial logs). We surface an error only when
-        // NOTHING resolved.
-        let resolvedAny = false;
-        for (const parsed of parsedItems) {
-          const cands = await searchFoods(parsed.foodText, deps);
-          if (cands.length === 0) continue;
-          const item = await getUsdaFood(
-            cands[0].foodId,
-            {
-              method: 'described',
-              quantityG: describedQuantityG(parsed),
-              quantityMethod: 'estimated',
-              extraction: describedExtraction(parsed),
-            },
-            deps
-          );
-          if (item) {
-            setItems((xs) => [...xs, item]);
-            resolvedAny = true;
-          }
+        // Claude estimates the whole meal directly — segments it into distinct
+        // foods AND estimates each (calories + macros + portion), no USDA lookup.
+        // estimateMeal returns [] on no key / offline / timeout / any failure;
+        // describedToItems then yields ONE keyless row with null macros from the
+        // regex parse, which the user fills in — so the logger works without a key.
+        const estimates = await estimateMeal(trimmed);
+        const newItems = describedToItems(estimates, trimmed);
+        if (newItems.length === 0) {
+          setError(`Couldn't read a food from "${text}".`);
+          return;
         }
-        if (!resolvedAny) setError(`No match for "${text}".`);
+        setItems((xs) => [...xs, ...newItems]);
       } finally {
         setBusy(false);
       }
     },
-    [deps]
+    []
   );
 
   const removeItem = useCallback((index: number) => {
@@ -233,6 +212,9 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
       description: description || 'Meal',
       items,
       inputMethod: mode === 'weigh' ? 'weighed' : 'described',
+      // Keyless items are LLM estimates — stamp the model so the meal's source
+      // reads { type: 'estimate', modelVersion } instead of a fake foodapi lineage.
+      ...(items.some((it) => it.foodId == null) ? { estimateModel: ESTIMATOR_MODEL } : {}),
       ...(templateId ? { templateId } : {}),
     };
     if (isEdit && original) {

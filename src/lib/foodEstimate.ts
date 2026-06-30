@@ -21,7 +21,7 @@
 import type { FoodItem } from '@core/observation';
 import { defaultFidelity, fidelityCeiling, type Extraction } from '@core/nutrition/fidelity';
 import { callClaude } from './anthropicClient';
-import { DEFAULT_PORTION_G } from './foodLog';
+import { DEFAULT_PORTION_G, parseDescribed } from './foodLog';
 
 /** Estimation quality matters more here than for extraction; this constant is the
  *  single swap point for the Haiku-vs-Sonnet benchmark (plan § Decision F). */
@@ -151,4 +151,32 @@ export function estimatedItemToFoodItem(est: EstimatedFoodItem): FoodItem {
     fidelity: defaultFidelity('described', extraction),
     fidelityCeiling: fidelityCeiling('described'),
   };
+}
+
+/**
+ * Turn an estimateMeal() result into the keyless FoodItems to add to the meal.
+ * When estimation produced items, each becomes a keyless estimate row. When it
+ * returned [] (no key / offline / failure), the regex parser yields a SINGLE
+ * keyless row with NULL macros from the raw text — the user fills the macros in
+ * via the edit UI, so the logger keeps working without a key. Returns [] only
+ * when there is genuinely no food text to log.
+ */
+export function describedToItems(estimates: EstimatedFoodItem[], rawText: string): FoodItem[] {
+  if (estimates.length > 0) return estimates.map(estimatedItemToFoodItem);
+
+  const parsed = parseDescribed(rawText);
+  if (!parsed.foodText.trim()) return [];
+  return [
+    estimatedItemToFoodItem({
+      name: parsed.foodText,
+      kcal: null,
+      proteinG: null,
+      carbsG: null,
+      fatG: null,
+      portionText: parsed.quantity != null && parsed.unit ? `${parsed.quantity} ${parsed.unit}` : null,
+      estimatedGrams: parsed.grams ?? null,
+      portionStated: parsed.quantity != null,
+      basis: 'offline parse — no estimate available',
+    }),
+  ];
 }

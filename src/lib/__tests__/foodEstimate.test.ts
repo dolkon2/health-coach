@@ -12,6 +12,7 @@ import { describe, it, expect, jest } from '@jest/globals';
 import {
   estimateMeal,
   estimatedItemToFoodItem,
+  describedToItems,
   ESTIMATOR_MODEL,
   type EstimatedFoodItem,
 } from '@/lib/foodEstimate';
@@ -165,5 +166,36 @@ describe('estimatedItemToFoodItem — keyless, honest, never measured', () => {
     expect(item.proteinG).toBeNull();
     expect(item.proteinG).not.toBe(0);
     expect(item).not.toHaveProperty('portionText'); // omitted when null, never an empty string
+  });
+});
+
+describe('describedToItems — estimate rows, or an offline fallback row', () => {
+  it('maps estimate results to keyless items', () => {
+    const items = describedToItems([est({ name: 'eggs' }), est({ name: 'toast' })], 'eggs and toast');
+    expect(items.map((i) => i.description)).toEqual(['eggs', 'toast']);
+    expect(items.every((i) => i.foodId == null)).toBe(true);
+  });
+
+  it('falls back to ONE keyless null-macro row when estimation is empty (offline / no key)', () => {
+    const items = describedToItems([], '8 oz ribeye');
+    expect(items).toHaveLength(1);
+    const only = items[0];
+    expect(only.description).toBe('ribeye');
+    expect(only.foodId).toBeUndefined();
+    expect(only.kcal).toBeNull(); // regex can't estimate macros — null, never 0
+    expect(only.proteinG).toBeNull();
+    expect(only.portionText).toBe('8 oz');
+    expect(tierOf(only.fidelity)).toBe('MID'); // a stated portion → low-MID
+  });
+
+  it('a vague offline fallback row lands LOW', () => {
+    const items = describedToItems([], 'chicken and rice');
+    expect(items[0].description).toBe('chicken and rice');
+    expect(items[0].kcal).toBeNull();
+    expect(tierOf(items[0].fidelity)).toBe('LOW');
+  });
+
+  it('returns [] when there is no food text to log', () => {
+    expect(describedToItems([], '   ')).toEqual([]);
   });
 });
