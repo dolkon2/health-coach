@@ -98,6 +98,7 @@ export interface FoodItem {
   sourceDb?: FoodSourceDb;
   foodId?: string;
   description?: string; // the food's human name (e.g. 'Cheddar cheese') from the source record; display-only, never gates anything
+  portionText?: string; // an estimate's human portion phrasing ("2 eggs", "a handful"); display-only, never gates anything
   quantity: number; // canonical quantity; the 2.2 adapter reconciles unit bases
   quantityMethod: QuantityMethod;
   kcal: number | null;
