@@ -1,4 +1,4 @@
-# Food Logging — Spec Notes (v0.1)
+# Food Logging — Spec Notes (v0.2)
 
 *Companion to the product overview and correlation-engine spec. Locks the Ring 2 data contract: which APIs, how meals get logged, how fidelity is assigned and earned, and how all of it stays silent.*
 
@@ -32,6 +32,16 @@ This is a self-funded side project with no business entity. The data layer is bu
 **Provenance → fidelity mapping** (defaults; see below): USDA lookup \+ weighed \= high · OFF barcode \= medium-high · photo \= low · described \= variable.
 
 **Adjacent rule — input parsing is not part of the data layer.** The free-only constraint above governs food *databases* (USDA, OFF, the deferred FatSecret). Tooling that *parses input* — regex parsers, NLP/LLM extractors, voice transcription — is a different category and is **not** subject to the data-layer rule. An LLM call that turns "two slices of pizza with mushrooms" into structured `{food, quantity, unit}` candidates is permitted; the extracted candidates still flow through the free food-database layer for resolution. Honesty binds across the boundary: a quantity the model can't see stays `null`, never invented; LLM-extracted items inherit the existing `described` input method and its fidelity ceiling, not a new tier. A regex fallback must remain in place so the logger keeps working without network or without a key.
+
+**Amendment (v0.2) — direct estimation in Describe.** The adjacent rule above permits LLM *extraction* of `{food, quantity, unit}` candidates that then resolve against USDA. Describe mode now goes one step further: for the text path the LLM may **estimate nutrition directly** — `{name, kcal, proteinG, carbsG, fatG, portionText, estimatedGrams, portionStated, basis}` — with **no food-database resolution**. This is still input-parsing, not a food database, so the free-only data-layer covenant is untouched (USDA + OFF remain the only food *databases*; "Search & Weigh" is unchanged). Direct estimation is bound by these honesty rules, each already present elsewhere in this document:
+
+- **Provenance reads "estimate."** An estimated meal's `ObservationSource` is `{ type: 'estimate', modelVersion }` — never a `foodapi` source. Estimated items are *keyless* (no `foodId`/`sourceDb`); the meal never claims a database lineage it doesn't have. A meal that mixes a weighed item with an estimate reads as `estimate` — it cannot launder the estimate into a database lineage.
+- **Fidelity caps low.** Estimated macros use the `described` input method with an extraction signal (`macrosEstimated`) that caps fidelity in the LOW–MID band — LOW for vague input ("some fries"), at most low-MID when a portion is stated ("8 oz ribeye"). An estimate never renders HIGH; the fidelity *visual* is the whole signal, no number on screen. (The Fidelity-display table's "AI estimate → LOW" stays the common case; low-MID is the stated-portion upper bound.)
+- **null ≠ 0 still binds.** A portion or macro the model can't determine stays `null`, never invented and never zero-filled. In the editor, calories may be recomputed from macros (4·protein + 4·carbs + 9·fat, +7·alcohol) **only when all three macros are present**; if any macro is `null`, calories are not derived and the null is never treated as 0.
+- **Editable before logging.** Every estimated row is user-editable (name, calories, macros, portion). A user's edits are signal, not noise — they may feed earned-fidelity validation later (§ Earned fidelity).
+- **Keyless / offline fallback unchanged.** With no key or no network, the regex parser still yields a name + portion row with `null` macros, editable by hand. The logger works without a key.
+
+Photo input (deferred) uses the same estimation schema with an image content block and the reserved `{ type: 'photoestimate', modelVersion }` source; it changes nothing structural here.
 
 ---
 
