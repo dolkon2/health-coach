@@ -312,5 +312,6 @@ Session
 - **Stimulus ledger mapping rules** — How specific exercises map to movement patterns and energy systems. Already exists in `core/stimulus.ts`; the exercise library tags need to align with that taxonomy.  
 - **Reflect tab integration** — How logged sessions surface in the Reflect view. Phase 5\.  
 - **Climbing app research** — Kaya, Crux, Toplogger, Mountain Project deep dive. Needed before finalizing climbing logging detail.  
-- **Exercise library API selection** — wger vs. ExerciseDB vs. curated static dataset. Implementation decision for the build phase.
+- **Exercise library API selection** — wger vs. ExerciseDB vs. curated static dataset. Implementation decision for the build phase.  
+- **Outdoor-sport integrations** — paragliding (IGC), whitewater (water levels), wing foiling (live wind gauges), MTB/GPS. Feasibility researched in `outdoor-integrations.md`. Outdoor is an identity grouping (logbook-first), not a new engine.
 

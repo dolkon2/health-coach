@@ -22,6 +22,7 @@ the conflict — do not quietly reinterpret it into something "safer."
 - `correlation-engine-spec.md` — expenditure, plateau forensics, thresholds
 - `food-logging-spec.md` — Ring 2 intake; APIs, input methods, fidelity, earned fidelity
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)
+- `outdoor-integrations.md` — outdoor-sport data sources (IGC, water levels, wind gauges, GPS); logbook-first, identity grouping
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
 - `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
 - `ai-consultant-prompt.md` — Phase 7 (AI consultant)
