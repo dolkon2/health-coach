@@ -21,6 +21,7 @@ import {
   mealItemsLabel,
   itemMacroSummary,
   scaleMacros,
+  recomputeKcal,
   heroNumber,
   fidelityTreatment,
   removeItemFromMeal,
@@ -295,6 +296,22 @@ describe('scaleMacros (live portion preview)', () => {
 
   it('preserves a null macro (never fabricates one)', () => {
     expect(scaleMacros({ ...basis, kcal: null }, 50).kcal).toBeNull();
+  });
+});
+
+describe('recomputeKcal — calories from macros, only when all are present', () => {
+  it('computes Atwater 4/4/9 when protein, carbs, and fat are all present', () => {
+    expect(recomputeKcal({ proteinG: 20, carbsG: 10, fatG: 5 })).toBe(165); // 80 + 40 + 45
+  });
+
+  it('adds alcohol at 7 kcal/g', () => {
+    expect(recomputeKcal({ proteinG: 0, carbsG: 0, fatG: 0, alcoholG: 14 })).toBe(98);
+  });
+
+  it('returns null when ANY of P/C/F is null — never zero-fills (null ≠ 0)', () => {
+    expect(recomputeKcal({ proteinG: 20, carbsG: null, fatG: 5 })).toBeNull();
+    expect(recomputeKcal({ proteinG: null, carbsG: 10, fatG: 5 })).toBeNull();
+    expect(recomputeKcal({ proteinG: 20, carbsG: 10, fatG: null })).toBeNull();
   });
 });
 

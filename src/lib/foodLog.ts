@@ -339,6 +339,21 @@ export function scaleMacros(
   return { kcal: f(basis.kcal), proteinG: f(basis.proteinG), carbsG: f(basis.carbsG), fatG: f(basis.fatG) };
 }
 
+/**
+ * Calories implied by an item's macros (Atwater 4/4/9, +7 for alcohol) — but
+ * ONLY when protein, carbs, and fat are all present. Returns null when any is
+ * missing, so the caller never zero-fills a null macro into a fake calorie total
+ * (food-logging-spec § null ≠ 0). The estimate editor recomputes kcal on a macro
+ * edit only when this is non-null; otherwise calories stay as the user set them.
+ */
+export function recomputeKcal(
+  macros: Pick<FoodItem, 'proteinG' | 'carbsG' | 'fatG' | 'alcoholG'>
+): number | null {
+  const { proteinG, carbsG, fatG } = macros;
+  if (proteinG == null || carbsG == null || fatG == null) return null;
+  return round1(4 * proteinG + 4 * carbsG + 9 * fatG + 7 * (macros.alcoholG ?? 0));
+}
+
 /** "Save this meal" → a MealTemplate (definition only). userConfirmed: the user
  *  saved it. A display-only `name` carries from the meal's description, falling back
  *  to its items' names, so the saved-meals picker is readable; it is omitted only

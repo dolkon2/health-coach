@@ -188,6 +188,12 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     setItems((xs) => xs.filter((_, i) => i !== index));
   }, []);
 
+  /** Patch one item in place — the estimate editor commits its edits here (name,
+   *  portion, calories, macros). Pure replacement; macros may be null (partial). */
+  const updateItem = useCallback((index: number, patch: Partial<FoodItem>) => {
+    setItems((xs) => xs.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  }, []);
+
   /** Load a saved meal's items to re-log it — the re-log carries its templateId and
    *  inherits the saved name (so a re-log reads as its name, not the generic "Meal"). */
   const loadSavedMeal = useCallback((t: MealTemplate) => {
@@ -252,7 +258,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   return {
     mode, setMode,
     query, setQuery, candidates, recents, searching,
-    items, description, setDescription, addRecent, addWeighed, addDescribed, removeItem,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, removeItem, updateItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,

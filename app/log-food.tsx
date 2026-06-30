@@ -23,9 +23,9 @@ import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog } from '@/hooks/useFoodLog';
 import { noonOfLocalDate } from '@/lib/date';
-import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, type NutritionFocus } from '@/lib/foodLog';
+import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, recomputeKcal, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
-import type { MealTemplate } from '@core/observation';
+import type { FoodItem, MealTemplate } from '@core/observation';
 
 const MODE_OPTIONS: ChipOption<'weigh' | 'describe'>[] = [
   { value: 'weigh', label: 'Search & weigh' },
@@ -47,6 +47,111 @@ function Macro({ label, value }: { label: string; value: number | null | undefin
       <Text variant="data">{macroStr(value)}</Text>
       <Text variant="label" color={theme.colors.textSecondary}>{label}</Text>
     </View>
+  );
+}
+
+/** Field <-> nullable-number bridges for the estimate editor. Empty = null
+ *  (honesty: a blank macro is "not captured", never 0). */
+const numToField = (v: number | null | undefined): string => (v == null ? '' : String(v));
+const fieldToNum = (s: string): number | null => {
+  const t = s.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * EstimateItemEditor — inline editor for one keyless estimate row (Decision E).
+ * Reuses Field for every value. Editing a macro recomputes calories (4/4/9 +
+ * alcohol) ONLY when protein, carbs, and fat are all present — a blank macro
+ * stays null and never zero-fills the calorie total (null ≠ 0). Mirrors the
+ * Search & weigh detail pane; commits on Done.
+ */
+function EstimateItemEditor({
+  item,
+  onSave,
+  onRemove,
+}: {
+  item: FoodItem;
+  onSave: (patch: Partial<FoodItem>) => void;
+  onRemove: () => void;
+}) {
+  const theme = useTheme();
+  const [name, setName] = useState(item.description ?? '');
+  const [portion, setPortion] = useState(item.portionText ?? '');
+  const [kcal, setKcal] = useState(numToField(item.kcal));
+  const [protein, setProtein] = useState(numToField(item.proteinG));
+  const [carbs, setCarbs] = useState(numToField(item.carbsG));
+  const [fat, setFat] = useState(numToField(item.fatG));
+
+  // Recompute calories from the edited macros — guarded so a blank macro never
+  // becomes a fake 0 in the total. When any macro is blank, calories stay as set.
+  const recompute = (p: string, c: string, f: string) => {
+    const k = recomputeKcal({
+      proteinG: fieldToNum(p),
+      carbsG: fieldToNum(c),
+      fatG: fieldToNum(f),
+      alcoholG: item.alcoholG,
+    });
+    if (k != null) setKcal(String(k));
+  };
+
+  return (
+    <Card raised style={{ gap: theme.spacing[3] }}>
+      <Field label="Food" value={name} onChangeText={setName} keyboardType="default" />
+      <Field label="Portion" value={portion} onChangeText={setPortion} placeholder="e.g. 2 eggs" keyboardType="default" />
+      <View style={{ flexDirection: 'row', gap: theme.spacing[4] }}>
+        <Field label="Calories" value={kcal} onChangeText={setKcal} style={{ flex: 1 }} />
+        <Field
+          label="Protein"
+          value={protein}
+          onChangeText={(v) => { setProtein(v); recompute(v, carbs, fat); }}
+          suffix="g"
+          style={{ flex: 1 }}
+        />
+      </View>
+      <View style={{ flexDirection: 'row', gap: theme.spacing[4] }}>
+        <Field
+          label="Carbs"
+          value={carbs}
+          onChangeText={(v) => { setCarbs(v); recompute(protein, v, fat); }}
+          suffix="g"
+          style={{ flex: 1 }}
+        />
+        <Field
+          label="Fat"
+          value={fat}
+          onChangeText={(v) => { setFat(v); recompute(protein, carbs, v); }}
+          suffix="g"
+          style={{ flex: 1 }}
+        />
+      </View>
+      <Text variant="bodySm" color={theme.colors.textSecondary}>
+        {itemMacroSummary({
+          kcal: fieldToNum(kcal),
+          proteinG: fieldToNum(protein),
+          carbsG: fieldToNum(carbs),
+          fatG: fieldToNum(fat),
+        })}
+      </Text>
+      <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+        <Button
+          label="Done"
+          onPress={() =>
+            onSave({
+              description: name.trim() || item.description,
+              portionText: portion.trim() || undefined,
+              kcal: fieldToNum(kcal),
+              proteinG: fieldToNum(protein),
+              carbsG: fieldToNum(carbs),
+              fatG: fieldToNum(fat),
+            })
+          }
+          style={{ flex: 1 }}
+        />
+        <Button label="Remove" variant="outline" onPress={onRemove} style={{ flex: 1 }} />
+      </View>
+    </Card>
   );
 }
 
@@ -128,6 +233,8 @@ export default function LogFood() {
   // Android renders DateTimePicker as a modal opened on tap; iOS uses the
   // inline compact button. The state only gates the Android branch.
   const [showPicker, setShowPicker] = useState(false);
+  // Which estimate row is open in the inline editor (Decision E), or null.
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -177,7 +284,7 @@ export default function LogFood() {
           </>
         ) : null}
 
-        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); }} />
+        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); }} />
         <View style={{ height: theme.spacing[4] }} />
 
         {fl.mode === 'weigh' ? (
@@ -336,19 +443,38 @@ export default function LogFood() {
               </View>
             </View>
 
-            {fl.items.map((it, i) => (
-              <View key={i} style={{ gap: 2 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing[3] }}>
-                  <Text variant="bodySm" color={theme.colors.text} style={{ flex: 1 }} numberOfLines={1}>
-                    {it.description ? `${it.description} · ` : ''}{Math.round(it.quantity)} g
-                  </Text>
-                  <Pressable onPress={() => fl.removeItem(i)} accessibilityRole="button">
-                    <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
-                  </Pressable>
+            {fl.items.map((it, i) => {
+              const isEstimate = it.foodId == null;
+              if (isEstimate && editingIndex === i) {
+                return (
+                  <EstimateItemEditor
+                    key={i}
+                    item={it}
+                    onSave={(patch) => { fl.updateItem(i, patch); setEditingIndex(null); }}
+                    onRemove={() => { fl.removeItem(i); setEditingIndex(null); }}
+                  />
+                );
+              }
+              // Per-row fidelity opacity: an estimate looks rough, a weighed item solid.
+              return (
+                <View key={i} style={{ gap: 2, opacity: fidelityTreatment(it.fidelity).opacity }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: theme.spacing[3] }}>
+                    <Text variant="bodySm" color={theme.colors.text} style={{ flex: 1 }} numberOfLines={1}>
+                      {it.description ? `${it.description} · ` : ''}{it.portionText ?? `${Math.round(it.quantity)} g`}
+                    </Text>
+                    {isEstimate ? (
+                      <Pressable onPress={() => setEditingIndex(i)} accessibilityRole="button" hitSlop={6}>
+                        <Text variant="bodySm" color={theme.colors.sandstone}>Edit</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={() => { fl.removeItem(i); setEditingIndex(null); }} accessibilityRole="button" hitSlop={6}>
+                      <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
+                    </Pressable>
+                  </View>
+                  <Text variant="bodySm" color={theme.colors.textSecondary}>{itemMacroSummary(it)}</Text>
                 </View>
-                <Text variant="bodySm" color={theme.colors.textSecondary}>{itemMacroSummary(it)}</Text>
-              </View>
-            ))}
+              );
+            })}
           </Card>
         ) : null}
       </ScrollView>
