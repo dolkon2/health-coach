@@ -23,6 +23,7 @@ the conflict — do not quietly reinterpret it into something "safer."
 - `food-logging-spec.md` — Ring 2 intake; APIs, input methods, fidelity, earned fidelity
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)
 - `outdoor-integrations.md` — outdoor-sport data sources (IGC, water levels, wind gauges, GPS); logbook-first, identity grouping
+- `gps-mapping-spec.md` — GPS capture without a wearable, routes as first-class navigable/comparable objects, map display, cohort map (companion to `wearable-ingestion-spec.md`, which owns import)
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
 - `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
 - `ai-consultant-prompt.md` — Phase 7 (AI consultant)
