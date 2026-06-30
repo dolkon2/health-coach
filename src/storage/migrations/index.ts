@@ -9,6 +9,7 @@ import { migration003 } from './003_meal_templates';
 import { migration004 } from './004_meal_template_name';
 import { migration005 } from './005_session_templates';
 import { migration006 } from './006_wearable_state';
+import { migration007 } from './007_benchmark_v03';
 
 export type Migration = {
   version: number;
@@ -23,4 +24,5 @@ export const migrations: Migration[] = [
   migration004,
   migration005,
   migration006,
+  migration007,
 ];

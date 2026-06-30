@@ -13,7 +13,7 @@ import type {
   Tier,
   Modality,
 } from '@core/observation';
-import type { Benchmark } from '@core/benchmark';
+import type { Benchmark, ResolvedDimension, BenchmarkShape } from '@core/benchmark';
 import type {
   SessionTemplate,
   TemplateShape,
@@ -79,6 +79,9 @@ export type BenchmarkRow = {
   description: string | null;
   targetDate: string | null;
   relatedModalities: string | null; // JSON array
+  resolution: string; // JSON ResolvedDimension — required (the existence gate)
+  shape: string; // JSON BenchmarkShape (cadence | trend)
+  pinned: number; // 0 | 1
 };
 
 export function benchmarkToRow(b: Benchmark): BenchmarkRow {
@@ -91,6 +94,9 @@ export function benchmarkToRow(b: Benchmark): BenchmarkRow {
     description: b.description ?? null,
     targetDate: b.targetDate ?? null,
     relatedModalities: b.relatedModalities ? JSON.stringify(b.relatedModalities) : null,
+    resolution: JSON.stringify(b.resolution),
+    shape: JSON.stringify(b.shape),
+    pinned: b.pinned ? 1 : 0,
   };
 }
 
@@ -106,6 +112,9 @@ export function rowToBenchmark(r: BenchmarkRow): Benchmark {
     ...(r.relatedModalities != null
       ? { relatedModalities: JSON.parse(r.relatedModalities) as Modality[] }
       : {}),
+    resolution: JSON.parse(r.resolution) as ResolvedDimension,
+    shape: JSON.parse(r.shape) as BenchmarkShape,
+    pinned: r.pinned === 1,
   };
 }
 

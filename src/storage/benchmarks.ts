@@ -10,7 +10,7 @@ import { getDb, type SqlDatabase } from './db';
 import { benchmarkToRow, rowToBenchmark, type BenchmarkRow } from './serialize';
 
 const COLUMNS =
-  'id, createdAt, resolvedAt, status, title, description, targetDate, relatedModalities';
+  'id, createdAt, resolvedAt, status, title, description, targetDate, relatedModalities, resolution, shape, pinned';
 
 export async function createBenchmark(
   b: Benchmark,
@@ -20,7 +20,7 @@ export async function createBenchmark(
   const r = benchmarkToRow(b);
   await d.runAsync(
     `INSERT INTO benchmarks (${COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     [
       r.id,
       r.createdAt,
@@ -30,6 +30,9 @@ export async function createBenchmark(
       r.description,
       r.targetDate,
       r.relatedModalities,
+      r.resolution,
+      r.shape,
+      r.pinned,
     ]
   );
   return b;
@@ -75,7 +78,7 @@ export async function updateBenchmark(
   await d.runAsync(
     `UPDATE benchmarks
      SET createdAt = ?, resolvedAt = ?, status = ?, title = ?, description = ?,
-         targetDate = ?, relatedModalities = ?
+         targetDate = ?, relatedModalities = ?, resolution = ?, shape = ?, pinned = ?
      WHERE id = ?;`,
     [
       r.createdAt,
@@ -85,6 +88,9 @@ export async function updateBenchmark(
       r.description,
       r.targetDate,
       r.relatedModalities,
+      r.resolution,
+      r.shape,
+      r.pinned,
       id,
     ]
   );
