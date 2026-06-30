@@ -30,6 +30,8 @@
 - Garmin / HealthKit deduplication — if both connected, a single run can arrive twice. Adapter layer needs `(source, provider-side ID)` dedupe key + deterministic preference order. Type system already accommodates via `ObservationSource`. (data-model.md open question)
 - Hike fields — elevation gain, pace — not captured manually; expected to come from API import. (game-plan-and-prompts.md HALT)
 - Manual-fallback fidelity for GPS sessions when no wearable connected. (training-logging-spec.md "Outdoor / GPS")
+- **In-app phone GPS tracking — the watchless capture path.** New chunk, slots just after Phase 3 (reuses the Pass 4 map-render, emits the same `route`-bearing Session, `source: manual`). First-class for the large no-wearable audience, not a fallback; pull-only (no background sync, no mid-run push). Open: Phase 3 fast-follow vs. Phase 4 GPS-surface enrichment. (gps-mapping-spec.md)
+- GPS `route` representation — `training-logging-spec.md`'s data-model summary shows `route: GeoJSON`, but `core/src/observation.ts` + `data-model.md` use `gpsPath?: GeoPoint[]`. Standardize on `GeoPoint[]` (keeps per-point timestamps + elevation → splits/pace/profile derivable); fix the stale GeoJSON reference. Contract touch — bless before editing. (gps-mapping-spec.md)
 - iOS-vs-cross-platform decision — deferred until the HealthKit / Health Connect integration layer forces it. (product-overview.md)
 - Timezone in `dayKey` (quirk #1) — fix before shipping to other timezones or when sync/import lands. Currently UTC-slice; works for US Pacific/Mountain morning weigh-ins, not for general use.
 - Weekly grouping buckets by UTC (quirk #10) — same fix as #1, paired.
@@ -67,6 +69,7 @@
 
 - **Spec session done → `phase-6-plan-tab-spec.md` (v0.1, 2026-06-28).** The vision is locked: the Training tab *is* the planning surface (week view + user-authored library), planning is opt-in, the connected flow (template → live session → Finish → Reflect) reuses the Phase-4 machinery, and the three plan flavors (placed workouts / cadence goals / open activities) coexist in one week. Cadence goals resolve to benchmarks (`benchmarks-spec.md`), not a second system. **Still open before a build plan:** week-view shape, recurrence model, placement granularity, routes-as-sub-shape, planned-vs-actual surfacing — see that spec's Open Questions. Do not build ahead of a blessed pass-by-pass plan.
 - Original framing (now subsumed by the spec): program structure (recurring splits, multi-week date-anchored blocks, freeform saved-workout stacks), scheduling workouts onto days, the Today ↔ planned-workout handoff, and saved workouts that flex across all surfaces (gym template, cycling route, running route). (phase-4-training-plan.md, game-plan-and-prompts.md)
+- **Routes as a first-class object — resolves the spec's open "routes-as-sub-shape" question.** A `Route` (id + name + `GeoPoint[]` geometry + privacy scope), referenced by Sessions via `routeId`, does three jobs on one geometry: navigation (follow the line / point-to-point), live capture, and **self-vs-self comparison over time** (a repeated route is a benchmark anchored on geography). Reuses planned-vs-actual machinery; needs `GpsTemplateShape` upgraded from "target distance only" to carry a followable course. Self-vs-self only — no global/stranger leaderboards. (gps-mapping-spec.md)
 
 ---
 
@@ -80,6 +83,8 @@
 
 - Cohort events / challenges connect to benchmark data dimensions; opt-in spawns a personal benchmark on the user's timeline. (benchmarks-spec.md)
 - Events discovery surface — two filtering dimensions: local (geography) + benchmark-aligned. Out of scope for initial cohort build, noted so the event data model doesn't foreclose it. (cohorts-spec.md)
+- **Cohort map** — heatmap of where a cohort has been / routes they run frequently (descriptive, pull-only — the mirror applied to geography, not segment leaderboards). **Hard gate: privacy zones** (auto-hide trace near home/work) must exist before any route is cohort-visible; visibility is a per-object permission. **Course challenges** allowed (group-authored, leaderboard only inside the active challenge, never global/persistent, never leaks the cohort — `cohorts-spec.md` § Challenges applied to a route). (gps-mapping-spec.md)
+- Real-time location / Beacon (watch a friend's dot move live) — a **safety feature** with sharper privacy stakes, separate from the descriptive cohort map. Fully deferred; noted so the cohort map doesn't foreclose it. (gps-mapping-spec.md)
 - Friend mechanic — mutual vs. asymmetric follow, UX unspecified. (cohorts-spec.md)
 - Profile design — deep dive deferred until the core app is running. (cohorts-spec.md)
 - Creator cohorts — directional only; decisions deferred. (cohorts-spec.md)
