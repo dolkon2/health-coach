@@ -75,6 +75,14 @@ function ThemedStack() {
         name="edit-template"
         options={{ title: 'Template', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="benchmarks"
+        options={{ title: 'Benchmarks', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="edit-benchmark"
+        options={{ title: 'Benchmark', presentation: 'modal' }}
+      />
     </Stack>
   );
 }
