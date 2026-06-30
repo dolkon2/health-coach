@@ -208,3 +208,42 @@ The one real cost of this phase.
 - **Don't let the platform split fork the product.** One adapter interface, two readers — not two codebases. Same discipline as "fidelity flexes instead of forks."  
 - **The routeless Garmin session must feel complete, not broken.** A run with stats but no map should read as "here's what happened" — not "something is missing." The map is an enrichment that arrives later, not a hole. UI design must not leave an empty map container or a "route unavailable" badge. Stats-only is the default; map is the upgrade.  
 - **Strava is not a fallback.** The AI-compliance and dependency risks are structural, not temporary. If someone asks "why not just use Strava," the answer is that the product's core thesis (AI reasoning over the timeline) is exactly what Strava's terms are designed to prevent third parties from doing.
+
+---
+
+## Addendum — 2026-06-30: program status, multi-vendor, native GPS, and the layered route model
+
+*Research pass triggered by "I need a better Garmin connection than Apple Health." Three things changed since v0.1: the Garmin program is no longer a routine option, the product is no longer iOS-only in intent, and a native GPS tracker is now planned. Net effect — the route problem gets **smaller**, not bigger. This addendum supersedes v0.1's "GPS route strategy — the two-phase plan" section above; the rest of v0.1 still stands.*
+
+### What changed
+
+**1. The Garmin Connect Developer Program is not currently a routine option.** Two blockers, both new since v0.1's "≈2 business days, free for evaluation":
+
+- **Suspended for new applicants.** The access-request form has been pulled and new API-access requests are paused with no announced resumption date (multiple Garmin developer-forum threads, mid-2026). Existing accounts keep working; new ones can't be created. *(Unconfirmable from Garmin's own pages — they 403 automated fetches — but corroborated across several independent forum threads.)*
+- **Legal-entity requirement.** Even when open, the program rejects personal-use applications: applicants must be a company, university, hospital, or research institution. This collides directly with the product's "built by me, for me" framing.
+
+→ **Path B (Garmin direct Activity API) is off the table for now — blocked, not merely deprioritized.** Revisit only if the program reopens *and* a legal entity exists to apply under.
+
+**2. Aggregators revisited — Open Wearables does NOT bypass the gate.** It's a self-hosted, MIT-licensed, zero-per-user-fee adapter over ~10 vendors (Whoop, Oura, Polar, Suunto, Strava, Samsung, Health Connect, Ultrahuman, Garmin; Fitbit/Coros/Xiaomi soon). But its own docs are explicit: **you still apply for each vendor's credentials directly** — it handles the OAuth/data layer, not access. So for Garmin specifically it is blocked by the same suspension. Its value is *breadth + self-hosting*, not a backdoor, and it still requires a backend. Note: its bundled "AI Health Assistant / automations" is a push/coaching surface that violates constitution rules 1/3/6 — if ever used, use it strictly as plumbing, never surfaced.
+
+**3. Garmin is the outlier, not the norm — and the product isn't iOS-only.** Most other vendors are *more* open than Garmin (Fitbit public portal, Polar AccessLink self-serve, Oura/Withings individual-friendly). And the OS health floor exists on **both** platforms: HealthKit (iOS) + **Health Connect (Android)**. Health Connect has a first-class `ExerciseRoute` type and Samsung Health writes to it — so a Galaxy Watch user likely gets the route the way an Apple Watch user does (verify on a real device before promising it). Garmin omits the route on **both** platforms; Samsung's own direct Data SDK is partner-gated like Garmin's. So the open path is always the OS health layer, never the vendor's direct SDK.
+
+**4. Native GPS tracking is now planned — this shrinks the whole problem.** v0.1 here, and `training-logging-spec.md`, said "the app is not building a GPS tracker, it ingests from one." **That decision is being reversed:** native recording + map is planned. Consequence: for any activity recorded *in the app*, the route is captured first-party, with no wearable dependency at all. Wearable/import routes become *enrichment* for activities recorded **elsewhere** (on the watch), not the primary source. The Garmin-route gap stops being a hole in the core loop and becomes an edge case (user ran with only their Garmin, app closed). ⚠️ This reverses a documented principle — record the decision in `training-logging-spec.md` before building.
+
+### The layered route model (supersedes v0.1's two-phase plan)
+
+| Layer | What it is | Gate | Platform |
+| :---- | :---- | :---- | :---- |
+| **0 — OS health floor** | HealthKit + Health Connect: workout summaries for every synced source; full routes for first-party watches (Apple Watch; likely Galaxy Watch) | none (on-device) | both |
+| **1 — Native GPS capture** | The app records the activity itself; full route first-party | none | both (one code path) |
+| **2 — Manual FIT/GPX/TCX import** | User imports a file exported from Garmin/Coros/etc; client-side parse attaches the route to the existing timeline session | none | both (one code path) |
+| **3 — Direct vendor APIs** | Backend + per-vendor OAuth; *open* vendors first (Fitbit/Polar/Oura). Garmin + Samsung direct both gated — skip | backend + vendor approval | server-side |
+
+Layers 0–2 need **no backend and no gate**, and together cover essentially every user on both platforms today. Layer 1 (native capture) is the new center of gravity; Layer 2 is the gate-free fallback for activities the app didn't record; Layer 3 is opportunistic enrichment when the backend exists — explicitly *not* starting with Garmin. Pull-not-push note: Layers 1–2 are user-initiated by nature (press record; import a file), which sits cleanly inside constitution rule 6.
+
+### Build implications
+
+- **Health Connect moves from "v0.1 stub" to a Layer-0 peer of HealthKit.** Still one adapter interface (`WearableSource`, `src/lib/wearable.ts`), two readers; engine stays platform-agnostic. The iOS-first sequencing holds, but Android is no longer "someday" — it's the second half of the floor.
+- **FIT/GPX/TCX import is the one new gate-free, platform-agnostic deliverable** that fills the Garmin route gap — written once, covers both OSes, parses client-side (mature TS FIT/GPX parsers exist). Likely a small, self-contained pass. The Session schema's nullable `route` field already accepts the attachment.
+- **Native GPS capture is its own build effort** (background location, battery, map render) — out of scope for the ingestion layer, but it changes the priority of everything above: the importer and wearable routes are no longer load-bearing for the core loop once native capture lands.
+- **Tier discipline unchanged:** Garmin Body Battery, Whoop recovery, Oura readiness, Samsung scores — all tier-3, below the line.

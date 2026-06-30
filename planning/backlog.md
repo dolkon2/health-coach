@@ -25,7 +25,11 @@
 
 ## Phase 3 (HealthKit / Health Connect / Garmin ingestion)
 
-- Garmin Connect partner program research — open constraint. Partner access shape determines what's possible client-side.
+*See `wearable-ingestion-spec.md` § Addendum (2026-06-30) for the layered route model these items now sit inside.*
+
+- ✅/⛔ Garmin Connect partner program research — RESOLVED (2026-06-30): **blocked.** Developer Program is suspended for new applicants (access form pulled, no resumption date) *and* requires a legal entity (rejects personal-use). Path B (Garmin direct Activity API) is off the table until both clear. Open Wearables does not bypass it — same per-vendor credentials. (wearable-ingestion-spec.md Addendum)
+- FIT/GPX/TCX manual import — NEW, gate-free, platform-agnostic. User exports an activity file from Garmin/Coros/etc; client-side parse attaches the route to the existing session. The one buildable thing that fills the Garmin route gap with no backend and no developer program, on both iOS and Android. Likely a small single-concern pass. (wearable-ingestion-spec.md Addendum, Layer 2)
+- Health Connect (Android) is a Layer-0 peer of HealthKit, not a someday-stub — the product spans Android/Samsung users, so the floor is two readers behind the one `WearableSource` interface. Has a first-class `ExerciseRoute` type; Galaxy Watch likely passes routes the way Apple Watch does (verify on-device). Samsung's own direct Data SDK is partner-gated — use Health Connect, not the SDK. (wearable-ingestion-spec.md Addendum, Layer 0)
 - HealthKit native build requirement vs Expo Go — open constraint. HealthKit needs a custom dev client / EAS build; Expo Go won't carry it. Decision blocks how the daily-loop dogfooding continues once ingestion lands.
 - Garmin / HealthKit deduplication — if both connected, a single run can arrive twice. Adapter layer needs `(source, provider-side ID)` dedupe key + deterministic preference order. Type system already accommodates via `ObservationSource`. (data-model.md open question)
 - Hike fields — elevation gain, pace — not captured manually; expected to come from API import. (game-plan-and-prompts.md HALT)
@@ -92,3 +96,4 @@
 - Body-fat fidelity (quirk #5) — weigh-in Observation carries one `fidelity` field; bioimpedance body-fat % shouldn't ride at 1.0. Clean fix = per-field fidelity OR split body-fat into its own Observation. Architecture call, surfaces when body-fat does (Reflect / Phase 2).
 - `expo-sqlite` doesn't run on web (quirk #3) — iOS-sim / Expo Go is the Phase-1 target. Revisit only if a web build is ever wanted.
 - Cloud sync — first version is local; cloud comes when there's a second device or someone else needs to see the hub. (data-model.md)
+- **Native GPS tracking + map — DIRECTION CHANGE (2026-06-30), decision pending.** Reverses the documented "the app is not building a GPS tracker, it ingests from one" principle (training-logging-spec.md § Outdoor / GPS). Plan is to record activities natively. Not a north-star violation (own-run recording is descriptive + pull-based), but it must be blessed and written into training-logging-spec.md before building, not absorbed silently. Once it lands it becomes the primary route source (Layer 1), demoting wearable import + Garmin to enrichment. Build effort is its own thing: background location, battery, map render. (wearable-ingestion-spec.md Addendum, training-logging-spec.md)

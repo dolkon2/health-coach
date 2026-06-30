@@ -128,6 +128,8 @@ The logging surface is thin by design because the rich data comes from wearable 
 
 **Key principle:** The app is not building a GPS tracker. It's ingesting from one. Strava is the right reference for how *display* of imported GPS data should feel, not for how logging works. Elevation data, HR data, and route data come from what the user logged on their wearable. If they don't have a wearable, the manual fallback is sparse but honest.
 
+> ⚠️ **Under revision (2026-06-30) — this principle is being reversed.** Native GPS tracking + map is now planned (see `wearable-ingestion-spec.md` § Addendum, Layer 1). The driver: the Garmin direct API is blocked (program suspended + legal-entity requirement) and Garmin omits the route via both Apple Health and Health Connect, so ingestion alone can't guarantee a route. Native capture makes the route first-party for any activity recorded in the app, and demotes wearable import to *enrichment* for activities recorded elsewhere. Recording one's own run stays descriptive + pull-based, so it does not violate the north star — but it does overturn the sentence above, so the reversal is recorded here deliberately rather than absorbed silently. Bless and rewrite this section before building native capture.
+
 ### Swimming
 
 Splits into two sub-types with different logging surfaces:
