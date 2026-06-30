@@ -90,6 +90,11 @@ never pushes "recommended for you" content; spine rule 7 — the goals and plans
 yours). The moment the app authors a program, it stops reflecting you and starts
 prescribing. It never does.
 
+(One carve-out, set on purpose: the **summoned coach** in `benchmarks-spec.md` can
+*draft* a scaffold when you ask for one — but only on request, and the draft lands as a
+library item you save and own. The app still never pushes a program at you.
+Prescription-on-request, never prescription-imposed; pull-not-push is the line that holds.)
+
 ---
 
 ## Two paths, one landing (the connected flow)
@@ -137,11 +142,11 @@ duct-tape.
 
 ## Cadence goals ARE benchmarks (don't build a second system)
 
-A cadence goal ("run 3×/week") is exactly the **process benchmark** already specified
-in `benchmarks-spec.md`:
+A cadence goal ("run 3×/week") is exactly a **cadence-family benchmark** already
+specified in `benchmarks-spec.md`:
 
-- It is **freeform text, keyword-mapped** to a tracked dimension ("consistent" /
-  "3×/week" → session frequency). No goal-type enum, no category picker.
+- It **resolves to a tracked dimension** ("consistent" / "3×/week" → session
+  frequency), entered structured or described. No goal-type enum, no category picker.
 - Its progress is a **consistency counter**, and the count-not-streak line is already
   drawn (`benchmarks-spec.md § "Consistency counters"`): "3 of 3 this week," "4 weeks
   in a row at your frequency" is a **factual count** — it resets without drama, no

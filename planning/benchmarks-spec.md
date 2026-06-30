@@ -1,14 +1,62 @@
-# Benchmarks — Spec (v0.2)
+# Benchmarks — Spec (v0.3) · the goal layer
 
-*Companion to `product-overview.md` and `correlation-engine-spec.md`. Locks the benchmark decisions that give the Reflect tab its framing. Supersedes v0.1 — the input model changed (see Input UX). Spine rule 7 ("goals are yours, not ours") is the constitutional root; this spec is the mechanism, not a re-argument of it.*
+*Companion to `product-overview.md`, `correlation-engine-spec.md`, `competitive-landscape.md`, and `phase-6-plan-tab-spec.md`. This is the spec for the goal layer: how a user sets what they're working toward, and how the app reflects progress without prescribing, gamifying, or inventing. **Supersedes v0.2** and folds in the Jun 29 "Spec Notes" — two stances changed on purpose (see "What a benchmark is" and "Summoned coach"). Spine rules 5 (no gamification), 6 (pull, not push), and 7 (goals are yours) are the constitutional root; this spec is the mechanism, not a re-argument of them.*
+
+*Decisions blessed 2026-06-29 (logged in vault `Decisions.md`): (1) a benchmark must resolve to something tracked before it is a benchmark; (2) a summoned coach may prescribe on request.*
 
 ---
 
 ## What a benchmark is
 
-A benchmark is whatever the user writes in their own words — "climb 5.12," "finish a 50k," "stay consistent through a stressful quarter." Freeform text, full stop. There is no goal-type enum, no category picker, no template menu anywhere in the model. The user names what they're working on; the app's job is to connect that text to data it already tracks, not to make them pick from a list of approved ambitions.
+A **benchmark** is a user-set goal correlated to data the app can actually reflect — the answer to "what are you working toward?" It threads through three surfaces (Today, Training, Reflect) as a single object.
 
-One commitment carries over from v0.1: the app connects the user's words to a data dimension it tracks (a movement, an activity, a stimulus pattern, weight trend, intake, fidelity, sessions) whenever it can, so Reflect can illuminate the benchmark. But the benchmark always stands as the user's words — resolution to a tracked dimension governs how richly Reflect renders it, never whether it exists (see Input UX).
+**The hard rule: a benchmark must resolve to a trackable dimension before it becomes a benchmark.** The app can only mirror what it can measure — sessions logged, gym split hit, getting stronger, weight moving, kilometers paddled. Freeform-described goals are welcome as an *entry path*, but the described text gets mapped to a measurable dimension (with the user confirming) before it lives as a benchmark. Truly unresolvable text is a **note**, not a benchmark.
+
+This revises v0.2's "freeform text is sovereign even if it resolves to nothing" stance. Inert free text is dead weight in a mirror. The sovereignty that survives: the user names the goal and owns it; the app never narrows what they're *allowed* to want. It only refuses to pretend it can track what it can't see. The resolution step is the mirror being honest about its own reflective surface — not the app telling the user what to care about. (This lands near where v0.1 began — "unconnected text is a sticky note" — but softer: there is a confirm step, and unresolved text degrades to a note rather than being rejected outright.)
+
+---
+
+## The two goal families
+
+Every benchmark behaves as one of two shapes. This is the load-bearing distinction — each family reflects back differently. **The user never picks a family.** They name the goal; the app resolves it to a dimension; the dimension's nature decides which family it behaves as. There is no goal-type enum and no category picker anywhere in the input (that line from v0.2 holds).
+
+### Cadence — a rhythm held per window
+
+A target repeated across a time window. Kayak 4×/week. Run 10 miles/week. Fly 100km/month. Hit your gym split.
+
+- **Window-scoped:** weekly or monthly (other windows possible later).
+- **Sub-split:** counting **events** (4 sessions) vs. summing a **magnitude** (100km). Same reflection shape, different setup.
+- **Streaks are revealed, never invented.** A run of windows hit in a row is a true fact about what happened — show it as a stat (the dad-runs-10mi-a-week-for-five-years case). What the constitution forbids is the app *authoring a reward* around it: no flame icon, no "don't break it" guilt, no notification when a window is hit or missed. MacroFactor's day-grid is the precedent — a factual count, displayed, never celebrated, never pushed.
+
+### Trend — a dimension moving a direction
+
+A measured dimension moving toward something, optionally toward a number. Get stronger / bench 100kg. Lose weight / lose 5kg. Better stability score. Climb 5.12.
+
+- **Pure trend** ("get stronger") = direction only.
+- **Threshold trend** ("bench 100kg") = a trend with a finish line drawn on it. A threshold is not a separate family — it's a trend plus a target value.
+- This family doesn't streak. It moves, and maybe crosses a line.
+
+---
+
+## Three entry layers
+
+Modeled on the food-logging pattern (weigh / describe), extended with a third.
+
+1. **Structured** — pick dimension, number, window directly. Resolves clean, needs no parser. (The "weigh it out" path: deterministic, no LLM.) This is the v1 baseline that ships first.
+2. **Described** — natural language in; a mapper proposes a candidate dimension and the structured version; the user confirms. (The "photo-estimate" path.) Example: "I wanna get better at kayaking" → app answers "I can mirror sessions/week, total km, or river grade — which one?" The user picks; that's the resolution step, not a recommendation. The resolver is a **deterministic keyword mapper first** (matches against the exercise library, stimulus patterns, activity labels, tracked dimensions), upgrading to a **Haiku-class parser** — the same upgrade path and shared NLP work as food logging. The text the user writes never changes; only how reliably it gets understood does.
+3. **Coach-assisted** — the summoned coach helps shape a benchmark conversationally (see *Summoned coach*). Output is still a structured benchmark the user owns.
+
+**Multiple concurrent benchmarks are allowed** — a bodyweight trend + a kayak cadence + a strength threshold can all be live at once. (Cap is an open question; see below.)
+
+---
+
+## Three surfaces, one object
+
+A benchmark is set up once and appears in three places. Same record, three homes.
+
+- **Training** — where benchmarks are created and managed (the planning surface; `phase-6-plan-tab-spec.md`). A cadence benchmark is set and *felt this week* here.
+- **Today** — pinned active benchmarks surface for at-a-glance status ("kayak: 2/4 this week").
+- **Reflect** — benchmarks become the correlation hub's organizing key (below), *mirrored back over time*.
 
 ---
 
@@ -16,9 +64,7 @@ One commitment carries over from v0.1: the app connects the user's words to a da
 
 A benchmark is a dynamic layout key that reorders the Reflect hierarchy — not a tag pinned to a static dashboard. With a benchmark active, Reflect stops being "here's what happened" and becomes "here's what happened in the context of what you said you're working on." Switch the benchmark and the tab recomposes: different frame, different hero, different supporting context, all from the same underlying data. That recomposition is what earns the tab the name "Reflect." A view that always shows the same thing in the same order is a rearview mirror; a benchmark-keyed view is a lens.
 
----
-
-## Three-layer hierarchy
+### Three-layer hierarchy
 
 Reflect renders in three layers, in order:
 
@@ -26,25 +72,33 @@ Reflect renders in three layers, in order:
 2. **Hero signal** — the primary visualization: the data dimension the benchmark promotes to the headline.
 3. **Supporting context** — everything else the correlation engine surfaces that moved in the same window, ranked by z-score magnitude.
 
-The benchmark tells Reflect what to foreground; the correlation engine fills in the rest. When the hero falls back (an unresolved benchmark, per Input UX), the layer-2 region renders the no-benchmark default view in full — the stimulus ledger (#5) — so the frame always sits above a complete, intentional view, never an empty or half-rendered hero slot. This hierarchy is the contract between the benchmark system and the Reflect tab.
+The benchmark tells Reflect what to foreground; the correlation engine fills in the rest. When there is no active benchmark, the layer-2 region renders the no-benchmark default view in full — the stimulus ledger — so the frame always sits above a complete, intentional view, never an empty or half-rendered hero slot. This hierarchy is the contract between the benchmark system and the Reflect tab.
 
 ---
 
-## Input UX: freeform text, keyword-mapped
+## Reflect = the benchmark-driven correlation hub
 
-The user writes the benchmark as free text — a phrase in their own words, the way they'd say it out loud ("climb 5.12," "finish a 50k," "bench 225 by October," "stay consistent through a stressful quarter"). There is no domain dropdown, no two-step picker, no category menu. The input surface is the user's language, not the app's taxonomy. (This supersedes v0.1, which specced a two-step "pick a domain → pick the specific thing" flow; that put the app's categories in front of the user's words, which inverts spine rule 7.)
+Reflect is where the user sees the story of their progress against their benchmarks. Visual reference: **MacroFactor's dashboard grammar** (their "Dashboard Customization" article), rebuilt in Reflect-native styling.
 
-Behind that text, the app still has to find the data dimension the benchmark anchors to. In **v1 this is a deterministic keyword mapper**: it matches words in the benchmark text against the product's known vocabulary — the exercise library, stimulus patterns, activity labels, and tracked data dimensions — and resolves the text to a domain. Simple, predictable, no AI, no model in the loop. "bench" → bench press load; "5.12" / "climb" → climbing grade + upper-pull stimulus; "50k" → aerobic / running distance; "consistent" → session frequency.
+**Steal the structure:**
 
-The keyword mapper is intentionally narrow — it maps clean phrasing well and unusual phrasing poorly, and that limit is stated rather than hidden. When the mapper can't resolve the text to a tracked dimension, the benchmark is still created — the user's words always stand. What degrades is hero promotion, not the benchmark: an unresolved benchmark renders as the frame (layer 1), and the hero signal (layer 2) falls back to the same default as the no-benchmark case (#5/#6) until the text resolves. Resolution gates what gets promoted, never whether the user's benchmark may exist. This keeps v1's mapper from quietly becoming the category gate that #1 removed.
+- Sectioned dashboard, each section a dimension.
+- Paired small-multiple cards: label, time-window tag ("Last 7 Days" / "Today"), sparkline, headline number, chevron into the full story.
+- Per-section "See All."
+- The time-window tag carries the cadence family natively — a cadence card *is* "this week: 2/4," window-scoped and factual.
 
-The **AI parser is deferred to Phase 7** (Ring 3, AI consultant). It replaces the keyword mapper with a model that reads freer phrasing and infers the dimension without depending on exact keywords — same upgrade path, smarter input surface, identical underlying data model. The text the user writes does not change; only how reliably it gets understood does.
+**The divergence from MacroFactor:**
+
+- MacroFactor hard-codes its sections (Insights / Nutrition / Body). **Ours are driven by resolved benchmarks** — a section appears because you set a benchmark that resolved to that dimension, and is absent when you don't track it. Pick-what-you-see falls straight out of the layout-key model. (If you don't track weight, weight loss isn't in the dashboard.)
+- Don't steal the palette. MacroFactor is neutral data-blue at full confidence. Reflect is warm-charcoal / earth-tone / Barlow Condensed, with **fidelity encoded visually** (opacity / stroke / dot treatment) and slate reserved for tier-3 modeled values. This is where the surface visibly becomes ours.
+
+Reflect ends up reflecting the user's *process of achieving their benchmarks* — plus general correlation context — surfaced as tappable cards that open into a bigger narrative.
 
 ---
 
 ## No-benchmark default
 
-With no benchmark set, Reflect falls back to the stimulus ledger as the neutral organizing frame. The tab still works — it shows the training landscape without a user-defined focal point. Weight trend is not the default hero (see below); the ledger is.
+With no benchmark set, Reflect falls back to the stimulus ledger as the neutral organizing frame. The tab still works — it shows the training landscape without a user-defined focal point. Weight trend is not the default hero; the ledger is.
 
 Before any benchmark text exists, there is already one domain signal: the **onboarding activity picker** sets the user's initial headline row in the session logger (`training-logging-spec.md`, "Onboarding connection"). It's not a goal and not a benchmark — just "which activities do you care about" — but it gives the no-benchmark view a sense of the user's domain from the first session.
 
@@ -52,7 +106,7 @@ Before any benchmark text exists, there is already one domain signal: the **onbo
 
 ## Weight trend as optional hero
 
-Weight trend is a common benchmark dimension but is never hardcoded as the default hero. The active benchmark decides what gets promoted: a weight benchmark makes the trend the hero; a "kayak 4x/week" benchmark makes session frequency the hero and demotes weight to supporting context. A user whose goals are never weight-related never sees weight in the headline. The benchmark promotes; nothing is privileged by default.
+Weight trend is a common benchmark dimension but is never hardcoded as the default hero. The active benchmark decides what gets promoted: a weight benchmark makes the trend the hero; a "kayak 4×/week" benchmark makes session frequency the hero and demotes weight to supporting context. A user whose goals are never weight-related never sees weight in the headline. The benchmark promotes; nothing is privileged by default.
 
 ---
 
@@ -67,12 +121,77 @@ A factual count — "4 weeks in a row at your kayaking frequency" — is informa
 
 ---
 
+## Plan — the forward-looking container benchmarks populate
+
+**Constitution tripwire.** "Plan" is one slip from the app authoring a program — the exact inverse position. The firewall is one sentence: **the app never generates the plan. It only stores and surfaces yours.** Every item in Plan is user-built or user-saved (a coach-drafted scaffold counts as user-built the moment the user saves it — see *Summoned coach*).
+
+Plan is not a fourth tab — it is the forward-looking mode of the **Training** surface (`phase-6-plan-tab-spec.md`, which holds the detailed mechanics). It operates in two modes that map onto that spec's plan flavors:
+
+### Scheduled  (≈ placed workouts)
+
+You authored structure — e.g. a split mapped to Mon/Wed/Fri. When you open the app on Wednesday, Today surfaces "leg day." This is the app reading *your* plan back to you on the day. It is **pull** (you opened it; it didn't ping you). A "time for leg day!" notification would break the rule. Passive surface-on-open does not.
+
+### Emergent  (≈ cadence goals + open activities)
+
+You can't pre-schedule it (kayaking, when conditions allow). No plan slot. The **benchmark sets the cadence target**, `log session` populates the record after the fact, and Today shows "2/4 this week" as a fact. The plan fills itself in from what actually happened — emergent, not assigned.
+
+Same container, both modes honest, neither prescriptive. (A strength **trend** benchmark *pulls scheduled workouts behind it* — the plan is the how; a **cadence** benchmark *is its own plan* — the doing is the goal. Per `phase-6-plan-tab-spec.md`.)
+
+---
+
+## Saved scaffolds
+
+One pattern, used everywhere: **a reusable thing you return to that accumulates history each time you use it.** This is the **library** in `phase-6-plan-tab-spec.md` — same entity, named here for the goal layer.
+
+- Gym splits / template workouts.
+- Kayak runs / saved river sections / routes (a saved section grows a session log beneath it, with auto-pulled water-level data per the niche-sport plans).
+- **Pinnable (active)** or **archived (inactive, retrievable).**
+
+Name it once; reuse the mechanism across sports. **Strictly pull** — the library ships empty, the system never surfaces "recommended for you" scaffolds, and there is no app-authored program of any kind (spine rules 6/7).
+
+---
+
+## Summoned coach — the line that moved (set this on purpose)
+
+This is a **deliberate revision** of the old "no AI on the surface, full stop" reading. The old framing welded two separate rules together: *pull-not-push* and *no-prescription*. They can be separated.
+
+- **Pull-not-push survives.** Untouched.
+- **Prescription-on-request is now allowed.** The user can summon a coach to brainstorm a training split, talk through a boulder problem, propose movement patterns that support a goal, or get help figuring out how to actually lose weight.
+
+The whole firewall, one test: **the user reaches for it; it never reaches for them.** A chatbot is not disqualifying — *initiating* is (nudges, daily plans pushed, background actions). A summoned brainstorm partner is a different object than a notification machine even though they share a text box.
+
+Three guardrails so it stays our coach (treat these as hard build constraints):
+
+1. **Summoned only.** Lives behind a deliberate tap, *not* a core nav tab. No badges, no unread counts, no "I noticed you haven't logged" openers. Silence is the default state. (Door placement is open — settings may be too buried; a fifth nav tab too central.)
+2. **Grounded, not freelancing.** It reads the user's actual timeline — sessions, benchmarks, fidelity — so advice is about *them*, not a generic model. This is the thing ChatGPT-in-a-tab can't do, and the actual reason to build it. (The target user is the friend who currently pastes his goals into ChatGPT; this brings that conversation in-house, next to the data.)
+3. **Hands back the wheel.** It can propose a split or movement patterns *on request*, but the output is a **draft scaffold the user saves and owns** (straight into saved scaffolds), never a plan it assigns and tracks adherence against. Prescription-on-request, not prescription-imposed.
+
+Helping someone who genuinely doesn't know how to lose weight is **not** a betrayal of "assumes competence." Competence was always the *default*, never a wall — the mirror corrects a wrong self-model gently. A summoned coach walking someone through a deficit is that same gentle correction, conversational.
+
+This is the `product-overview.md` build-list "AI coach" line, made precise: summoned, grounded, prescribes on request, output user-owned. Lands in **Phase 7 (Ring 3, AI consultant)**.
+
+---
+
+## TDEE cold-start
+
+Nutrition planning ("estimate bodyweight, initial TDEE, plan for goals") collides head-on with *outcome-measured, not predicted* (spine rule 1) — you cannot measure TDEE on day one because there is no trend yet.
+
+Resolution, using fidelity applied to TDEE itself:
+
+- **Onboarding ships a standard height/weight/activity-level calculator** → an expected expenditure. Exactly MacroFactor's cold-start.
+- This number is a **transparent low-fidelity placeholder**, explicitly labeled as the weak predicted kind — the one spot the app knowingly uses a population formula.
+- **Measured TDEE overwrites it** the moment the weight trend clears the noise floor. The app isn't predicting and standing by it; it's holding a placeholder the mirror replaces the instant reality speaks.
+
+This is the "provisional scaffold that graduates as data accumulates" line made literal. The honesty is in never hiding that the day-one number is the weak kind.
+
+---
+
 ## Archiving and lifecycle
 
 - **Active** — frames Reflect and shows on the today cards.
 - **Archived** — moved out of the active view with no ceremony and no "congratulations" moment. Data and history are preserved; the user can revisit archived benchmarks to see the arc.
-- **Reactivated** — an archived benchmark can return to active. Process benchmarks are often seasonal ("I'm focused on fidelity right now") and cycle in and out.
-- **Completed** — a natural end state for outcome benchmarks ("I hit 225"). Distinct from archived in that it carries the completion context. Still accessible in history.
+- **Reactivated** — an archived benchmark can return to active. Process/cadence benchmarks are often seasonal ("I'm focused on fidelity right now") and cycle in and out.
+- **Completed** — a natural end state for threshold benchmarks ("I hit 225"). Distinct from archived in that it carries the completion context. Still accessible in history.
 
 Archiving should feel like setting something down, not closing a chapter.
 
@@ -84,15 +203,31 @@ Cohort events and challenges target the same data dimensions personal benchmarks
 
 ---
 
-## Build sequence
+## Constitution alignment (quick audit)
 
-This spec gates **Phase 5 (Ring 1, the full Reflect tab)** — the same relationship `training-logging-spec.md` holds to Phase 4. Phase 5 builds the keyword mapper (v1) and renders the three-layer hierarchy. The keyword mapper → AI parser upgrade lands in **Phase 7 (Ring 3, AI consultant)**, alongside the rest of the AI surface. Cohort connection lands in **Phase 8 (Ring 4)**.
+- **Descriptive not prescriptive** — benchmarks are user-set; the app relates inputs, never assigns targets. Coach prescribes only on request, output owned by user. ✅
+- **Outcome-measured not predicted** — trend benchmarks read real data; TDEE placeholder is transparently provisional and overwritten by measurement. ✅
+- **Reveal not invent** — streaks/cadence counts are revealed facts, never authored rewards. ✅
+- **No gamification** — no streak celebration, no badges, no notifications on hit/miss. Cadence counts are factual stats (MacroFactor day-grid precedent). ✅
+- **Pull not push** — every surface is summon/open-driven; scheduled splits surface on-open, never notify; the coach is summoned only. ✅
+- **Goals are yours** — the user names and owns the goal; resolution governs only whether the app can mirror it, never whether the user may want it. ✅
 
 ---
 
-## Open questions
+## Build sequence
 
-- **Exact input affordance.** Freeform text + keyword mapper is the locked model; the precise capture surface (single text field, text field with live mapped-domain confirmation, etc.) needs design exploration. The open risk is the mapper silently mis-mapping text — how visibly the inferred domain is shown back to the user before they commit is unresolved.
-- **Active benchmark cap.** "Not infinite" is decided; the exact number is a design-feel call.
-- **Milestone data model.** Whether benchmarks carry optional user-created milestones, and how lightweight those can be while still being useful in Reflect retrospect. (v0.1 floated them; deferred until the core loop is felt.)
-- **Benchmark creation timing.** Dedicated flow only, or spawnable contextually (e.g., from a lift's history in the Training tab: "work toward X on this")?
+- **Phase 5 (Ring 1, full Reflect tab):** the architectural input. Build the Structured entry path + the deterministic keyword resolver (v1), render the three-layer hierarchy in the MacroFactor-grammar dashboard. Same relationship `training-logging-spec.md` holds to Phase 4.
+- **Phase 6 (Plan / Training tab):** scheduled vs emergent plan modes, saved scaffolds (the library). Cadence benchmarks resolve here, not as a second system (`phase-6-plan-tab-spec.md`).
+- **Phase 7 (Ring 3, AI consultant):** the Described resolver upgrades to a Haiku-class parser; the **summoned coach** ships, alongside the rest of the AI surface.
+- **Phase 8 (Ring 4, cohorts):** cohort events/challenges connect to benchmark data dimensions; opt-in spawns personal benchmarks.
+
+---
+
+## Open questions (deferred, not blocking)
+
+- **Active benchmark cap** — one focused at a time? N concurrent? Unbounded with one "primary"?
+- **Milestone data model** — do benchmarks own milestones, or do milestones emerge from the correlation engine? Constitution risk: an app-authored sub-goal ("60% to 5.12!") is one step from a checkpoint/streak reward. Whatever ships must keep milestones user-authored or strictly revealed-from-outcome.
+- **Benchmark creation timing** — onboarding? first open? lazily, once enough data exists for a hero signal to mean anything? Collides with cold-start: a benchmark with no data behind it is an empty frame on day one. (Partly resolved: cadence benchmarks are spawnable contextually from the Training tab — `phase-6-plan-tab-spec.md`.)
+- **Coach door placement** — where exactly the summoned coach lives (settings may be too buried; a nav tab too central).
+- **Described-resolver visibility** — how visibly the inferred dimension is shown back before the user commits, so the mapper never silently mis-maps text.
+- **Reflect customization depth** — how much is reorderable/hideable (pull the MacroFactor "Dashboard Customization" article to set the bar).
