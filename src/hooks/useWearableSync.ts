@@ -29,6 +29,7 @@ export function useWearableSync(onChange?: () => void): WearableSync {
   const [syncing, setSyncing] = useState(false);
   const [lastError, setLastError] = useState<Error | null>(null);
   const lastPollAt = useRef<number>(0);
+  const syncLock = useRef(false);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -50,6 +51,8 @@ export function useWearableSync(onChange?: () => void): WearableSync {
   }, []);
 
   const connect = useCallback(async () => {
+    if (syncLock.current) return;
+    syncLock.current = true;
     setSyncing(true);
     setLastError(null);
     try {
@@ -68,6 +71,7 @@ export function useWearableSync(onChange?: () => void): WearableSync {
     } catch (e) {
       setLastError(e instanceof Error ? e : new Error(String(e)));
     } finally {
+      syncLock.current = false;
       setSyncing(false);
     }
   }, []);
@@ -75,6 +79,12 @@ export function useWearableSync(onChange?: () => void): WearableSync {
   const syncNow = useCallback(async () => {
     if (!connected) return;
     if (Date.now() - lastPollAt.current < POLL_THROTTLE_MS) return;
+    if (syncLock.current) return;
+    // Stamp the throttle and take the lock immediately, before any await, so
+    // concurrent focus events (Today fires reload + trend + sync together)
+    // don't race a second backfill into the same SQLite connection mid-write.
+    lastPollAt.current = Date.now();
+    syncLock.current = true;
     setSyncing(true);
     setLastError(null);
     try {
@@ -85,11 +95,14 @@ export function useWearableSync(onChange?: () => void): WearableSync {
       } else {
         await runDailyPoll(reader);
       }
-      lastPollAt.current = Date.now();
       onChangeRef.current?.();
     } catch (e) {
+      // Reset the throttle so the next focus retries rather than waiting out
+      // the full window after a transient failure.
+      lastPollAt.current = 0;
       setLastError(e instanceof Error ? e : new Error(String(e)));
     } finally {
+      syncLock.current = false;
       setSyncing(false);
     }
   }, [connected]);
