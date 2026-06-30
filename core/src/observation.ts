@@ -92,8 +92,11 @@ export type QuantityMethod = 'measured' | 'package' | 'estimated';
  * Macros: `null` = not captured (partial), never `0`, never inferred.
  */
 export interface FoodItem {
-  sourceDb: FoodSourceDb;
-  foodId: string;
+  // Keyless LLM estimates omit both `sourceDb` and `foodId` — they have no
+  // food-database lineage (provenance lives on the Observation's `estimate`
+  // source). USDA/OFF items carry both.
+  sourceDb?: FoodSourceDb;
+  foodId?: string;
   description?: string; // the food's human name (e.g. 'Cheddar cheese') from the source record; display-only, never gates anything
   quantity: number; // canonical quantity; the 2.2 adapter reconciles unit bases
   quantityMethod: QuantityMethod;
@@ -134,6 +137,7 @@ export type ObservationSource =
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
+  | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
   | { type: 'derived'; from: ObservationId[]; engine: string }; // computed by an engine
 

@@ -148,4 +148,48 @@ describe('getRecentFoodItems', () => {
     const turkey = await getRecentFoodItems('turkey', db);
     expect(turkey).toHaveLength(1);
   });
+
+  it('skips keyless LLM estimates — no catalog id to recur by (save-as-meal handles reuse)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const estimate: Observation = {
+      id: 'e1',
+      kind: 'foodEntry',
+      occurredAt: '2026-06-29T12:00:00Z',
+      loggedAt: '2026-06-29T12:00:00Z',
+      tz: 'America/Los_Angeles',
+      tier: 1,
+      fidelity: 0.45,
+      source: { type: 'estimate', modelVersion: 'claude-haiku-4-5' },
+      payload: {
+        kind: 'foodEntry',
+        description: 'Chicken curry',
+        servings: 1,
+        kcal: 520,
+        proteinG: 35,
+        carbsG: 40,
+        fatG: 22,
+        inputMethod: 'described',
+        fidelityCeiling: 0.7,
+        items: [
+          {
+            description: 'Chicken curry',
+            quantity: 350,
+            quantityMethod: 'estimated',
+            kcal: 520,
+            proteinG: 35,
+            carbsG: 40,
+            fatG: 22,
+            fidelity: 0.45,
+            fidelityCeiling: 0.7,
+          },
+        ],
+      },
+    };
+    await createObservation(estimate, db);
+
+    // The name matches, but a keyless estimate is not a recents catalog entry.
+    expect(await getRecentFoodItems('chicken', db)).toHaveLength(0);
+  });
 });

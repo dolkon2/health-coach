@@ -156,6 +156,75 @@ describe('buildMealLog — composite fidelity → tier', () => {
   });
 });
 
+describe('buildMealLog — estimate provenance for keyless LLM items', () => {
+  // A keyless item: the LLM estimated it directly, so it carries no DB lineage.
+  const estItem = (over: Partial<FoodItem> = {}): FoodItem =>
+    foodItem({
+      foodId: undefined,
+      sourceDb: undefined,
+      quantityMethod: 'estimated',
+      fidelity: 0.45,
+      fidelityCeiling: 0.7,
+      ...over,
+    });
+
+  it('a meal of keyless estimates reads as an estimate source, never foodapi, and stamps the model', () => {
+    const obs = buildMealLog(
+      {
+        description: 'two eggs and toast',
+        items: [estItem(), estItem()],
+        inputMethod: 'described',
+        estimateModel: 'claude-haiku-4-5',
+      },
+      CTX
+    );
+    expect(obs.source).toEqual({ type: 'estimate', modelVersion: 'claude-haiku-4-5' });
+    expect(obs.source).not.toHaveProperty('provider'); // never claims a food-database lineage
+  });
+
+  it('ANY keyless item makes the meal an estimate — a USDA item alongside one cannot launder it to foodapi', () => {
+    const obs = buildMealLog(
+      {
+        description: 'mixed',
+        items: [foodItem(), estItem()],
+        inputMethod: 'described',
+        estimateModel: 'claude-haiku-4-5',
+      },
+      CTX
+    );
+    expect(obs.source.type).toBe('estimate');
+  });
+
+  it('omitting the model on an estimate meal stamps "unknown" — honest, never fabricated', () => {
+    const obs = buildMealLog(
+      { description: 'eggs', items: [estItem()], inputMethod: 'described' },
+      CTX
+    );
+    expect(obs.source).toEqual({ type: 'estimate', modelVersion: 'unknown' });
+  });
+
+  it('a pure USDA meal is unaffected — still foodapi', () => {
+    const obs = buildMealLog(
+      { description: 'ribeye', items: [foodItem()], inputMethod: 'weighed' },
+      CTX
+    );
+    expect(obs.source).toEqual({ type: 'foodapi', provider: 'usda', itemId: '173414' });
+  });
+
+  it('an all-estimate meal blends to LOW/MID — never HIGH (an estimate never reads as measured)', () => {
+    const obs = buildMealLog(
+      {
+        description: 'plate',
+        items: [estItem({ fidelity: 0.45 }), estItem({ fidelity: 0.3 })],
+        inputMethod: 'described',
+        estimateModel: 'claude-haiku-4-5',
+      },
+      CTX
+    );
+    expect(tierOf(obs.fidelity)).not.toBe('HIGH');
+  });
+});
+
 describe('focus is display-only', () => {
   it('switching focus changes the hero number, never the stored row', () => {
     const obs = buildMealLog({ description: 'meal', items: [foodItem()], inputMethod: 'weighed' }, CTX);

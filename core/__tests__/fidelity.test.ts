@@ -53,6 +53,22 @@ describe('defaultFidelity — computed from extraction, never from channel', () 
     expect(f).toBeLessThan(TIER_MID_MIN);
   });
 
+  it('estimated macros + a stated portion → low-MID, below a DB-resolved described item', () => {
+    // Both macros AND portion are LLM guesses, so it must read as less certain
+    // than a food+qty+unit item that resolved against the database.
+    const est = defaultFidelity('described', { macrosEstimated: true, quantity: true });
+    expect(tierOf(est)).toBe('MID');
+    expect(est).toBeGreaterThanOrEqual(TIER_MID_MIN);
+    expect(est).toBeLessThan(defaultFidelity('described', { food: true, quantity: true, unit: true }));
+    expect(est).toBeLessThan(TIER_HIGH_MIN); // an estimate never reads as measured
+  });
+
+  it('estimated macros + a vague portion → LOW', () => {
+    const est = defaultFidelity('described', { macrosEstimated: true });
+    expect(tierOf(est)).toBe('LOW');
+    expect(est).toBeLessThan(TIER_MID_MIN);
+  });
+
   it('never exceeds the method ceiling for any method', () => {
     const full = { food: true, quantity: true, unit: true, completeness: 1, branded: false };
     (['weighed', 'barcode', 'described', 'photo'] as const).forEach((m) => {

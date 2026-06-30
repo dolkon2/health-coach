@@ -202,6 +202,9 @@ export async function getRecentFoodItems(
     const payload = JSON.parse(row.payload) as { items?: FoodItem[] };
     if (!payload.items) continue;
     for (const item of payload.items) {
+      // Keyless LLM estimates aren't catalog entries — they have no stable foodId
+      // to recur by, so they never appear in recents (save-as-meal handles reuse).
+      if (item.foodId == null) continue;
       if (!item.description || !item.description.toLowerCase().includes(term)) continue;
       if (seen.has(item.foodId)) continue;
       seen.set(item.foodId, { item, lastLoggedAt: row.occurredAt });

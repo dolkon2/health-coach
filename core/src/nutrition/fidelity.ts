@@ -79,6 +79,9 @@ export interface Extraction {
   completeness?: number;
   /** `weighed`/USDA: Branded (label-declared) vs Foundation/SR Legacy (lab). */
   branded?: boolean;
+  /** `described`: the LLM estimated the macros directly (no DB match), so both
+   *  macros and portion are guesses — caps fidelity below a DB-resolved item. */
+  macrosEstimated?: boolean;
 }
 
 function clamp01(x: number): number {
@@ -110,7 +113,15 @@ export function defaultFidelity(method: InputMethod, extraction: Extraction = {}
       break;
     case 'described':
       // Keys off what the parser got — nothing else. Voice vs text is the same.
-      if (extraction.food && extraction.quantity && extraction.unit) f = 0.6;
+      if (extraction.macrosEstimated) {
+        // LLM estimated the macros directly (no DB match): both macros AND
+        // portion are guesses, so it caps below a DB-resolved described item.
+        // Stated portion ("8 oz ribeye") → low-MID; vague ("some fries") → LOW.
+        // The displayed tier is the whole honesty signal. (When earned fidelity
+        // lands in Phase 7, estimates likely need a dedicated sub-ceiling so
+        // accrual can't push them toward HIGH.)
+        f = extraction.quantity ? 0.45 : 0.3;
+      } else if (extraction.food && extraction.quantity && extraction.unit) f = 0.6;
       else if (extraction.food) f = 0.3; // a food but no pinned portion
       else f = 0.15; // free text that didn't even resolve a food
       break;

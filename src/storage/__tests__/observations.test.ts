@@ -3,7 +3,7 @@
  * (in-memory SQLite). Also covers the append-only supersede behavior.
  */
 import { describe, it, expect } from '@jest/globals';
-import type { Observation } from '@core/observation';
+import type { Observation, FoodEntryPayload } from '@core/observation';
 import { runMigrations } from '../db';
 import {
   createObservation,
@@ -26,6 +26,44 @@ function fakeWeighIn(id: string, weightKg: number, occurredAt: string): Observat
     fidelity: 1.0,
     source: { type: 'manual' },
     payload: { kind: 'weighIn', weightKg },
+  };
+}
+
+function fakeEstimateMeal(id: string, occurredAt: string): Observation {
+  return {
+    id,
+    kind: 'foodEntry',
+    occurredAt,
+    loggedAt: occurredAt,
+    tz: 'America/Los_Angeles',
+    tier: 1,
+    fidelity: 0.45,
+    source: { type: 'estimate', modelVersion: 'claude-haiku-4-5' },
+    payload: {
+      kind: 'foodEntry',
+      description: 'two eggs and toast',
+      servings: 1,
+      kcal: 320,
+      proteinG: 18,
+      carbsG: 28,
+      fatG: 14,
+      inputMethod: 'described',
+      fidelityCeiling: 0.7,
+      items: [
+        {
+          // Keyless: an LLM estimate carries no sourceDb / foodId.
+          description: 'two eggs',
+          quantity: 100,
+          quantityMethod: 'estimated',
+          kcal: 160,
+          proteinG: 12,
+          carbsG: 1,
+          fatG: 11,
+          fidelity: 0.45,
+          fidelityCeiling: 0.7,
+        },
+      ],
+    },
   };
 }
 
@@ -129,5 +167,25 @@ describe('observations storage', () => {
       db
     );
     expect(mid.map((o) => o.id)).toEqual(['b']);
+  });
+
+  it('round-trips a keyless LLM-estimate meal through SQLite — no migration needed (JSON is schema-agnostic)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createObservation(fakeEstimateMeal('e1', '2026-06-29T12:00:00Z'), db);
+
+    const back = await getObservationById('e1', db);
+    expect(back).not.toBeNull();
+    // Provenance survives as an estimate — never laundered into a foodapi lineage.
+    expect(back!.source).toEqual({ type: 'estimate', modelVersion: 'claude-haiku-4-5' });
+
+    const items = (back!.payload as FoodEntryPayload).items;
+    expect(items).toHaveLength(1);
+    // The keyless item survives the round-trip with no foodId/sourceDb resurrected.
+    expect(items[0].foodId).toBeUndefined();
+    expect(items[0].sourceDb).toBeUndefined();
+    expect(items[0].quantityMethod).toBe('estimated');
+    expect(items[0].kcal).toBe(160);
   });
 });

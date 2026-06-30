@@ -56,7 +56,8 @@ describe('adaptUsdaFood — Branded (labelNutrients per serving)', () => {
 
   it('provenance matches ObservationSource.foodapi', () => {
     const item = adaptUsdaFood(raw, weighed30);
-    const source: ObservationSource = { type: 'foodapi', provider: item.sourceDb, itemId: item.foodId };
+    // DB-adapted items always carry sourceDb + foodId (only keyless estimates omit them).
+    const source: ObservationSource = { type: 'foodapi', provider: item.sourceDb!, itemId: item.foodId! };
     expect(source).toEqual({ type: 'foodapi', provider: 'usda', itemId: '2031766' });
   });
 });
@@ -120,7 +121,8 @@ describe('adaptOpenFoodFactsProduct — completeness drives fidelity', () => {
 
   it('provenance matches ObservationSource.foodapi', () => {
     const item = adaptOpenFoodFactsProduct(complete, barcode100);
-    const source: ObservationSource = { type: 'foodapi', provider: item.sourceDb, itemId: item.foodId };
+    // DB-adapted items always carry sourceDb + foodId (only keyless estimates omit them).
+    const source: ObservationSource = { type: 'foodapi', provider: item.sourceDb!, itemId: item.foodId! };
     expect(source).toEqual({ type: 'foodapi', provider: 'openfoodfacts', itemId: '0737628064502' });
   });
 });
