@@ -256,6 +256,11 @@ export default function LogFood() {
   const [scanProduct, setScanProduct] = useState<FoodItem | null>(null); // basis @ 100 g, for the live preview
   const [barcodeGrams, setBarcodeGrams] = useState(String(BARCODE_DEFAULT_G));
   const [portionBasis, setPortionBasis] = useState<PortionBasis>('labeled');
+  // The product's serving size (grams, or a drink's ml), or null when OFF has
+  // none. When known, the user can log in servings (e.g. 1.5 drinks) and the
+  // grams amount follows; the meal row then reads "1.5 servings".
+  const [scanServingAmount, setScanServingAmount] = useState<number | null>(null);
+  const [servings, setServings] = useState('1');
   // Single-fire guard: CameraView fires onBarcodeScanned continuously; latch on
   // the first read so one scan triggers exactly one lookup until we reset.
   const scanningRef = useRef(false);
@@ -267,6 +272,8 @@ export default function LogFood() {
     setScanProduct(null);
     setBarcodeGrams(String(BARCODE_DEFAULT_G));
     setPortionBasis('labeled');
+    setScanServingAmount(null);
+    setServings('1');
   }, []);
 
   const onBarcode = useCallback(async (code: string) => {
@@ -280,6 +287,8 @@ export default function LogFood() {
       setScanProduct(res.item);
       // Default the amount to one labeled serving (grams, or a drink's ml
       // quantity); fall back to the 100 g basis when the label states none.
+      setScanServingAmount(res.servingAmount);
+      setServings('1');
       setBarcodeGrams(String(res.servingAmount ?? BARCODE_DEFAULT_G));
       setScanStatus('found');
     } else {
@@ -287,12 +296,38 @@ export default function LogFood() {
     }
   }, []);
 
+  // Servings ↔ grams stay in sync while the product has a known serving size,
+  // so the user can log by serving count and see the resulting amount/macros.
+  const onChangeServings = useCallback((s: string) => {
+    setServings(s);
+    const n = Number(s);
+    if (scanServingAmount && Number.isFinite(n) && n > 0) {
+      setBarcodeGrams(String(Math.round(scanServingAmount * n)));
+    }
+  }, [scanServingAmount]);
+
+  const onChangeBarcodeGrams = useCallback((g: string) => {
+    setBarcodeGrams(g);
+    const n = Number(g);
+    if (scanServingAmount && Number.isFinite(n) && n > 0) {
+      setServings(String(Math.round((n / scanServingAmount) * 100) / 100));
+    }
+  }, [scanServingAmount]);
+
   const onAddBarcode = useCallback(async () => {
     const g = Number(barcodeGrams);
     if (!scannedCode || !(g > 0)) return;
     const res = await resolveBarcode(scannedCode, { grams: g, method: portionBasis === 'estimated' ? 'estimated' : 'package' });
-    if (res.status === 'found') { fl.addBarcode(res.item); resetScan(); }
-  }, [scannedCode, barcodeGrams, portionBasis, fl.addBarcode, resetScan]);
+    if (res.status !== 'found') return;
+    // When logged by serving count, show it as "1.5 servings" in the meal row
+    // (display-only); otherwise the row falls back to the logged grams.
+    const sv = Number(servings);
+    const item = scanServingAmount && Number.isFinite(sv) && sv > 0
+      ? { ...res.item, portionText: `${sv} serving${sv === 1 ? '' : 's'}` }
+      : res.item;
+    fl.addBarcode(item);
+    resetScan();
+  }, [scannedCode, barcodeGrams, portionBasis, servings, scanServingAmount, fl.addBarcode, resetScan]);
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -413,7 +448,18 @@ export default function LogFood() {
             ) : scanStatus === 'found' && scanProduct ? (
               <Card raised style={{ gap: theme.spacing[3] }}>
                 <Text variant="body">{scanProduct.description ?? 'Scanned product'}</Text>
-                <Field label="Amount" value={barcodeGrams} onChangeText={setBarcodeGrams} suffix="g" autoFocus />
+                {/* Servings input when the label declares a serving size — type
+                    1.5 for a serving and a half; the amount below follows. */}
+                {scanServingAmount != null ? (
+                  <Field label="Servings" value={servings} onChangeText={onChangeServings} autoFocus />
+                ) : null}
+                <Field
+                  label="Amount"
+                  value={barcodeGrams}
+                  onChangeText={onChangeBarcodeGrams}
+                  suffix="g"
+                  autoFocus={scanServingAmount == null}
+                />
                 {/* Live "what this portion gives you" — updates as you type the amount. */}
                 {Number(barcodeGrams) > 0 ? (
                   <Text variant="data" color={theme.colors.textSecondary}>
