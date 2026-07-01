@@ -53,19 +53,22 @@ export default function TodayScreen() {
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
   const wearable = useWearableSync(reloadToday);
+  // Depend on the stable `syncNow` callback, NOT the whole `wearable` object.
+  // useWearableSync returns a fresh object literal every render, so depending on
+  // `wearable` would give the focus effect a new callback identity each render,
+  // re-running it on every render and looping (setLoading/setObservations →
+  // re-render → new callback → …). syncNow is a useCallback that only changes
+  // when `connected` flips, so the callback stays stable across renders.
+  const { syncNow } = wearable;
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   // Also polls HealthKit (throttled, no-op until the user has connected).
-  // Depend on `wearable.syncNow` (stable except when `connected` flips), NOT the
-  // whole `wearable` object: useWearableSync returns a fresh object literal each
-  // render, so depending on it re-fires this focus effect every render and loops
-  // (Maximum update depth exceeded) once HealthKit is connected on a real device.
   useFocusEffect(
     useCallback(() => {
       reloadToday();
       reloadTrend();
-      wearable.syncNow();
-    }, [reloadToday, reloadTrend, wearable.syncNow])
+      syncNow();
+    }, [reloadToday, reloadTrend, syncNow])
   );
 
   const removeAndReload = useCallback(

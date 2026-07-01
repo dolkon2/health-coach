@@ -1,23 +1,24 @@
 /**
- * config.ts — runtime config read from app.json `extra`.
+ * config.ts — runtime config read from environment variables.
+ *
+ * Keys live in a gitignored `.env.local` (see `.env.example`) for local dev, and
+ * as EAS environment variables for cloud builds. Anything prefixed
+ * `EXPO_PUBLIC_` is inlined into the app at build time — so these are NOT secret
+ * in a shipped binary; route Anthropic through a backend proxy before public
+ * distribution. Keeping them out of `app.json`/git is the immediate win.
  *
  * USDA FoodData Central: free key (register at fdc.nal.usda.gov for 1000 req/hr).
- * Drop it into app.json under `expo.extra.usdaApiKey`. Falls back to the public
- * DEMO_KEY (~30 req/hr) so the app still works in dev. Open Food Facts: no key.
- * Free-only food data layer (locked rule).
+ * Falls back to the public DEMO_KEY (~30 req/hr) so the app still works with no
+ * key set. Open Food Facts: no key. Free-only food data layer (locked rule).
  *
  * Anthropic: optional. When set, the food logger's `described` parser runs
- * through Claude Haiku before resolving against USDA (multi-item meals, vague
- * portions). When null/missing, the regex parser handles it — the feature
- * gracefully degrades. Drop the key into app.json under
- * `expo.extra.anthropicApiKey`. NB: app.json ships in the bundle — this is the
- * solo-dev pattern; route through SecureStore or a backend proxy before
- * distribution.
+ * through Claude before resolving against USDA (multi-item meals, vague
+ * portions). When unset, the regex parser handles it — the feature gracefully
+ * degrades.
  */
-import Constants from 'expo-constants';
 
 export const USDA_API_KEY: string =
-  (Constants.expoConfig?.extra?.usdaApiKey as string | undefined) ?? 'DEMO_KEY';
+  process.env.EXPO_PUBLIC_USDA_API_KEY || 'DEMO_KEY';
 
 export const ANTHROPIC_API_KEY: string | null =
-  (Constants.expoConfig?.extra?.anthropicApiKey as string | null | undefined) ?? null;
+  process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || null;

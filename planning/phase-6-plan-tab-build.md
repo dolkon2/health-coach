@@ -180,8 +180,8 @@ system.
 cadence counter that the benchmark system later absorbs.
 
 **What ships:**
-- Cadence goals as process benchmarks: freeform text ("run 3×/week") resolved to
-  activity + frequency via keyword mapper.
+- Cadence goals as cadence-family benchmarks: text ("run 3×/week") resolved to
+  activity + frequency via the keyword resolver (Structured or Described entry).
 - Week view shows cadence progress: "2 of 3 this week" — a factual count, not a
   streak. No flame, no celebration, no loss-aversion on miss.
 - Any logged session matching the activity counts toward the cadence (including

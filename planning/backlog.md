@@ -16,6 +16,7 @@
 - Supersede pattern for editing sessions — deferred from Pass 6 logging deep-dive, lands here. `supersede` already exists for weigh-ins (`storage/observations.ts`); sessions need the same affordance. (game-plan-and-prompts.md HALT)
 - Delete-a-session affordance on Today's session cards. (game-plan-and-prompts.md HALT)
 - Earned-fidelity mechanic for food logging — direction unspecified, but the fidelity-as-first-class principle wants something more than a static field. (constitution principle 3, product-overview.md)
+- TDEE cold-start — onboarding ships a standard height/weight/activity calculator as a **transparent low-fidelity placeholder**, overwritten by measured TDEE once the weight trend clears the noise floor; the one spot the app knowingly uses a population formula, labeled as the weak predicted kind. (benchmarks-spec.md v0.3, "TDEE cold-start")
 - ✅ Composite meals — DONE in Ring 2 Pass 2.1: `FoodEntryPayload` carries `items: FoodItem[]`, flat macros are their rollup. (data-model.md open question, resolved)
 - iCloud / encrypted SQLite backup — losing 6 months of data to a phone wipe would suck. (phase-1-build-spec.md open question)
 - Progress photo storage — `kind: 'progressPhoto'` Observation with file path in payload? Settings feature, not Phase 1. (data-model.md open question)
@@ -47,10 +48,12 @@
 
 ## Phase 5 (Ring 1 full Reflect tab + Benchmarks)
 
-- Benchmarks input UX — two-step domain → specific-thing is directionally right but needs design exploration / prototyping. (benchmarks-spec.md open question)
+- Benchmarks entry UX — Structured path (v1, deterministic) + Described path (keyword resolver → Haiku-class parser); open risk is how visibly the inferred dimension is confirmed before commit, so the resolver never silently mis-maps. (benchmarks-spec.md v0.3)
 - Active benchmark cap — "not infinite" is decided; the exact number is a design-feel call. (benchmarks-spec.md open question)
 - Milestone data model lightness — do they carry their own target values or are they just named markers on the benchmark's data dimension? (benchmarks-spec.md open question)
-- Benchmark creation timing — dedicated flow only, or contextual spawn from e.g. the Training tab? (benchmarks-spec.md open question)
+- Benchmark creation timing — onboarding / first-open / lazy-once-data-exists; partly resolved — cadence benchmarks spawn contextually from the Training tab (phase-6-plan-tab-spec.md). (benchmarks-spec.md v0.3)
+- Coach door placement — where the summoned coach lives (settings too buried, a nav tab too central). (benchmarks-spec.md v0.3)
+- Reflect customization depth — how much of the benchmark-driven dashboard is reorderable/hideable (pull MacroFactor's "Dashboard Customization" article to set the bar). (benchmarks-spec.md v0.3)
 - Training tab — planned workouts → Today as to-dos that become logged sessions. Changes Today's model from "what happened" to "what's planned + what happened." (game-plan-and-prompts.md HALT)
 - Activity log formatting / presentation on Today and in history. (game-plan-and-prompts.md HALT)
 - `reveal()` speaks engine-native units (kg, km), not display units (quirk #6). Pass display unit into `reveal(session, opts)` or convert in UI when the kg/lb mismatch grates.
@@ -69,7 +72,7 @@
 
 ## Phase 7 (Ring 3 AI consultant)
 
-- AI parser replaces keyword mapper for benchmark input — natural language ("climb 5.12") instead of menu navigation. Same underlying data model. (benchmarks-spec.md)
+- Described resolver upgrades to a Haiku-class parser for benchmark input — natural language ("climb 5.12") without menu navigation, same data model — **and the summoned coach ships** (prescription-on-request, grounded in the user's data, output user-owned). (benchmarks-spec.md v0.3, "Summoned coach")
 
 ---
 

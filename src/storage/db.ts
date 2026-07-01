@@ -57,6 +57,11 @@ export function getDb(): Promise<SqlDatabase> {
     dbPromise = (async () => {
       const SQLite = await import('expo-sqlite');
       const raw = await SQLite.openDatabaseAsync('healthcoach.db');
+      // WAL lets readers and the writer coexist (the Today screen reads while a
+      // wearable backfill writes); busy_timeout makes any remaining contention
+      // wait rather than throw SQLITE_BUSY ("database is locked").
+      await raw.execAsync('PRAGMA journal_mode = WAL;');
+      await raw.execAsync('PRAGMA busy_timeout = 5000;');
       const db: SqlDatabase = {
         execAsync: (sql) => raw.execAsync(sql),
         runAsync: async (sql, params = []) => {

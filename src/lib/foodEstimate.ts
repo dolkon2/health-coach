@@ -23,9 +23,11 @@ import { defaultFidelity, fidelityCeiling, type Extraction } from '@core/nutriti
 import { callClaude } from './anthropicClient';
 import { DEFAULT_PORTION_G, parseDescribed } from './foodLog';
 
-/** Estimation quality matters more here than for extraction; this constant is the
- *  single swap point for the Haiku-vs-Sonnet benchmark (plan § Decision F). */
-export const ESTIMATOR_MODEL = 'claude-haiku-4-5';
+/** Estimation quality matters more here than for extraction, so the estimator runs
+ *  on Sonnet 4.6 (Decision F). Single swap point — flip to 'claude-haiku-4-5' to
+ *  benchmark cost/latency vs quality on real meals (Sonnet ~3x cost, still ~$1/mo
+ *  at single-user volume). */
+export const ESTIMATOR_MODEL = 'claude-sonnet-4-6';
 
 /** Estimation reasons more than extraction, so it gets a longer default timeout. */
 const ESTIMATE_TIMEOUT_MS = 8000;
