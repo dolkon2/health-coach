@@ -43,9 +43,7 @@
       "router": {},
       "eas": {
         "projectId": "8944e0f3-ea5f-444b-a127-068a8f94a194"
-      },
-      "usdaApiKey": "3k16veE4wrwgFVX09MuiByrijHX1jfVmQG1QA33w",
-      "anthropicApiKey": null
+      }
     },
     "owner": "dolkon"
   }
