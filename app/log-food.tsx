@@ -14,22 +14,33 @@
  * hooks/useFoodLog; this screen is a thin consumer.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, View, Pressable } from 'react-native';
+import { Platform, ScrollView, View, Pressable, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Text, Button, Card, Field, ChipSelect, FidelityTreatment, type ChipOption } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
-import { useFoodLog } from '@/hooks/useFoodLog';
+import { useFoodLog, type FoodLogMode } from '@/hooks/useFoodLog';
+import { resolveBarcode, BARCODE_DEFAULT_G } from '@/lib/foodBarcode';
 import { noonOfLocalDate } from '@/lib/date';
 import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, recomputeKcal, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
 import type { FoodItem, MealTemplate } from '@core/observation';
 
-const MODE_OPTIONS: ChipOption<'weigh' | 'describe'>[] = [
+const MODE_OPTIONS: ChipOption<FoodLogMode>[] = [
   { value: 'weigh', label: 'Search & weigh' },
   { value: 'describe', label: 'Describe' },
+  { value: 'scan', label: 'Scan' },
+];
+// A scanned UPC is near-exact on identity; the honesty lives in the portion.
+// "As labeled" keeps the declared basis (quantityMethod 'package'); "I estimated
+// it" records an eyeballed amount (quantityMethod 'estimated').
+type PortionBasis = 'labeled' | 'estimated';
+const PORTION_OPTIONS: ChipOption<PortionBasis>[] = [
+  { value: 'labeled', label: 'As labeled' },
+  { value: 'estimated', label: 'I estimated it' },
 ];
 const FOCUS_OPTIONS: ChipOption<NutritionFocus>[] = [
   { value: 'calories', label: 'Calories' },
@@ -236,6 +247,53 @@ export default function LogFood() {
   // Which estimate row is open in the inline editor (Decision E), or null.
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
+  // Scan mode (Pass 2.7b): camera → OFF lookup → confirm portion → add. The
+  // scanned code drives one lookup; the resolution card lets the user set the
+  // portion before adding, honestly recording whether it was labeled or eyeballed.
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scannedCode, setScannedCode] = useState<string | null>(null);
+  const [scanStatus, setScanStatus] = useState<'idle' | 'resolving' | 'found' | 'not-found'>('idle');
+  const [scanProduct, setScanProduct] = useState<FoodItem | null>(null); // basis @ 100 g, for the live preview
+  const [barcodeGrams, setBarcodeGrams] = useState(String(BARCODE_DEFAULT_G));
+  const [portionBasis, setPortionBasis] = useState<PortionBasis>('labeled');
+  // Single-fire guard: CameraView fires onBarcodeScanned continuously; latch on
+  // the first read so one scan triggers exactly one lookup until we reset.
+  const scanningRef = useRef(false);
+
+  const resetScan = useCallback(() => {
+    scanningRef.current = false;
+    setScannedCode(null);
+    setScanStatus('idle');
+    setScanProduct(null);
+    setBarcodeGrams(String(BARCODE_DEFAULT_G));
+    setPortionBasis('labeled');
+  }, []);
+
+  const onBarcode = useCallback(async (code: string) => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    setScannedCode(code);
+    setScanStatus('resolving');
+    // OFF needs no key, so no deps — matches the app's keyless barcode path.
+    const res = await resolveBarcode(code, { grams: BARCODE_DEFAULT_G, method: 'package' });
+    if (res.status === 'found') {
+      setScanProduct(res.item);
+      // Default the amount to one labeled serving; fall back to the 100 g basis
+      // when the label carries no gram figure (e.g. a volume-only serving).
+      setBarcodeGrams(String(res.servingG ?? BARCODE_DEFAULT_G));
+      setScanStatus('found');
+    } else {
+      setScanStatus('not-found');
+    }
+  }, []);
+
+  const onAddBarcode = useCallback(async () => {
+    const g = Number(barcodeGrams);
+    if (!scannedCode || !(g > 0)) return;
+    const res = await resolveBarcode(scannedCode, { grams: g, method: portionBasis === 'estimated' ? 'estimated' : 'package' });
+    if (res.status === 'found') { fl.addBarcode(res.item); resetScan(); }
+  }, [scannedCode, barcodeGrams, portionBasis, fl.addBarcode, resetScan]);
+
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
   // instead of dispatching a GO_BACK action no navigator can handle.
@@ -284,7 +342,7 @@ export default function LogFood() {
           </>
         ) : null}
 
-        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); }} />
+        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); }} />
         <View style={{ height: theme.spacing[4] }} />
 
         {fl.mode === 'weigh' ? (
@@ -340,6 +398,77 @@ export default function LogFood() {
                 />
               </Card>
             ) : null}
+          </View>
+        ) : fl.mode === 'scan' ? (
+          <View style={{ gap: theme.spacing[3] }}>
+            {!permission ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>Checking camera permission…</Text>
+            ) : !permission.granted ? (
+              <View style={{ gap: theme.spacing[3] }}>
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  Scanning needs the camera. Nothing is recorded until you add a food to the meal.
+                </Text>
+                <Button label="Allow camera" onPress={requestPermission} />
+              </View>
+            ) : scanStatus === 'found' && scanProduct ? (
+              <Card raised style={{ gap: theme.spacing[3] }}>
+                <Text variant="body">{scanProduct.description ?? 'Scanned product'}</Text>
+                <Field label="Amount" value={barcodeGrams} onChangeText={setBarcodeGrams} suffix="g" autoFocus />
+                {/* Live "what this portion gives you" — updates as you type the amount. */}
+                {Number(barcodeGrams) > 0 ? (
+                  <Text variant="data" color={theme.colors.textSecondary}>
+                    {itemMacroSummary(scaleMacros(scanProduct, Number(barcodeGrams)))}
+                  </Text>
+                ) : null}
+                <ChipSelect options={PORTION_OPTIONS} value={portionBasis} onChange={setPortionBasis} />
+                <Button
+                  label="Add to meal"
+                  onPress={onAddBarcode}
+                  disabled={!(Number(barcodeGrams) > 0)}
+                />
+                <Pressable onPress={resetScan} accessibilityRole="button" hitSlop={6}>
+                  <Text variant="bodySm" color={theme.colors.sandstone}>Scan another</Text>
+                </Pressable>
+              </Card>
+            ) : scanStatus === 'not-found' ? (
+              <View style={{ gap: theme.spacing[3] }}>
+                <Text variant="bodySm" color={theme.colors.text}>
+                  No match for that barcode. You can describe it instead — no number is ever invented.
+                </Text>
+                <Button label="Describe it instead" onPress={() => { resetScan(); fl.setMode('describe'); }} />
+                <Pressable onPress={resetScan} accessibilityRole="button" hitSlop={6}>
+                  <Text variant="bodySm" color={theme.colors.sandstone}>Scan again</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={{ gap: theme.spacing[3] }}>
+                <View
+                  style={{
+                    width: '100%',
+                    aspectRatio: 3 / 4,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <CameraView
+                    style={{ flex: 1 }}
+                    facing="back"
+                    barcodeScannerSettings={{ barcodeTypes: ['ean13', 'upc_a', 'ean8'] }}
+                    onBarcodeScanned={scanStatus === 'idle' ? (r) => { void onBarcode(r.data); } : undefined}
+                  />
+                </View>
+                {scanStatus === 'resolving' ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                    <ActivityIndicator color={theme.colors.sandstone} />
+                    <Text variant="bodySm" color={theme.colors.textMuted}>Looking up {scannedCode}…</Text>
+                  </View>
+                ) : (
+                  <Text variant="bodySm" color={theme.colors.textMuted}>Point the camera at a product barcode.</Text>
+                )}
+              </View>
+            )}
           </View>
         ) : (
           <View style={{ gap: theme.spacing[3] }}>

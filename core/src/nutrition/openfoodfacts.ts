@@ -75,5 +75,11 @@ export function adaptOpenFoodFactsProduct(raw: OffProductResponse, opts: AdaptOp
   const extraction: Extraction = { completeness };
 
   const foodId = raw.product?.code ?? raw.code ?? '';
-  return buildFoodItem('openfoodfacts', foodId, perGram, extraction, opts, raw.product?.product_name);
+  const item = buildFoodItem('openfoodfacts', foodId, perGram, extraction, opts, raw.product?.product_name);
+  // Carry OFF's declared serving label ("0.333 PACKAGE (52 g)") so the scan flow
+  // can default the portion to one serving. Display-only; the barcode resolver
+  // reads the grams out of it and drops it, so a logged item shows its own grams.
+  const serving = raw.product?.serving_size?.trim();
+  if (serving) item.portionText = serving;
+  return item;
 }

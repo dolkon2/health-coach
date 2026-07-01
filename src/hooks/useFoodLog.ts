@@ -30,7 +30,7 @@ import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
 import { USDA_API_KEY } from '@/lib/config';
 
-export type FoodLogMode = 'weigh' | 'describe';
+export type FoodLogMode = 'weigh' | 'describe' | 'scan';
 
 export interface FoodLogPreview {
   rollup: MacroRollup;
@@ -137,6 +137,14 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     []
   );
 
+  /** Add a scanned-barcode FoodItem already resolved by lib/foodBarcode. Thin
+   *  like addRecent — the scan screen owns the OFF lookup + portion choice, this
+   *  just accumulates the confirmed item into the meal. */
+  const addBarcode = useCallback((item: FoodItem) => {
+    setItems((xs) => [...xs, item]);
+    setError(null);
+  }, []);
+
   const addWeighed = useCallback(
     async (candidate: FoodCandidate, grams: number) => {
       setBusy(true);
@@ -217,7 +225,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     const input: FoodLogInput = {
       description: description || 'Meal',
       items,
-      inputMethod: mode === 'weigh' ? 'weighed' : 'described',
+      inputMethod: mode === 'weigh' ? 'weighed' : mode === 'scan' ? 'barcode' : 'described',
       // Keyless items are LLM estimates — stamp the model so the meal's source
       // reads { type: 'estimate', modelVersion } instead of a fake foodapi lineage.
       ...(items.some((it) => it.foodId == null) ? { estimateModel: ESTIMATOR_MODEL } : {}),
@@ -258,7 +266,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   return {
     mode, setMode,
     query, setQuery, candidates, recents, searching,
-    items, description, setDescription, addRecent, addWeighed, addDescribed, removeItem, updateItem,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, removeItem, updateItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,
