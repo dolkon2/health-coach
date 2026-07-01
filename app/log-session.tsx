@@ -17,7 +17,7 @@
  */
 import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
   Screen,
   Text,
@@ -117,6 +117,14 @@ export default function LogSessionScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+
+  // Dismissal that survives a missing back-stack (e.g. when the screen was
+  // deep-linked or opened with no parent route) — fall back to the Today tab
+  // instead of dispatching a GO_BACK action no navigator can handle.
+  const dismiss = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   // Prefill from the existing session when editing.
   useEffect(() => {
@@ -301,7 +309,7 @@ export default function LogSessionScreen() {
         });
         await createObservation(obs);
       }
-      router.back();
+      dismiss();
     } catch {
       setError('Could not save. Try again.');
       setSaving(false);
@@ -310,11 +318,28 @@ export default function LogSessionScreen() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
+  // Explicit dismiss affordance in the header — the modal swipe-down can be
+  // missed, and the in-form "‹ activity" link only steps back to the picker,
+  // not out of the modal.
+  const headerScreen = (
+    <Stack.Screen
+      options={{
+        title: isEdit ? 'Edit session' : 'Log session',
+        headerLeft: () => (
+          <Pressable onPress={dismiss} accessibilityRole="button" hitSlop={12}>
+            <Text variant="body" color={theme.colors.sandstone}>Cancel</Text>
+          </Pressable>
+        ),
+      }}
+    />
+  );
+
   if (step === 'activity') {
     const headline = headlineActivities();
     const more = moreActivities();
     return (
       <Screen scroll>
+        {headerScreen}
         <Text variant="label" color={theme.colors.sandstone}>
           Log session
         </Text>
@@ -358,7 +383,7 @@ export default function LogSessionScreen() {
           </View>
         ) : null}
         <View style={{ height: theme.spacing[8] }} />
-        <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
+        <Button label="Cancel" variant="ghost" onPress={dismiss} />
       </Screen>
     );
   }
@@ -372,11 +397,38 @@ export default function LogSessionScreen() {
 
   return (
     <Screen scroll>
-      <Pressable onPress={() => setStep('activity')} accessibilityRole="button">
+      {headerScreen}
+      {/* Change-activity control — only for a new log; editing is bound to one
+          session, so switching activity there would be meaningless. Styled as an
+          obvious pill so it doesn't read as a title (the old "‹ Gym" label did). */}
+      {!isEdit ? (
+        <Pressable
+          onPress={() => setStep('activity')}
+          accessibilityRole="button"
+          accessibilityLabel="Change activity"
+          hitSlop={8}
+          style={{
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: theme.spacing[1],
+            paddingVertical: theme.spacing[2],
+            paddingHorizontal: theme.spacing[3],
+            borderRadius: theme.radius.full,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.surface,
+          }}
+        >
+          <Text variant="label" color={theme.colors.sandstone}>
+            ‹ Change activity
+          </Text>
+        </Pressable>
+      ) : (
         <Text variant="label" color={theme.colors.sandstone}>
-          ‹ {label}
+          {label}
         </Text>
-      </Pressable>
+      )}
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
         {isEdit ? `Edit ${label}` : `Log ${label}`}
       </Text>
@@ -618,7 +670,7 @@ export default function LogSessionScreen() {
         loading={saving}
       />
       <View style={{ height: theme.spacing[3] }} />
-      <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
+      <Button label="Cancel" variant="ghost" onPress={dismiss} />
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
   );
