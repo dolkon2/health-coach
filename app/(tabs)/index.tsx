@@ -56,12 +56,16 @@ export default function TodayScreen() {
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   // Also polls HealthKit (throttled, no-op until the user has connected).
+  // Depend on `wearable.syncNow` (stable except when `connected` flips), NOT the
+  // whole `wearable` object: useWearableSync returns a fresh object literal each
+  // render, so depending on it re-fires this focus effect every render and loops
+  // (Maximum update depth exceeded) once HealthKit is connected on a real device.
   useFocusEffect(
     useCallback(() => {
       reloadToday();
       reloadTrend();
       wearable.syncNow();
-    }, [reloadToday, reloadTrend, wearable])
+    }, [reloadToday, reloadTrend, wearable.syncNow])
   );
 
   const removeAndReload = useCallback(
