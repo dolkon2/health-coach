@@ -14,7 +14,7 @@ import { join } from 'path';
 import { makeTestDb } from '@/storage/__tests__/sqliteTestDb';
 import { runMigrations, type SqlDatabase } from '@/storage/db';
 import type { OffProductResponse } from '@core/nutrition/openfoodfacts';
-import { resolveBarcode, parseServingGrams } from '@/lib/foodBarcode';
+import { resolveBarcode, parseServingGrams, parseServingAmount } from '@/lib/foodBarcode';
 
 const FX = join(__dirname, '..', '..', '..', 'core', 'src', 'nutrition', '__fixtures__');
 function load<T>(name: string): T {
@@ -52,9 +52,9 @@ describe('resolveBarcode', () => {
     // Macros scale straight from per-100g at a 100 g portion.
     expect(out.item.kcal).toBe(385);
     expect(out.item.proteinG).toBeCloseTo(9.6, 1);
-    // Serving grams parsed from the label ("0.333 PACKAGE (52 g)") for the
+    // Serving amount parsed from the label ("0.333 PACKAGE (52 g)") for the
     // per-serving default; the OFF serving phrasing is dropped from the item.
-    expect(out.servingG).toBe(52);
+    expect(out.servingAmount).toBe(52);
     expect(out.item.portionText).toBeUndefined();
   });
 
@@ -133,5 +133,22 @@ describe('parseServingGrams', () => {
     expect(parseServingGrams(undefined)).toBeNull();
     expect(parseServingGrams('')).toBeNull();
     expect(parseServingGrams('0 g')).toBeNull();
+  });
+});
+
+describe('parseServingAmount', () => {
+  it('prefers a declared gram weight', () => {
+    expect(parseServingAmount('0.333 PACKAGE (52 g)')).toBe(52);
+    expect(parseServingAmount('1 BAR (37 g)')).toBe(37);
+    expect(parseServingAmount('2 Tbsp (28 g)')).toBe(28);
+  });
+  it('falls back to a drink serving volume so beverages still default to one serving', () => {
+    expect(parseServingAmount('1 serving (355 ml)')).toBe(355); // the MANGO GOLD case
+    expect(parseServingAmount('1 portion (200 ml)')).toBe(200);
+    expect(parseServingAmount('240 ml (8 fl oz)')).toBe(240);
+  });
+  it('returns null when no serving amount is stated', () => {
+    expect(parseServingAmount(undefined)).toBeNull();
+    expect(parseServingAmount('1 bar')).toBeNull();
   });
 });

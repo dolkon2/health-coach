@@ -27,7 +27,7 @@ export interface BarcodePortion {
 }
 
 export type BarcodeResolution =
-  | { status: 'found'; item: FoodItem; servingG: number | null }
+  | { status: 'found'; item: FoodItem; servingAmount: number | null }
   | { status: 'not-found' };
 
 /**
@@ -41,6 +41,26 @@ export function parseServingGrams(servingSize?: string | null): number | null {
   const paren = servingSize.match(/\(\s*([\d.]+)\s*g\s*\)/i);
   const bare = servingSize.match(/([\d.]+)\s*g\b/i);
   const raw = paren?.[1] ?? bare?.[1];
+  if (raw == null) return null;
+  const n = parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * The default portion AMOUNT for a scanned product. Prefers a declared gram
+ * weight; if the label carries none (a drink like "1 serving (355 ml)"), falls
+ * back to the serving's own numeric quantity so beverages still default to one
+ * serving instead of a bare 100. OFF reports macros per-100 of the same unit, so
+ * scaling by this amount yields one serving's macros; the gram-vs-ml label is a
+ * display nuance the user can override. Null when no serving amount is stated.
+ */
+export function parseServingAmount(servingSize?: string | null): number | null {
+  if (!servingSize) return null;
+  const grams = parseServingGrams(servingSize);
+  if (grams != null) return grams;
+  const paren = servingSize.match(/\(\s*([\d.]+)\s*(?:ml|g|kg|l)\b/i);
+  const lead = servingSize.match(/([\d.]+)\s*(?:ml|g|kg|l)\b/i);
+  const raw = paren?.[1] ?? lead?.[1];
   if (raw == null) return null;
   const n = parseFloat(raw);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -69,7 +89,7 @@ export async function resolveBarcode(
     deps
   );
   if (!item) return { status: 'not-found' };
-  const servingG = parseServingGrams(item.portionText);
+  const servingAmount = parseServingAmount(item.portionText);
   const { portionText: _drop, ...clean } = item;
-  return { status: 'found', item: clean, servingG };
+  return { status: 'found', item: clean, servingAmount };
 }

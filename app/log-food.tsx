@@ -278,9 +278,9 @@ export default function LogFood() {
     const res = await resolveBarcode(code, { grams: BARCODE_DEFAULT_G, method: 'package' });
     if (res.status === 'found') {
       setScanProduct(res.item);
-      // Default the amount to one labeled serving; fall back to the 100 g basis
-      // when the label carries no gram figure (e.g. a volume-only serving).
-      setBarcodeGrams(String(res.servingG ?? BARCODE_DEFAULT_G));
+      // Default the amount to one labeled serving (grams, or a drink's ml
+      // quantity); fall back to the 100 g basis when the label states none.
+      setBarcodeGrams(String(res.servingAmount ?? BARCODE_DEFAULT_G));
       setScanStatus('found');
     } else {
       setScanStatus('not-found');
