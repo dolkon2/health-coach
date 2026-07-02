@@ -343,11 +343,12 @@ export default function LogFood() {
   // returns base64 directly, which Claude's API accepts. Photo fidelity is LOW by
   // nature (~0.35), so every resulting row renders dashed and stays editable.
   const cameraRef = useRef<CameraView>(null);
-  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  // Once the meal has rows, the live camera collapses to a button so the results
+  // are the focus; tapping it re-opens the camera to add another plate.
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const resetPhoto = useCallback(() => {
-    setPhotoBase64(null);
     setPhotoUri(null);
   }, []);
 
@@ -358,19 +359,16 @@ export default function LogFood() {
     // payload (and token cost) sane. (A later hardening pass adds image-manipulator
     // downscaling + secure-store for the key — deferred here, no new native module.)
     const shot = await cam.takePictureAsync({ base64: true, quality: 0.4 });
-    if (shot?.base64) {
-      setPhotoBase64(shot.base64);
-      setPhotoUri(shot.uri);
-    }
-  }, []);
-
-  const onEstimate = useCallback(async () => {
-    if (!photoBase64) return;
+    if (!shot?.base64) return;
+    // Capturing IS the commit: show the still, then estimate it with no extra tap.
     // addPhoto returns [] → one blank manual row on no key / offline / failure, so
-    // the logger keeps working; either way the rows appear in the preview below.
-    await fl.addPhoto(photoBase64, 'image/jpeg');
+    // the logger keeps working; either way the estimated rows land in the list
+    // below. Bad shot? Remove those rows and shoot again.
+    setPhotoUri(shot.uri);
+    await fl.addPhoto(shot.base64, 'image/jpeg');
     resetPhoto();
-  }, [photoBase64, fl.addPhoto, resetPhoto]);
+    setCameraOpen(false);
+  }, [fl.addPhoto, resetPhoto]);
 
   const onAddBarcode = useCallback(async () => {
     const g = Number(barcodeGrams);
@@ -435,7 +433,7 @@ export default function LogFood() {
           </>
         ) : null}
 
-        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); resetPhoto(); }} />
+        <ChipSelect options={MODE_OPTIONS} value={fl.mode} columns={2} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); resetPhoto(); }} />
         <View style={{ height: theme.spacing[4] }} />
 
         {fl.mode === 'weigh' ? (
@@ -590,7 +588,7 @@ export default function LogFood() {
               <View style={{ gap: theme.spacing[3] }}>
                 <Image
                   source={{ uri: photoUri }}
-                  style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 12 }}
+                  style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
                   resizeMode="cover"
                 />
                 {fl.busy ? (
@@ -599,21 +597,18 @@ export default function LogFood() {
                     <Text variant="bodySm" color={theme.colors.textMuted}>Estimating the plate…</Text>
                   </View>
                 ) : (
-                  <Button label="Estimate this plate" onPress={onEstimate} />
-                )}
-                {!fl.busy ? (
                   <Pressable onPress={resetPhoto} accessibilityRole="button" hitSlop={6}>
                     <Text variant="bodySm" color={theme.colors.sandstone}>Retake</Text>
                   </Pressable>
-                ) : null}
+                )}
               </View>
-            ) : (
+            ) : (fl.items.length === 0 || cameraOpen) ? (
               // Live camera — point at the plate and capture a still.
               <View style={{ gap: theme.spacing[3] }}>
                 <View
                   style={{
                     width: '100%',
-                    aspectRatio: 3 / 4,
+                    aspectRatio: 1,
                     borderRadius: 12,
                     borderWidth: 1,
                     borderColor: theme.colors.border,
@@ -627,6 +622,9 @@ export default function LogFood() {
                   Photo estimates are rough — every item stays editable, and macros left blank stay unknown, never zero.
                 </Text>
               </View>
+            ) : (
+              // Meal already has rows — collapse the camera; one tap brings it back.
+              <Button label="Take another photo" variant="outline" onPress={() => setCameraOpen(true)} />
             )}
           </View>
         ) : (
