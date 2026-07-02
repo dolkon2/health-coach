@@ -7,11 +7,12 @@
 import { useCallback } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, SessionCard, StepsCard, SleepCard, SwipeToDelete, FidelityTreatment } from '@/components';
+import { Screen, Text, Card, Button, SessionCard, StepsCard, SleepCard, SwipeToDelete, FidelityTreatment, BenchmarkStatusCard } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel, localTimeLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useBenchmarkStatuses } from '@/hooks/useBenchmarkStatuses';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useWearableSync } from '@/hooks/useWearableSync';
 import { useSettings } from '@/settings/useSettings';
@@ -49,10 +50,14 @@ export default function TodayScreen() {
     sleepToday,
     reload: reloadToday,
   } = useTodayObservations();
-  const { delta, reload: reloadTrend } = useWeightTrend();
+  const { points: trendPoints, delta, reload: reloadTrend } = useWeightTrend();
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
   const wearable = useWearableSync(reloadToday);
+  // Pinned benchmarks read the same smoothed points the trend chart uses —
+  // one weigh-in query serves both the weigh-in card and the outcome faces.
+  const { entries: benchmarkEntries, reload: reloadBenchmarks } =
+    useBenchmarkStatuses(trendPoints);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   // Also polls HealthKit (throttled, no-op until the user has connected).
@@ -64,8 +69,9 @@ export default function TodayScreen() {
     useCallback(() => {
       reloadToday();
       reloadTrend();
+      reloadBenchmarks();
       wearable.syncNow();
-    }, [reloadToday, reloadTrend, wearable.syncNow])
+    }, [reloadToday, reloadTrend, reloadBenchmarks, wearable.syncNow])
   );
 
   const removeAndReload = useCallback(
@@ -90,8 +96,35 @@ export default function TodayScreen() {
         {yearLabel()}
       </Text>
 
+      {/* Benchmarks — pinned goals at a glance. The section exists only when
+          the user pinned something: Today never asks for a goal to be set
+          (pull, not push — benchmarks-spec.md). */}
+      {benchmarkEntries.length > 0 ? (
+        <View style={{ marginTop: theme.spacing[8] }}>
+          <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+            Benchmarks
+          </Text>
+          <View style={{ gap: theme.spacing[3] }}>
+            {benchmarkEntries.map((e) => (
+              <BenchmarkStatusCard
+                key={e.benchmark.id}
+                benchmark={e.benchmark}
+                behavior={e.behavior}
+                outcome={e.outcome}
+                weightUnit={weightUnit}
+                onPress={() => router.push('/benchmarks')}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {/* Weigh-in */}
-      <View style={{ marginTop: theme.spacing[8] }}>
+      <View
+        style={{
+          marginTop: benchmarkEntries.length > 0 ? theme.spacing[3] : theme.spacing[8],
+        }}
+      >
         <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
           Weigh-in
         </Text>

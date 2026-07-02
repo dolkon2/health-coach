@@ -5,6 +5,7 @@ export { Screen } from './Screen';
 export { Field } from './Field';
 export { ChipSelect, type ChipOption } from './ChipSelect';
 export { SessionCard } from './SessionCard';
+export { BenchmarkStatusCard, type BenchmarkStatusCardProps } from './BenchmarkStatusCard';
 export { RestTimer } from './RestTimer';
 export { StepsCard } from './StepsCard';
 export { SleepCard } from './SleepCard';
