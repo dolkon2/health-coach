@@ -1,10 +1,17 @@
 # Benchmarks build — handoff (Phase 5, Ring 1)
 
 *Kickoff handoff for a fresh session building the benchmark layer. Source of truth is
-`planning/benchmarks-spec.md` (**v0.3**, reconciled 2026-06-29) — read it first; this
-doc is the build orientation, not a re-statement of the spec. Constitutional root:
-spine rules 5 (no gamification), 6 (pull, not push), 7 (goals are yours) in
-`planning/product-overview.md`.*
+`planning/benchmarks-spec.md` (**v0.4** as of 2026-07-01 — the behavior/outcome
+collapse; see `dev-log/phase-5-pass-2.5.md`) — read it first; this doc is the build
+orientation, not a re-statement of the spec. Constitutional root: spine rules 5 (no
+gamification), 6 (pull, not push), 7 (goals are yours) in `planning/product-overview.md`.*
+
+*⚠️ v0.4 delta over what this doc describes below: there are no goal "families"
+anymore. A benchmark carries one or both FACES — `behavior` (window + measure, the
+old cadence math) and `outcome` (direction + target?, the old trend math) — each
+face resolving to its own dimension. `shape`/top-level `resolution` are gone from
+the model (migration 008 rewrote them). Pass 3 (Today cards) renders faces as
+lines: behavior = factual count, outcome = observed movement, dual-face = both.*
 
 ---
 
