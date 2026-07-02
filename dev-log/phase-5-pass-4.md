@@ -66,10 +66,38 @@ countable behavior face; trend points passed in from the screen's existing
 
 305 jest (28 suites; +11 in `benchmarkReflect.test.ts`, +1 boundary test in
 `benchmarkStatus.test.ts`), `expo export --platform ios` clean (3442 modules),
-tsc 0 (last). NOT sim-verified: the three-layer recomposition, lens switching,
-target line on the chart, and the rhythm bars all want a tap-through — create
-a dual-face benchmark and a behavior-only one, switch lenses, watch the tab
-recompose.
+tsc 0 (last).
+
+**Sim-verified (2026-07-01, headless — iPhone 17 sim, Metro 8091, no taps
+available so states were driven by seeding the sim DB directly + deep links,
+screenshots via `simctl io screenshot`).** Seeded 14 weigh-ins (82.3→80.9 kg),
+13 kayak sessions in a known weekly pattern (1,2,2,0,2,3,2 + 1 current), one
+SUP decoy, 4 gym sessions, a dual-face benchmark (created mid-history) and a
+behavior-only one. All passed, zero fixes needed:
+
+- **Today (Pass 3):** both cards render; "1/2 this week" and "2/3 this week"
+  exact; outcome line "180.0 lb · ↓ 1.3 lb over 15 days · 8.0 lb above
+  target" — kg→lb and target distance to the decimal. Unpinning removes the
+  card from Today.
+- **Reflect, outcome hero:** frame + chips (default lens = the measured
+  story); dashed sandstone target at 172.0 lb with the y-domain stretched to
+  include it; outcome line beneath; rhythm beneath that.
+- **Rhythm:** 6/1 zero-week honestly absent, 6/15 tallest, in-progress "now"
+  bar hazed, "3 weeks running at target" matches the seeded run exactly, and
+  the SUP session did NOT count toward the kayak bars (matching rule held).
+- **Behavior-only hero:** rhythm promoted, counts ANY session (gym days raise
+  the bars), ledger below, no chips with one active benchmark.
+- **No-benchmark:** frame gone, ledger first, trend demoted with no target line.
+- **Pinned vs active:** unpinned benchmark gone from Today but still a Reflect
+  lens — the ⚑ flag behavior, seen working.
+- Metro clean: no errors, no render loops (only pre-existing require-cycle
+  warnings from StepsCard/SleepCard/GymExerciseEditor).
+
+**Still wants a human finger** (not reachable headless): the lens-switch TAP
+itself (chips render; `setLensId` is trivial state), the pin toggle flow,
+tap-a-dot readout, and the scroll-below-fold in each composition. Sample data
+is left seeded on the iPhone 17 sim — `__sample__`-tagged, Settings → Clear
+sample data removes it; the two `seed-*` benchmarks clean up via the list UI.
 
 ## Next
 
