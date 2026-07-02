@@ -96,12 +96,32 @@ function EstimateItemEditor({
     if (k != null) setKcal(String(k));
   };
 
+  // The macros' implied calories (Atwater 4/4/9 + alcohol). Two roles:
+  //   1. a hazed placeholder while the calorie field is empty — a live preview of
+  //      "what the macros add up to";
+  //   2. the value committed on Done when calories is left blank (see onSave) — a
+  //      typed number is authoritative ("fact"), a blank field falls back to this.
+  // null when a macro is blank, so a genuinely unknown calorie stays null — never a
+  // fake 0; the ghost simply doesn't show rather than inventing a number.
+  const derivedKcal = recomputeKcal({
+    proteinG: fieldToNum(protein),
+    carbsG: fieldToNum(carbs),
+    fatG: fieldToNum(fat),
+    alcoholG: item.alcoholG,
+  });
+
   return (
     <Card raised style={{ gap: theme.spacing[3] }}>
       <Field label="Food" value={name} onChangeText={setName} keyboardType="default" />
       <Field label="Portion" value={portion} onChangeText={setPortion} placeholder="e.g. 2 eggs" keyboardType="default" />
       <View style={{ flexDirection: 'row', gap: theme.spacing[4] }}>
-        <Field label="Calories" value={kcal} onChangeText={setKcal} style={{ flex: 1 }} />
+        <Field
+          label="Calories"
+          value={kcal}
+          onChangeText={setKcal}
+          placeholder={derivedKcal != null ? String(derivedKcal) : undefined}
+          style={{ flex: 1 }}
+        />
         <Field
           label="Protein"
           value={protein}
@@ -141,7 +161,10 @@ function EstimateItemEditor({
             onSave({
               description: name.trim() || item.description,
               portionText: portion.trim() || undefined,
-              kcal: fieldToNum(kcal),
+              // Empty calories commit the macro-derived value (the hazed ghost); a
+              // typed number wins ("fact"). Stays null only when macros can't imply
+              // a value (derivedKcal null) — a real unknown, never a fake 0.
+              kcal: fieldToNum(kcal) ?? derivedKcal,
               proteinG: fieldToNum(protein),
               carbsG: fieldToNum(carbs),
               fatG: fieldToNum(fat),
@@ -273,7 +296,7 @@ export default function LogFood() {
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: theme.spacing[6], paddingBottom: theme.spacing[4] }}
+        contentContainerStyle={{ paddingHorizontal: theme.spacing[6], paddingTop: theme.spacing[4], paddingBottom: theme.spacing[4] }}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >
@@ -494,7 +517,10 @@ export default function LogFood() {
           }}
         >
           {fl.isEdit ? (
-            <Button label="Save changes" onPress={onLog} />
+            <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+              <Button label="Save changes" onPress={onLog} style={{ flex: 1 }} />
+              <Button label="Save as meal" variant="outline" onPress={() => fl.saveMeal()} style={{ flex: 1 }} />
+            </View>
           ) : (
             <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
               <Button label="Log meal" onPress={onLog} style={{ flex: 1 }} />
