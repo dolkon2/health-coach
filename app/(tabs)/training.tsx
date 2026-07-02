@@ -21,6 +21,7 @@ import {
   Wind,
   Snowflake,
   Flower2,
+  Backpack,
   Activity as ActivityIcon,
 } from 'lucide-react-native';
 import { Screen, Text, Card, SessionCard, SwipeToDelete } from '@/components';
@@ -43,6 +44,7 @@ const ICONS: Record<string, IconCmp> = {
   wind: Wind,
   snowflake: Snowflake,
   flower: Flower2,
+  backpack: Backpack,
 };
 
 export default function TrainingScreen() {
