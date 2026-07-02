@@ -26,6 +26,7 @@ import {
   fidelityTreatment,
   removeItemFromMeal,
   mealDisplayName,
+  applyItemEdit,
   type FoodLogInput,
 } from '@/lib/foodLog';
 
@@ -254,6 +255,32 @@ describe('buildMealLog — estimate provenance for keyless LLM items', () => {
       CTX
     );
     expect(tierOf(obs.fidelity)).not.toBe('HIGH');
+  });
+});
+
+describe('applyItemEdit — hand-editing is honest about confidence and identity', () => {
+  it('a keyed (barcode/weighed) item hand-edited drops to estimate-tier fidelity but keeps its identity', () => {
+    const scanned = foodItem({ fidelity: 0.8, fidelityCeiling: 0.85, portionText: '1 serving' });
+    const edited = applyItemEdit(scanned, { kcal: 150, proteinG: 30 });
+    expect(edited.kcal).toBe(150);
+    expect(edited.proteinG).toBe(30);
+    expect(tierOf(edited.fidelity)).not.toBe('HIGH'); // hand-edited numbers no longer read as measured
+    expect(edited.fidelity).toBeLessThan(scanned.fidelity);
+    expect(edited.foodId).toBe('173414'); // identity kept → meal stays a real barcode/weighed capture
+    expect(edited.sourceDb).toBe('usda');
+  });
+
+  it('never RAISES a keyed item’s fidelity (an already-low item stays low)', () => {
+    const low = foodItem({ fidelity: 0.2, fidelityCeiling: 0.85 });
+    expect(applyItemEdit(low, { kcal: 100 }).fidelity).toBeLessThanOrEqual(0.2);
+  });
+
+  it('a keyless estimate (no foodId) merges unchanged — a corrected transcription is still a transcription', () => {
+    const label = foodItem({ sourceDb: undefined, foodId: undefined, fidelity: 0.8, fidelityCeiling: 0.85, quantityMethod: 'package' });
+    const edited = applyItemEdit(label, { kcal: 240 });
+    expect(edited.kcal).toBe(240);
+    expect(edited.fidelity).toBe(0.8); // its own honest fidelity is preserved, not knocked down
+    expect(edited.foodId).toBeUndefined();
   });
 });
 

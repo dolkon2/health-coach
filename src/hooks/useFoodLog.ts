@@ -16,6 +16,7 @@ import {
   type FoodCandidate,
 } from '@/lib/foodSearch';
 import {
+  applyItemEdit,
   buildMealLog,
   mealTemplateFrom,
   rollupMacros,
@@ -234,10 +235,12 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     setItems((xs) => xs.filter((_, i) => i !== index));
   }, []);
 
-  /** Patch one item in place — the estimate editor commits its edits here (name,
-   *  portion, calories, macros). Pure replacement; macros may be null (partial). */
+  /** Patch one item in place — the item editor commits its edits here (name,
+   *  portion, calories, macros). applyItemEdit keeps the honesty rules: a keyed
+   *  (DB-resolved) item hand-edited drops to estimate-tier fidelity while keeping
+   *  its identity; a keyless estimate merges unchanged. Macros may be null. */
   const updateItem = useCallback((index: number, patch: Partial<FoodItem>) => {
-    setItems((xs) => xs.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+    setItems((xs) => xs.map((it, i) => (i === index ? applyItemEdit(it, patch) : it)));
   }, []);
 
   /** Load a saved meal's items to re-log it — the re-log carries its templateId and

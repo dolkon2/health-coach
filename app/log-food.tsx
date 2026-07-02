@@ -623,9 +623,10 @@ export default function LogFood() {
             ) : scanStatus === 'not-found' ? (
               <View style={{ gap: theme.spacing[3] }}>
                 <Text variant="bodySm" color={theme.colors.text}>
-                  No match for that barcode. You can describe it instead — no number is ever invented.
+                  No match for that barcode. Read its Nutrition Facts label instead, or describe it — no number is ever invented.
                 </Text>
-                <Button label="Describe it instead" onPress={() => { resetScan(); fl.setMode('describe'); }} />
+                <Button label="Read the label instead" onPress={() => { resetScan(); resetLabel(); setScanTarget('label'); }} />
+                <Button label="Describe it instead" variant="outline" onPress={() => { resetScan(); fl.setMode('describe'); }} />
                 <Pressable onPress={resetScan} accessibilityRole="button" hitSlop={6}>
                   <Text variant="bodySm" color={theme.colors.sandstone}>Scan again</Text>
                 </Pressable>
@@ -887,8 +888,10 @@ export default function LogFood() {
             </View>
 
             {fl.items.map((it, i) => {
-              const isEstimate = it.foodId == null;
-              if (isEstimate && editingIndex === i) {
+              // Every row is editable — corrections are honest for any capture.
+              // updateItem (via applyItemEdit) drops a hand-edited barcode/weighed
+              // item to estimate-tier fidelity while keeping its identity.
+              if (editingIndex === i) {
                 return (
                   <EstimateItemEditor
                     key={i}
@@ -905,11 +908,9 @@ export default function LogFood() {
                     <Text variant="bodySm" color={theme.colors.text} style={{ flex: 1 }} numberOfLines={1}>
                       {it.description ? `${it.description} · ` : ''}{it.portionText ?? `${Math.round(it.quantity)} g`}
                     </Text>
-                    {isEstimate ? (
-                      <Pressable onPress={() => setEditingIndex(i)} accessibilityRole="button" hitSlop={6}>
-                        <Text variant="bodySm" color={theme.colors.sandstone}>Edit</Text>
-                      </Pressable>
-                    ) : null}
+                    <Pressable onPress={() => setEditingIndex(i)} accessibilityRole="button" hitSlop={6}>
+                      <Text variant="bodySm" color={theme.colors.sandstone}>Edit</Text>
+                    </Pressable>
                     <Pressable onPress={() => { fl.removeItem(i); setEditingIndex(null); }} accessibilityRole="button" hitSlop={6}>
                       <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
                     </Pressable>

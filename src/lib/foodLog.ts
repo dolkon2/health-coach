@@ -22,6 +22,7 @@ import type {
 } from '@core/observation';
 import {
   blendComposite,
+  defaultFidelity,
   fidelityCeiling,
   tierOf,
   type Extraction,
@@ -284,6 +285,27 @@ export function removeItemFromMeal(
     ...(roll.fiberG != null ? { fiberG: roll.fiberG } : {}),
     ...(roll.alcoholG != null ? { alcoholG: roll.alcoholG } : {}),
   };
+}
+
+/**
+ * Apply a hand-edit (from the item editor) to one item, honestly.
+ *
+ * The committed values are now the user's assertion. Two cases:
+ *   - A KEYLESS estimate (photo / label / described — no foodId) already carries
+ *     an honest estimate-tier fidelity, so it's just merged: the correction to a
+ *     transcription or estimate doesn't change what kind of capture it was.
+ *   - A KEYED item (barcode / weighed — has a foodId) had DB-sourced numbers.
+ *     Once hand-edited they're no longer purely the database's, so confidence
+ *     drops to the hand-entered estimate band (described + macrosEstimated).
+ *     Fidelity is only ever LOWERED, never raised (Math.min). Identity
+ *     (foodId/sourceDb) is KEPT so the meal's provenance and input method stay
+ *     truthful — you still scanned that product, you just adjusted the amounts.
+ */
+export function applyItemEdit(item: FoodItem, patch: Partial<FoodItem>): FoodItem {
+  const merged = { ...item, ...patch };
+  if (item.foodId == null) return merged;
+  const edited = defaultFidelity('described', { macrosEstimated: true, quantity: !!merged.portionText });
+  return { ...merged, fidelity: Math.min(item.fidelity, edited) };
 }
 
 /**
