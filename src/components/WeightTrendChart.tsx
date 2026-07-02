@@ -45,6 +45,10 @@ type WeightTrendChartProps = {
   points: WeightTrendPoint[];
   raw: ObservationOf<'weighIn'>[];
   weightUnit: WeightUnit;
+  /** A benchmark outcome threshold (kg). Drawn as a dashed sandstone line —
+   *  the user's own mark on the mirror, always inside the y-domain so the
+   *  distance to it is visible. Absent ⇒ the chart is exactly as before. */
+  targetKg?: number;
 };
 
 function bandHalfWidthKg(confidence: number, gapDays: number): number {
@@ -58,7 +62,7 @@ function shortDate(localDate: string): string {
   return `${Number(m)}/${Number(d)}`;
 }
 
-export function WeightTrendChart({ points, raw, weightUnit }: WeightTrendChartProps) {
+export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTrendChartProps) {
   const theme = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -98,9 +102,20 @@ export function WeightTrendChart({ points, raw, weightUnit }: WeightTrendChartPr
     const svgWidth = plotWidth + SIDE_INSET * 2;
     const innerH = PLOT_HEIGHT - TOP_PAD - BOTTOM_PAD;
 
-    // Y domain spans dots, trend, and the band, padded so nothing sits on the edge.
-    const lo = Math.min(...rawPts.map((p) => p.value), ...trendPts.map((p) => p.value - p.half));
-    const hi = Math.max(...rawPts.map((p) => p.value), ...trendPts.map((p) => p.value + p.half));
+    // Y domain spans dots, trend, band, and any benchmark target, padded so
+    // nothing sits on the edge. Including the target stretches the view to
+    // show the honest distance between where you are and the line you drew.
+    const target = targetKg != null ? kgToDisplay(targetKg, weightUnit) : null;
+    const lo = Math.min(
+      ...rawPts.map((p) => p.value),
+      ...trendPts.map((p) => p.value - p.half),
+      ...(target != null ? [target] : [])
+    );
+    const hi = Math.max(
+      ...rawPts.map((p) => p.value),
+      ...trendPts.map((p) => p.value + p.half),
+      ...(target != null ? [target] : [])
+    );
     const pad = Math.max(0.3, (hi - lo) * 0.12);
     const yMin = lo - pad;
     const yMax = hi + pad;
@@ -130,8 +145,21 @@ export function WeightTrendChart({ points, raw, weightUnit }: WeightTrendChartPr
       return i === trendPts.length - 1 || Math.round(daysFromStart) % xStepDays === 0;
     });
 
-    return { rawPts, trendLine, bandPath, xOf, yOf, yMin, yMax, yTicks, xTicks, plotWidth, svgWidth };
-  }, [points, raw, weightUnit, containerWidth]);
+    return {
+      rawPts,
+      trendLine,
+      bandPath,
+      xOf,
+      yOf,
+      yMin,
+      yMax,
+      yTicks,
+      xTicks,
+      plotWidth,
+      svgWidth,
+      targetY: target != null ? yOf(target) : null,
+    };
+  }, [points, raw, weightUnit, containerWidth, targetKg]);
 
   const selected = useMemo(() => {
     if (raw.length === 0) return null;
@@ -216,6 +244,23 @@ export function WeightTrendChart({ points, raw, weightUnit }: WeightTrendChartPr
                   strokeWidth={1}
                 />
               ))}
+
+              {/* Benchmark target — the user's own mark on the mirror. Dashed
+                  sandstone, behind the data: the trend crosses IT, not the
+                  other way round. No label; the outcome line states the
+                  distance in words. */}
+              {model.targetY != null ? (
+                <Line
+                  x1={0}
+                  x2={model.svgWidth}
+                  y1={model.targetY}
+                  y2={model.targetY}
+                  stroke={theme.colors.sandstone}
+                  strokeWidth={1}
+                  strokeDasharray="6 4"
+                  strokeOpacity={0.7}
+                />
+              ) : null}
 
               {/* Confidence band (fidelity-aware fill) */}
               {model.bandPath ? (
