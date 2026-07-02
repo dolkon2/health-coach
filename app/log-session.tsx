@@ -49,8 +49,6 @@ import {
 } from '@/storage/observations';
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import { parseGpx } from '@/lib/gpxImport';
 import { metersToDisplay } from '@/lib/units';
 import {
@@ -289,6 +287,20 @@ export default function LogSessionScreen() {
     if (importing) return;
     setImporting(true);
     setError(null);
+    // Lazy-load the picker: dev clients built before this pass don't carry the
+    // ExpoDocumentPicker native module, and a static import would break this
+    // whole route on them. Loaded here, an old build degrades to a message
+    // instead (same app, honest capability line).
+    let DocumentPicker: typeof import('expo-document-picker');
+    let FileSystem: typeof import('expo-file-system');
+    try {
+      DocumentPicker = await import('expo-document-picker');
+      FileSystem = await import('expo-file-system');
+    } catch {
+      setImporting(false);
+      setError('File import needs an updated dev build of the app — rebuild to enable it.');
+      return;
+    }
     try {
       const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
       if (res.canceled || res.assets.length === 0) return;
