@@ -16,6 +16,7 @@ import {
   type FoodCandidate,
 } from '@/lib/foodSearch';
 import {
+  applyItemEdit,
   buildMealLog,
   mealTemplateFrom,
   rollupMacros,
@@ -23,6 +24,8 @@ import {
   type MacroRollup,
 } from '@/lib/foodLog';
 import { estimateMeal, describedToItems, ESTIMATOR_MODEL } from '@/lib/foodEstimate';
+import { estimateMealFromPhoto, photoToItems, VISION_MODEL } from '@/lib/foodVision';
+import { LABEL_MODEL } from '@/lib/foodLabel';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
@@ -30,7 +33,7 @@ import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
 import { USDA_API_KEY } from '@/lib/config';
 
-export type FoodLogMode = 'weigh' | 'describe' | 'scan';
+export type FoodLogMode = 'weigh' | 'describe' | 'scan' | 'photo';
 
 export interface FoodLogPreview {
   rollup: MacroRollup;
@@ -84,7 +87,12 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
         setOriginal(m);
         setItems(m.payload.items);
         setDescription(m.payload.description);
-        setMode(m.payload.inputMethod === 'described' ? 'describe' : 'weigh');
+        setMode(
+          m.payload.inputMethod === 'described' ? 'describe'
+          : m.payload.inputMethod === 'photo' ? 'photo'
+          : m.payload.inputMethod === 'barcode' || m.payload.inputMethod === 'label' ? 'scan'
+          : 'weigh'
+        );
         setTemplateId(m.payload.templateId ?? null);
         setOccurredAt(m.occurredAt);
       })
@@ -145,6 +153,14 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     setError(null);
   }, []);
 
+  /** Add a transcribed nutrition-label FoodItem already built by lib/foodLabel.
+   *  Same thin shape as addBarcode — the scan screen owns the capture,
+   *  transcription, and portion confirmation. */
+  const addLabel = useCallback((item: FoodItem) => {
+    setItems((xs) => [...xs, item]);
+    setError(null);
+  }, []);
+
   const addWeighed = useCallback(
     async (candidate: FoodCandidate, grams: number) => {
       setBusy(true);
@@ -192,14 +208,39 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     []
   );
 
+  /** Add foods from a photo. Claude segments the plate and estimates each food;
+   *  `imageBase64` is raw base64 (no data: prefix), `mediaType` e.g. 'image/jpeg'.
+   *  estimateMealFromPhoto returns [] on no key / offline / any failure, and
+   *  photoToItems then yields ONE blank keyless row the user fills in — so photo
+   *  logging degrades to manual entry rather than breaking. Returns the number of
+   *  rows added so the caller can advance its UI. */
+  const addPhoto = useCallback(
+    async (imageBase64: string, mediaType: string): Promise<number> => {
+      if (!imageBase64) return 0;
+      setBusy(true);
+      setError(null);
+      try {
+        const estimates = await estimateMealFromPhoto(imageBase64, mediaType);
+        const newItems = photoToItems(estimates);
+        setItems((xs) => [...xs, ...newItems]);
+        return newItems.length;
+      } finally {
+        setBusy(false);
+      }
+    },
+    []
+  );
+
   const removeItem = useCallback((index: number) => {
     setItems((xs) => xs.filter((_, i) => i !== index));
   }, []);
 
-  /** Patch one item in place — the estimate editor commits its edits here (name,
-   *  portion, calories, macros). Pure replacement; macros may be null (partial). */
+  /** Patch one item in place — the item editor commits its edits here (name,
+   *  portion, calories, macros). applyItemEdit keeps the honesty rules: a keyed
+   *  (DB-resolved) item hand-edited drops to estimate-tier fidelity while keeping
+   *  its identity; a keyless estimate merges unchanged. Macros may be null. */
   const updateItem = useCallback((index: number, patch: Partial<FoodItem>) => {
-    setItems((xs) => xs.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+    setItems((xs) => xs.map((it, i) => (i === index ? applyItemEdit(it, patch) : it)));
   }, []);
 
   /** Load a saved meal's items to re-log it — the re-log carries its templateId and
@@ -222,13 +263,26 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
 
   const logMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
+    // Scan mode covers two targets: a barcode lookup yields keyed OFF items, a
+    // transcribed nutrition label yields keyless ones — the meal reads 'label'
+    // when any scan item is keyless, else 'barcode'.
+    const anyKeyless = items.some((it) => it.foodId == null);
+    const inputMethod =
+      mode === 'weigh' ? 'weighed'
+      : mode === 'scan' ? (anyKeyless ? 'label' : 'barcode')
+      : mode === 'photo' ? 'photo'
+      : 'described';
     const input: FoodLogInput = {
       description: description || 'Meal',
       items,
-      inputMethod: mode === 'weigh' ? 'weighed' : mode === 'scan' ? 'barcode' : 'described',
-      // Keyless items are LLM estimates — stamp the model so the meal's source
-      // reads { type: 'estimate', modelVersion } instead of a fake foodapi lineage.
-      ...(items.some((it) => it.foodId == null) ? { estimateModel: ESTIMATOR_MODEL } : {}),
+      inputMethod,
+      // Keyless items carry model-produced numbers — stamp the model so the
+      // meal's source reads { type: 'estimate'/'photoestimate'/'labelscan',
+      // modelVersion } instead of a fake foodapi lineage. Photo carries the
+      // vision model, a scanned label its transcriber, text the estimator.
+      ...(anyKeyless
+        ? { estimateModel: mode === 'photo' ? VISION_MODEL : mode === 'scan' ? LABEL_MODEL : ESTIMATOR_MODEL }
+        : {}),
       ...(templateId ? { templateId } : {}),
     };
     if (isEdit && original) {
@@ -266,7 +320,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   return {
     mode, setMode,
     query, setQuery, candidates, recents, searching,
-    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, removeItem, updateItem,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, addLabel, addPhoto, removeItem, updateItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,

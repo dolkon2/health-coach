@@ -15,12 +15,17 @@ type ChipSelectProps<T extends string | number> = {
   options: ChipOption<T>[];
   value: T | null;
   onChange: (value: T) => void;
+  /** When set, chips fill the row in an N-per-row grid (e.g. 2 → a 2×2 block for
+   *  four options) instead of sizing to content, so a fixed option set never
+   *  orphans a single chip onto its own wrapped line. */
+  columns?: number;
 };
 
 export function ChipSelect<T extends string | number>({
   options,
   value,
   onChange,
+  columns,
 }: ChipSelectProps<T>) {
   const theme = useTheme();
   return (
@@ -40,6 +45,8 @@ export function ChipSelect<T extends string | number>({
               backgroundColor: selected ? theme.colors.sandstone : theme.colors.surfaceRaised,
               borderWidth: 1,
               borderColor: selected ? theme.colors.sandstone : theme.colors.border,
+              alignItems: 'center',
+              ...(columns ? { flexBasis: `${100 / columns - 3}%`, flexGrow: 1 } : null),
             }}
           >
             <Text
