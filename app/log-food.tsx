@@ -24,6 +24,7 @@ import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useFoodLog, type FoodLogMode } from '@/hooks/useFoodLog';
 import { resolveBarcode, BARCODE_DEFAULT_G } from '@/lib/foodBarcode';
+import { transcribeLabel, labelToItem, type LabelTranscription } from '@/lib/foodLabel';
 import { noonOfLocalDate } from '@/lib/date';
 import { heroNumber, fidelityTreatment, mealItemsLabel, itemMacroSummary, scaleMacros, recomputeKcal, type NutritionFocus } from '@/lib/foodLog';
 import type { FoodCandidate } from '@/lib/foodSearch';
@@ -42,6 +43,13 @@ type PortionBasis = 'labeled' | 'estimated';
 const PORTION_OPTIONS: ChipOption<PortionBasis>[] = [
   { value: 'labeled', label: 'As labeled' },
   { value: 'estimated', label: 'I estimated it' },
+];
+// Scan mode covers two targets: a barcode (OFF lookup — keyed item) or the
+// Nutrition Facts panel itself (vision transcription — keyless, editable item).
+type ScanTarget = 'barcode' | 'label';
+const SCAN_TARGET_OPTIONS: ChipOption<ScanTarget>[] = [
+  { value: 'barcode', label: 'Barcode' },
+  { value: 'label', label: 'Nutrition label' },
 ];
 const FOCUS_OPTIONS: ChipOption<NutritionFocus>[] = [
   { value: 'calories', label: 'Calories' },
@@ -288,6 +296,29 @@ export default function LogFood() {
   // Single-fire guard: CameraView fires onBarcodeScanned continuously; latch on
   // the first read so one scan triggers exactly one lookup until we reset.
   const scanningRef = useRef(false);
+  const [scanTarget, setScanTarget] = useState<ScanTarget>('barcode');
+
+  // Label target: photograph the Nutrition Facts panel → the vision model
+  // TRANSCRIBES the printed per-serving values (never estimates; unreadable =
+  // null, never 0) → confirm the serving count → a keyless, editable item.
+  const labelCamRef = useRef<CameraView>(null);
+  const [labelStatus, setLabelStatus] = useState<'idle' | 'reading' | 'read' | 'unreadable'>('idle');
+  const [labelData, setLabelData] = useState<LabelTranscription | null>(null);
+  const [labelUri, setLabelUri] = useState<string | null>(null);
+  const [labelServings, setLabelServings] = useState('1');
+  // Editable only when the label declares a gram serving weight; kept in sync
+  // with the servings count both ways, like the barcode card.
+  const [labelGrams, setLabelGrams] = useState('');
+  const [labelBasis, setLabelBasis] = useState<PortionBasis>('labeled');
+
+  const resetLabel = useCallback(() => {
+    setLabelStatus('idle');
+    setLabelData(null);
+    setLabelUri(null);
+    setLabelServings('1');
+    setLabelGrams('');
+    setLabelBasis('labeled');
+  }, []);
 
   const resetScan = useCallback(() => {
     scanningRef.current = false;
@@ -337,6 +368,51 @@ export default function LogFood() {
       setServings(String(Math.round((n / scanServingAmount) * 100) / 100));
     }
   }, [scanServingAmount]);
+
+  const onCaptureLabel = useCallback(async () => {
+    const cam = labelCamRef.current;
+    if (!cam) return;
+    // quality 0.7 — higher than the plate shot (0.4): transcription reads small
+    // print, and over-compression blurs exactly the digits we need.
+    const shot = await cam.takePictureAsync({ base64: true, quality: 0.7 });
+    if (!shot?.base64) return;
+    setLabelUri(shot.uri);
+    setLabelStatus('reading');
+    const res = await transcribeLabel(shot.base64, 'image/jpeg');
+    if (res.status === 'read') {
+      setLabelData(res.label);
+      setLabelServings('1');
+      setLabelGrams(res.label.servingGrams != null ? String(res.label.servingGrams) : '');
+      setLabelStatus('read');
+    } else {
+      setLabelStatus('unreadable');
+    }
+  }, []);
+
+  // Servings ↔ grams stay in sync while the label declares a serving weight,
+  // mirroring the barcode card's behavior.
+  const onChangeLabelServings = useCallback((s: string) => {
+    setLabelServings(s);
+    const n = Number(s);
+    if (labelData?.servingGrams && Number.isFinite(n) && n > 0) {
+      setLabelGrams(String(Math.round(labelData.servingGrams * n)));
+    }
+  }, [labelData]);
+
+  const onChangeLabelGrams = useCallback((g: string) => {
+    setLabelGrams(g);
+    const n = Number(g);
+    if (labelData?.servingGrams && Number.isFinite(n) && n > 0) {
+      setLabelServings(String(Math.round((n / labelData.servingGrams) * 100) / 100));
+    }
+  }, [labelData]);
+
+  const onAddLabel = useCallback(() => {
+    const n = Number(labelServings);
+    if (!labelData || !(Number.isFinite(n) && n > 0)) return;
+    fl.addLabel(labelToItem(labelData, { servings: n, method: labelBasis === 'estimated' ? 'estimated' : 'package' }));
+    resetLabel();
+  }, [labelData, labelServings, labelBasis, fl.addLabel, resetLabel]);
 
   // Photo mode (Pass 2.8a): camera → capture a still → Claude estimates the plate
   // → editable keyless rows. No new native module: expo-camera's takePictureAsync
@@ -433,7 +509,7 @@ export default function LogFood() {
           </>
         ) : null}
 
-        <ChipSelect options={MODE_OPTIONS} value={fl.mode} columns={2} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); resetPhoto(); }} />
+        <ChipSelect options={MODE_OPTIONS} value={fl.mode} columns={2} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); resetLabel(); resetPhoto(); }} />
         <View style={{ height: theme.spacing[4] }} />
 
         {fl.mode === 'weigh' ? (
@@ -501,7 +577,19 @@ export default function LogFood() {
                 </Text>
                 <Button label="Allow camera" onPress={requestPermission} />
               </View>
-            ) : scanStatus === 'found' && scanProduct ? (
+            ) : (
+              <>
+                {/* Which part of the package to point at — the two targets differ in
+                    what comes back: barcode = a keyed OFF record; label = the panel's
+                    own printed values, transcribed and editable. */}
+                <ChipSelect
+                  options={SCAN_TARGET_OPTIONS}
+                  value={scanTarget}
+                  columns={2}
+                  onChange={(t) => { setScanTarget(t); resetScan(); resetLabel(); }}
+                />
+                {scanTarget === 'barcode' ? (
+                  scanStatus === 'found' && scanProduct ? (
               <Card raised style={{ gap: theme.spacing[3] }}>
                 <Text variant="body">{scanProduct.description ?? 'Scanned product'}</Text>
                 {/* Servings input when the label declares a serving size — type
@@ -570,6 +658,75 @@ export default function LogFood() {
                   <Text variant="bodySm" color={theme.colors.textMuted}>Point the camera at a product barcode.</Text>
                 )}
               </View>
+            )
+                ) : labelStatus === 'read' && labelData ? (
+                  // Transcribed — confirm how much of it was eaten, then add.
+                  <Card raised style={{ gap: theme.spacing[3] }}>
+                    <Text variant="body">{labelData.productName ?? 'Nutrition label'}</Text>
+                    {labelData.servingText ? (
+                      <Text variant="bodySm" color={theme.colors.textMuted}>Serving: {labelData.servingText}</Text>
+                    ) : null}
+                    <Field label="Servings" value={labelServings} onChangeText={onChangeLabelServings} autoFocus />
+                    {labelData.servingGrams != null ? (
+                      <Field label="Amount" value={labelGrams} onChangeText={onChangeLabelGrams} suffix="g" />
+                    ) : null}
+                    {/* Live "what this portion gives you" — the label's printed values × servings. */}
+                    {Number(labelServings) > 0 ? (
+                      <Text variant="data" color={theme.colors.textSecondary}>
+                        {itemMacroSummary(labelToItem(labelData, { servings: Number(labelServings), method: 'package' }))}
+                      </Text>
+                    ) : null}
+                    <ChipSelect options={PORTION_OPTIONS} value={labelBasis} onChange={setLabelBasis} />
+                    <Button label="Add to meal" onPress={onAddLabel} disabled={!(Number(labelServings) > 0)} />
+                    <Pressable onPress={resetLabel} accessibilityRole="button" hitSlop={6}>
+                      <Text variant="bodySm" color={theme.colors.sandstone}>Scan another label</Text>
+                    </Pressable>
+                  </Card>
+                ) : labelStatus === 'unreadable' ? (
+                  <View style={{ gap: theme.spacing[3] }}>
+                    <Text variant="bodySm" color={theme.colors.text}>
+                      Couldn't read a nutrition label in that shot. Get the panel flat, well lit, and filling the frame — or describe the food instead. No number is ever invented.
+                    </Text>
+                    <Button label="Try again" onPress={resetLabel} />
+                    <Button label="Describe it instead" variant="outline" onPress={() => { resetLabel(); fl.setMode('describe'); }} />
+                  </View>
+                ) : labelStatus === 'reading' ? (
+                  // Captured — show the still while the panel is transcribed.
+                  <View style={{ gap: theme.spacing[3] }}>
+                    {labelUri ? (
+                      <Image
+                        source={{ uri: labelUri }}
+                        style={{ width: '100%', aspectRatio: 1, borderRadius: 12 }}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                      <ActivityIndicator color={theme.colors.sandstone} />
+                      <Text variant="bodySm" color={theme.colors.textMuted}>Reading the label…</Text>
+                    </View>
+                  </View>
+                ) : (
+                  // Live camera — frame the Nutrition Facts panel and capture.
+                  <View style={{ gap: theme.spacing[3] }}>
+                    <View
+                      style={{
+                        width: '100%',
+                        aspectRatio: 1,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <CameraView ref={labelCamRef} style={{ flex: 1 }} facing="back" />
+                    </View>
+                    <Button label="Capture label" onPress={onCaptureLabel} />
+                    <Text variant="bodySm" color={theme.colors.textMuted}>
+                      Fill the frame with the Nutrition Facts panel. The printed values are read as-is — anything unreadable stays blank, never zero.
+                    </Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
         ) : fl.mode === 'photo' ? (
