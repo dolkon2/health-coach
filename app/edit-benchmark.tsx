@@ -166,6 +166,22 @@ export default function EditBenchmarkScreen() {
     }
   }
 
+  // Pin controls which active benchmarks surface on Today — a light toggle,
+  // flipped in place (unlike Archive, it doesn't change where you are).
+  async function togglePin() {
+    if (!original || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await updateBenchmark(original.id, { pinned: !original.pinned });
+      setOriginal(updated);
+    } catch {
+      setError('Could not update. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // ─── Step 1: pick a tracked dimension ──────────────────────────────────────
 
   if (step === 'dimension') {
@@ -373,7 +389,14 @@ export default function EditBenchmarkScreen() {
         <>
           <View style={{ height: theme.spacing[8] }} />
           {original.status === 'active' ? (
-            <Button label="Archive" variant="ghost" onPress={() => setStatus('abandoned')} />
+            <>
+              <Button
+                label={original.pinned ? 'Unpin from Today' : 'Pin to Today'}
+                variant="ghost"
+                onPress={togglePin}
+              />
+              <Button label="Archive" variant="ghost" onPress={() => setStatus('abandoned')} />
+            </>
           ) : (
             <Button label="Reactivate" variant="ghost" onPress={() => setStatus('active')} />
           )}

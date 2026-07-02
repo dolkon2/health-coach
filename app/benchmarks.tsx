@@ -126,12 +126,15 @@ function BenchmarkRow({
   onPress: () => void;
 }) {
   const theme = useTheme();
+  // The tag explains why a benchmark isn't on Today: archived, done, or unpinned.
   const tag =
     benchmark.status === 'achieved'
       ? 'done'
       : benchmark.status !== 'active'
         ? 'archived'
-        : null;
+        : !benchmark.pinned
+          ? 'not on Today'
+          : null;
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Edit ${benchmark.title}`}>
       <Card>
