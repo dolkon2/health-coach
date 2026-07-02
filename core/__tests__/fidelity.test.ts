@@ -69,9 +69,24 @@ describe('defaultFidelity — computed from extraction, never from channel', () 
     expect(est).toBeLessThan(TIER_MID_MIN);
   });
 
+  it('a fully-read label lands with barcode — HIGH at the boundary, capped at 0.85', () => {
+    // The values are label-declared either way; a clean transcription confirmed
+    // on screen deserves the same confidence as a complete OFF record.
+    const f = defaultFidelity('label', { completeness: 1 });
+    expect(f).toBe(defaultFidelity('barcode', { completeness: 1 }));
+    expect(tierOf(f)).toBe('HIGH');
+    expect(fidelityCeiling('label')).toBe(fidelityCeiling('barcode'));
+  });
+
+  it('a partial label read (glare, unprinted macro) pulls to MID, like a sparse OFF record', () => {
+    const f = defaultFidelity('label', { completeness: 0.5 });
+    expect(tierOf(f)).toBe('MID');
+    expect(f).toBeLessThan(defaultFidelity('label', { completeness: 1 }));
+  });
+
   it('never exceeds the method ceiling for any method', () => {
     const full = { food: true, quantity: true, unit: true, completeness: 1, branded: false };
-    (['weighed', 'barcode', 'described', 'photo'] as const).forEach((m) => {
+    (['weighed', 'barcode', 'described', 'photo', 'label'] as const).forEach((m) => {
       expect(defaultFidelity(m, full)).toBeLessThanOrEqual(fidelityCeiling(m));
     });
   });
