@@ -29,6 +29,7 @@ import {
   GymExerciseEditor,
   RemoveButton,
   Checkbox,
+  RoutePreview,
 } from '@/components';
 import {
   ENERGY_SYSTEMS,
@@ -556,6 +557,7 @@ export default function LogSessionScreen() {
                   }
                 />
               </View>
+              <RoutePreview path={form.endurance.gpsPath} />
               <Text variant="dataSm" color={theme.colors.textSecondary}>
                 {[
                   form.endurance.importMeta?.filename,

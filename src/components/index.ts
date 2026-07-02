@@ -11,6 +11,7 @@ export { SleepCard } from './SleepCard';
 export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './FidelityIndicator';
 export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
+export { RoutePreview, routePathD } from './RoutePreview';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';
 export { WeekStrip } from './WeekStrip';
