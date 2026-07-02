@@ -24,6 +24,7 @@ import {
 } from '@/lib/foodLog';
 import { estimateMeal, describedToItems, ESTIMATOR_MODEL } from '@/lib/foodEstimate';
 import { estimateMealFromPhoto, photoToItems, VISION_MODEL } from '@/lib/foodVision';
+import { LABEL_MODEL } from '@/lib/foodLabel';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
@@ -88,7 +89,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
         setMode(
           m.payload.inputMethod === 'described' ? 'describe'
           : m.payload.inputMethod === 'photo' ? 'photo'
-          : m.payload.inputMethod === 'barcode' ? 'scan'
+          : m.payload.inputMethod === 'barcode' || m.payload.inputMethod === 'label' ? 'scan'
           : 'weigh'
         );
         setTemplateId(m.payload.templateId ?? null);
@@ -147,6 +148,14 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
    *  like addRecent — the scan screen owns the OFF lookup + portion choice, this
    *  just accumulates the confirmed item into the meal. */
   const addBarcode = useCallback((item: FoodItem) => {
+    setItems((xs) => [...xs, item]);
+    setError(null);
+  }, []);
+
+  /** Add a transcribed nutrition-label FoodItem already built by lib/foodLabel.
+   *  Same thin shape as addBarcode — the scan screen owns the capture,
+   *  transcription, and portion confirmation. */
+  const addLabel = useCallback((item: FoodItem) => {
     setItems((xs) => [...xs, item]);
     setError(null);
   }, []);
@@ -251,16 +260,25 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
 
   const logMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
-    const inputMethod = mode === 'weigh' ? 'weighed' : mode === 'scan' ? 'barcode' : mode === 'photo' ? 'photo' : 'described';
+    // Scan mode covers two targets: a barcode lookup yields keyed OFF items, a
+    // transcribed nutrition label yields keyless ones — the meal reads 'label'
+    // when any scan item is keyless, else 'barcode'.
+    const anyKeyless = items.some((it) => it.foodId == null);
+    const inputMethod =
+      mode === 'weigh' ? 'weighed'
+      : mode === 'scan' ? (anyKeyless ? 'label' : 'barcode')
+      : mode === 'photo' ? 'photo'
+      : 'described';
     const input: FoodLogInput = {
       description: description || 'Meal',
       items,
       inputMethod,
-      // Keyless items are LLM estimates — stamp the model so the meal's source
-      // reads { type: 'estimate'/'photoestimate', modelVersion } instead of a fake
-      // foodapi lineage. Photo estimates carry the vision model, text the estimator.
-      ...(items.some((it) => it.foodId == null)
-        ? { estimateModel: mode === 'photo' ? VISION_MODEL : ESTIMATOR_MODEL }
+      // Keyless items carry model-produced numbers — stamp the model so the
+      // meal's source reads { type: 'estimate'/'photoestimate'/'labelscan',
+      // modelVersion } instead of a fake foodapi lineage. Photo carries the
+      // vision model, a scanned label its transcriber, text the estimator.
+      ...(anyKeyless
+        ? { estimateModel: mode === 'photo' ? VISION_MODEL : mode === 'scan' ? LABEL_MODEL : ESTIMATOR_MODEL }
         : {}),
       ...(templateId ? { templateId } : {}),
     };
@@ -299,7 +317,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   return {
     mode, setMode,
     query, setQuery, candidates, recents, searching,
-    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, addPhoto, removeItem, updateItem,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, addLabel, addPhoto, removeItem, updateItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,

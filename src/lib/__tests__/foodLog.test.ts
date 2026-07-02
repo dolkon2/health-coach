@@ -219,6 +219,22 @@ describe('buildMealLog — estimate provenance for keyless LLM items', () => {
     expect(obs.payload.inputMethod).toBe('photo');
   });
 
+  it('a label meal of keyless items reads as labelscan — a transcription, not an estimate', () => {
+    const obs = buildMealLog(
+      {
+        description: 'protein bar',
+        items: [estItem()],
+        inputMethod: 'label',
+        estimateModel: 'claude-haiku-4-5',
+      },
+      CTX
+    );
+    expect(obs.source).toEqual({ type: 'labelscan', modelVersion: 'claude-haiku-4-5' });
+    expect(obs.source).not.toHaveProperty('provider'); // no food-db lineage to claim
+    expect(obs.payload.inputMethod).toBe('label');
+    expect(obs.payload.fidelityCeiling).toBe(0.85); // barcode's band — label-declared data
+  });
+
   it('a pure USDA meal is unaffected — still foodapi', () => {
     const obs = buildMealLog(
       { description: 'ribeye', items: [foodItem()], inputMethod: 'weighed' },
