@@ -14,7 +14,7 @@
  * hooks/useFoodLog; this screen is a thin consumer.
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, View, Pressable, ActivityIndicator } from 'react-native';
+import { Platform, ScrollView, View, Pressable, ActivityIndicator, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -33,6 +33,7 @@ const MODE_OPTIONS: ChipOption<FoodLogMode>[] = [
   { value: 'weigh', label: 'Search & weigh' },
   { value: 'describe', label: 'Describe' },
   { value: 'scan', label: 'Scan' },
+  { value: 'photo', label: 'Photo' },
 ];
 // A scanned UPC is near-exact on identity; the honesty lives in the portion.
 // "As labeled" keeps the declared basis (quantityMethod 'package'); "I estimated
@@ -337,6 +338,40 @@ export default function LogFood() {
     }
   }, [scanServingAmount]);
 
+  // Photo mode (Pass 2.8a): camera → capture a still → Claude estimates the plate
+  // → editable keyless rows. No new native module: expo-camera's takePictureAsync
+  // returns base64 directly, which Claude's API accepts. Photo fidelity is LOW by
+  // nature (~0.35), so every resulting row renders dashed and stays editable.
+  const cameraRef = useRef<CameraView>(null);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const resetPhoto = useCallback(() => {
+    setPhotoBase64(null);
+    setPhotoUri(null);
+  }, []);
+
+  const onCapture = useCallback(async () => {
+    const cam = cameraRef.current;
+    if (!cam) return;
+    // quality ~0.4: vision accuracy doesn't need full-res, and it keeps the base64
+    // payload (and token cost) sane. (A later hardening pass adds image-manipulator
+    // downscaling + secure-store for the key — deferred here, no new native module.)
+    const shot = await cam.takePictureAsync({ base64: true, quality: 0.4 });
+    if (shot?.base64) {
+      setPhotoBase64(shot.base64);
+      setPhotoUri(shot.uri);
+    }
+  }, []);
+
+  const onEstimate = useCallback(async () => {
+    if (!photoBase64) return;
+    // addPhoto returns [] → one blank manual row on no key / offline / failure, so
+    // the logger keeps working; either way the rows appear in the preview below.
+    await fl.addPhoto(photoBase64, 'image/jpeg');
+    resetPhoto();
+  }, [photoBase64, fl.addPhoto, resetPhoto]);
+
   const onAddBarcode = useCallback(async () => {
     const g = Number(barcodeGrams);
     if (!scannedCode || !(g > 0)) return;
@@ -400,7 +435,7 @@ export default function LogFood() {
           </>
         ) : null}
 
-        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); }} />
+        <ChipSelect options={MODE_OPTIONS} value={fl.mode} onChange={(m) => { fl.setMode(m); setSelected(null); setEditingIndex(null); resetScan(); resetPhoto(); }} />
         <View style={{ height: theme.spacing[4] }} />
 
         {fl.mode === 'weigh' ? (
@@ -536,6 +571,61 @@ export default function LogFood() {
                 ) : (
                   <Text variant="bodySm" color={theme.colors.textMuted}>Point the camera at a product barcode.</Text>
                 )}
+              </View>
+            )}
+          </View>
+        ) : fl.mode === 'photo' ? (
+          <View style={{ gap: theme.spacing[3] }}>
+            {!permission ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>Checking camera permission…</Text>
+            ) : !permission.granted ? (
+              <View style={{ gap: theme.spacing[3] }}>
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  A photo needs the camera. Nothing is recorded until you log the meal.
+                </Text>
+                <Button label="Allow camera" onPress={requestPermission} />
+              </View>
+            ) : photoUri ? (
+              // Captured — preview the still, then estimate or retake.
+              <View style={{ gap: theme.spacing[3] }}>
+                <Image
+                  source={{ uri: photoUri }}
+                  style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 12 }}
+                  resizeMode="cover"
+                />
+                {fl.busy ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+                    <ActivityIndicator color={theme.colors.sandstone} />
+                    <Text variant="bodySm" color={theme.colors.textMuted}>Estimating the plate…</Text>
+                  </View>
+                ) : (
+                  <Button label="Estimate this plate" onPress={onEstimate} />
+                )}
+                {!fl.busy ? (
+                  <Pressable onPress={resetPhoto} accessibilityRole="button" hitSlop={6}>
+                    <Text variant="bodySm" color={theme.colors.sandstone}>Retake</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : (
+              // Live camera — point at the plate and capture a still.
+              <View style={{ gap: theme.spacing[3] }}>
+                <View
+                  style={{
+                    width: '100%',
+                    aspectRatio: 3 / 4,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: theme.colors.border,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <CameraView ref={cameraRef} style={{ flex: 1 }} facing="back" />
+                </View>
+                <Button label="Take photo" onPress={onCapture} />
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  Photo estimates are rough — every item stays editable, and macros left blank stay unknown, never zero.
+                </Text>
               </View>
             )}
           </View>
