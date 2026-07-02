@@ -30,12 +30,13 @@ export type BenchmarkStatusEntry = {
   outcome: OutcomeStatus | null;
 };
 
-/** Query floor: whichever of this ISO week / this calendar month starts earlier. */
+/** Query floor: whichever of this ISO week / this calendar month starts
+ *  earlier. Millisecond format to compare uniformly with stored occurredAt. */
 function sessionQueryFrom(nowIso: string): string {
   const day = nowIso.slice(0, 10);
   const weekStart = isoWeekStart(day);
   const monthStart = `${day.slice(0, 7)}-01`;
-  return `${weekStart < monthStart ? weekStart : monthStart}T00:00:00Z`;
+  return `${weekStart < monthStart ? weekStart : monthStart}T00:00:00.000Z`;
 }
 
 export function useBenchmarkStatuses(trendPoints: WeightTrendPoint[]): {

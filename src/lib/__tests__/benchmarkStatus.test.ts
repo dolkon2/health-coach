@@ -53,25 +53,32 @@ const NOW = '2026-07-01T18:00:00Z';
 describe('currentWindowRange', () => {
   it('opens the week on the ISO Monday and closes exclusively the next Monday', () => {
     expect(currentWindowRange('week', NOW)).toEqual({
-      fromIso: '2026-06-29T00:00:00Z',
+      fromIso: '2026-06-29T00:00:00.000Z',
       toIso: '2026-07-06T00:00:00.000Z',
     });
   });
 
   it('handles a Sunday belonging to the week begun the prior Monday', () => {
     expect(currentWindowRange('week', '2026-07-05T10:00:00Z').fromIso).toBe(
-      '2026-06-29T00:00:00Z'
+      '2026-06-29T00:00:00.000Z'
     );
   });
 
   it('opens the month on the first and closes on the next first, across year end', () => {
     expect(currentWindowRange('month', NOW)).toEqual({
-      fromIso: '2026-07-01T00:00:00Z',
+      fromIso: '2026-07-01T00:00:00.000Z',
       toIso: '2026-08-01T00:00:00.000Z',
     });
     expect(currentWindowRange('month', '2026-12-15T00:00:00Z').toIso).toBe(
       '2027-01-01T00:00:00.000Z'
     );
+  });
+
+  it('buckets a session logged in the first second of the window correctly', () => {
+    // Real occurredAt values carry milliseconds; a bare 'T00:00:00Z' boundary
+    // would sort AFTER '00:00:00.500Z' and push this session a week back.
+    const s = session('2026-06-29T00:00:00.500Z', { activity: 'kayak' });
+    expect(behaviorStatus(kayakFace, [s], NOW)!.count).toBe(1);
   });
 });
 

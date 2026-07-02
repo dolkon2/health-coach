@@ -32,22 +32,25 @@ export type WindowRange = {
 };
 
 /** The current week (ISO Monday start) or calendar month containing `nowIso`,
- *  as a UTC instant range. */
+ *  as a UTC instant range. Boundaries carry milliseconds ('.000Z') so string
+ *  comparison against real occurredAt values (always toISOString format) is
+ *  uniform — a mixed 'T00:00:00Z' bound sorts AFTER 'T00:00:00.500Z' and
+ *  would misbucket a session logged in the first second of the window. */
 export function currentWindowRange(
   window: BehaviorFace['window'],
   nowIso: string
 ): WindowRange {
   const day = nowIso.slice(0, 10);
   if (window === 'week') {
-    const start = isoWeekStart(day);
-    const end = new Date(`${start}T00:00:00Z`);
+    const start = new Date(`${isoWeekStart(day)}T00:00:00Z`);
+    const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + 7);
-    return { fromIso: `${start}T00:00:00Z`, toIso: end.toISOString() };
+    return { fromIso: start.toISOString(), toIso: end.toISOString() };
   }
-  const start = `${day.slice(0, 7)}-01`;
-  const end = new Date(`${start}T00:00:00Z`);
+  const start = new Date(`${day.slice(0, 7)}-01T00:00:00Z`);
+  const end = new Date(start);
   end.setUTCMonth(end.getUTCMonth() + 1);
-  return { fromIso: `${start}T00:00:00Z`, toIso: end.toISOString() };
+  return { fromIso: start.toISOString(), toIso: end.toISOString() };
 }
 
 // ─── Which sessions count ────────────────────────────────────────────────────
