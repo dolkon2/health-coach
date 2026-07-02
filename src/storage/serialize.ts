@@ -13,7 +13,7 @@ import type {
   Tier,
   Modality,
 } from '@core/observation';
-import type { Benchmark, ResolvedDimension, BenchmarkShape } from '@core/benchmark';
+import type { Benchmark, BehaviorFace, OutcomeFace } from '@core/benchmark';
 import type {
   SessionTemplate,
   TemplateShape,
@@ -79,12 +79,17 @@ export type BenchmarkRow = {
   description: string | null;
   targetDate: string | null;
   relatedModalities: string | null; // JSON array
-  resolution: string; // JSON ResolvedDimension — required (the existence gate)
-  shape: string; // JSON BenchmarkShape (cadence | trend)
+  behavior: string | null; // JSON BehaviorFace — the face you control
+  outcome: string | null; // JSON OutcomeFace — the face you watch
   pinned: number; // 0 | 1
 };
 
 export function benchmarkToRow(b: Benchmark): BenchmarkRow {
+  // The v0.4 existence gate: a benchmark IS its faces — writing one with
+  // neither is a bug upstream, never a row.
+  if (!b.behavior && !b.outcome) {
+    throw new Error(`benchmark ${b.id} has neither a behavior nor an outcome face`);
+  }
   return {
     id: b.id,
     createdAt: b.createdAt,
@@ -94,8 +99,8 @@ export function benchmarkToRow(b: Benchmark): BenchmarkRow {
     description: b.description ?? null,
     targetDate: b.targetDate ?? null,
     relatedModalities: b.relatedModalities ? JSON.stringify(b.relatedModalities) : null,
-    resolution: JSON.stringify(b.resolution),
-    shape: JSON.stringify(b.shape),
+    behavior: b.behavior ? JSON.stringify(b.behavior) : null,
+    outcome: b.outcome ? JSON.stringify(b.outcome) : null,
     pinned: b.pinned ? 1 : 0,
   };
 }
@@ -112,8 +117,8 @@ export function rowToBenchmark(r: BenchmarkRow): Benchmark {
     ...(r.relatedModalities != null
       ? { relatedModalities: JSON.parse(r.relatedModalities) as Modality[] }
       : {}),
-    resolution: JSON.parse(r.resolution) as ResolvedDimension,
-    shape: JSON.parse(r.shape) as BenchmarkShape,
+    ...(r.behavior != null ? { behavior: JSON.parse(r.behavior) as BehaviorFace } : {}),
+    ...(r.outcome != null ? { outcome: JSON.parse(r.outcome) as OutcomeFace } : {}),
     pinned: r.pinned === 1,
   };
 }

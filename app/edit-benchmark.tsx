@@ -1,11 +1,13 @@
 /**
- * Edit Benchmark — create or edit a benchmark via Structured entry (Phase 5 Pass 2).
+ * Edit Benchmark — create or edit a benchmark via Structured entry (v0.4 faces).
  *
  * Reached from /benchmarks as a push: with `?benchmarkId=…` to edit, without to
- * create. Step 1 picks a tracked dimension (an activity → a session cadence, or
- * bodyweight → a trend); step 2 fills the natural target, and the family falls
- * out of which fields you filled — there is no goal-type picker (benchmarks-spec.md,
- * "The two goal families"). This is the deterministic v1 path: no parser, no LLM.
+ * create. Step 1 picks a tracked dimension and seeds the PRIMARY face (an
+ * activity → a behavior rhythm, bodyweight → an outcome movement); step 2 fills
+ * the natural target and offers the other face as an optional PAIRING — never
+ * pushed, one tap to add, one to remove. The faces fall out of which fields you
+ * filled — there is still no goal-type picker (benchmarks-spec.md, "The two
+ * faces of every benchmark"). This is the deterministic v1 path: no parser, no LLM.
  *
  * The pure logic (form → Benchmark, validation, summary) lives in
  * lib/benchmarkForm.ts; this screen is the form shell around it.
@@ -66,6 +68,14 @@ const DIRECTIONS: ChipOption<TrendDirection>[] = [
   { value: 'up', label: 'Gain' },
 ];
 
+/** Chip sentinel for "any logged session" in the paired-behavior picker —
+ *  maps to `pairedActivityId: null` (a bare sessionCount dimension). */
+const ANY_SESSION = 'any';
+const pairedActivityOptions: ChipOption<string>[] = [
+  { value: ANY_SESSION, label: 'Any' },
+  ...headlineActivities().map((a) => ({ value: a.id, label: a.label })),
+];
+
 export default function EditBenchmarkScreen() {
   const theme = useTheme();
   const router = useRouter();
@@ -99,12 +109,14 @@ export default function EditBenchmarkScreen() {
 
   const update = (patch: Partial<BenchmarkForm>) => setForm((f) => ({ ...f, ...patch }));
 
+  // Switching the step-1 pick drops any pairing — the paired face belongs to
+  // the path it was added on.
   function pickActivity(a: Activity) {
-    setForm((f) => ({ ...f, dimension: { kind: 'activity', activityId: a.id } }));
+    setForm((f) => ({ ...f, dimension: { kind: 'activity', activityId: a.id }, secondFace: false }));
     setStep('detail');
   }
   function pickBodyweight() {
-    setForm((f) => ({ ...f, dimension: { kind: 'bodyweight' } }));
+    setForm((f) => ({ ...f, dimension: { kind: 'bodyweight' }, secondFace: false }));
     setStep('detail');
   }
 
@@ -215,14 +227,69 @@ export default function EditBenchmarkScreen() {
     );
   }
 
-  // ─── Step 2: fill the target ───────────────────────────────────────────────
+  // ─── Step 2: fill the faces ────────────────────────────────────────────────
 
-  const isCadence = form.dimension?.kind === 'activity';
-  const headerLabel = isCadence
+  const isActivityPath = form.dimension?.kind === 'activity';
+  const headerLabel = isActivityPath
     ? form.dimension && form.dimension.kind === 'activity'
       ? activityLabelFor(form.dimension.activityId)
       : ''
     : 'Bodyweight';
+
+  const behaviorCard = (
+    <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[5] }}>
+      <FaceHeader label="Behavior" sub="the part you control" />
+      {!isActivityPath ? (
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="label">Sessions that count</Text>
+          <ChipSelect
+            options={pairedActivityOptions}
+            value={form.pairedActivityId ?? ANY_SESSION}
+            onChange={(v) => update({ pairedActivityId: v === ANY_SESSION ? null : v })}
+          />
+        </View>
+      ) : null}
+      <Field
+        label="How many times"
+        value={form.count}
+        onChangeText={(count) => update({ count })}
+        placeholder="4"
+        suffix="×"
+        keyboardType="number-pad"
+      />
+      <View style={{ gap: theme.spacing[2] }}>
+        <Text variant="label">Per</Text>
+        <ChipSelect options={WINDOWS} value={form.window} onChange={(window) => update({ window })} />
+      </View>
+      {!isActivityPath ? <RemoveFaceLink onPress={() => update({ secondFace: false })} /> : null}
+    </Card>
+  );
+
+  const outcomeCard = (
+    <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[5] }}>
+      <FaceHeader label="Outcome" sub="the part you watch" />
+      <View style={{ gap: theme.spacing[2] }}>
+        <Text variant="label">Which way?</Text>
+        <ChipSelect
+          options={DIRECTIONS}
+          value={form.direction}
+          onChange={(direction) => update({ direction })}
+        />
+      </View>
+      <Field
+        label={`Target weight (${weightUnit}, optional)`}
+        value={form.target}
+        onChangeText={(target) => update({ target })}
+        placeholder="—"
+        suffix={weightUnit}
+        keyboardType="decimal-pad"
+      />
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        Leave the target blank to just track the direction.
+      </Text>
+      {isActivityPath ? <RemoveFaceLink onPress={() => update({ secondFace: false })} /> : null}
+    </Card>
+  );
 
   return (
     <Screen scroll>
@@ -241,43 +308,34 @@ export default function EditBenchmarkScreen() {
         {isEdit ? 'Edit benchmark' : 'New benchmark'}
       </Text>
 
-      {isCadence ? (
-        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[5] }}>
-          <Field
-            label="How many times"
-            value={form.count}
-            onChangeText={(count) => update({ count })}
-            placeholder="4"
-            suffix="×"
-            keyboardType="number-pad"
-          />
-          <View style={{ gap: theme.spacing[2] }}>
-            <Text variant="label">Per</Text>
-            <ChipSelect options={WINDOWS} value={form.window} onChange={(window) => update({ window })} />
-          </View>
-        </Card>
-      ) : (
-        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[5] }}>
-          <View style={{ gap: theme.spacing[2] }}>
-            <Text variant="label">Which way?</Text>
-            <ChipSelect
-              options={DIRECTIONS}
-              value={form.direction}
-              onChange={(direction) => update({ direction })}
+      {/* Primary face first — the one the step-1 pick seeded — then the
+          optional pairing. Never pushed: a quiet link, one tap to remove. */}
+      {isActivityPath ? (
+        <>
+          {behaviorCard}
+          {form.secondFace ? (
+            outcomeCard
+          ) : (
+            <PairFaceLink
+              label="＋ Pair an outcome"
+              sub="a measured result to watch alongside the rhythm"
+              onPress={() => update({ secondFace: true })}
             />
-          </View>
-          <Field
-            label={`Target weight (${weightUnit}, optional)`}
-            value={form.target}
-            onChangeText={(target) => update({ target })}
-            placeholder="—"
-            suffix={weightUnit}
-            keyboardType="decimal-pad"
-          />
-          <Text variant="bodySm" color={theme.colors.textMuted}>
-            Leave the target blank to just track the direction.
-          </Text>
-        </Card>
+          )}
+        </>
+      ) : (
+        <>
+          {outcomeCard}
+          {form.secondFace ? (
+            behaviorCard
+          ) : (
+            <PairFaceLink
+              label="＋ Pair a behavior"
+              sub="a session rhythm to hold on the way — your path to it"
+              onPress={() => update({ secondFace: true })}
+            />
+          )}
+        </>
       )}
 
       <Card style={{ marginTop: theme.spacing[5] }}>
@@ -329,6 +387,67 @@ export default function EditBenchmarkScreen() {
 
 function activityLabelFor(activityId: string): string {
   return activityById(activityId)?.label ?? activityId;
+}
+
+/** The face card's heading: which face this is, and which register it lives in
+ *  (behavior: sovereign, you control it; outcome: observed, you watch it). */
+function FaceHeader({ label, sub }: { label: string; sub: string }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: theme.spacing[3],
+      }}
+    >
+      <Text variant="label" color={theme.colors.sandstone}>
+        {label}
+      </Text>
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        {sub}
+      </Text>
+    </View>
+  );
+}
+
+/** The quiet offer to pair the other face — a link, never a nudge. */
+function PairFaceLink({
+  label,
+  sub,
+  onPress,
+}: {
+  label: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{ marginTop: theme.spacing[4], gap: theme.spacing[1] }}
+    >
+      <Text variant="label" color={theme.colors.sandstone}>
+        {label}
+      </Text>
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        {sub}
+      </Text>
+    </Pressable>
+  );
+}
+
+function RemoveFaceLink({ onPress }: { onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Remove this face">
+      <Text variant="label" color={theme.colors.textMuted}>
+        Remove
+      </Text>
+    </Pressable>
+  );
 }
 
 function PickTile({

@@ -64,7 +64,7 @@ export default function BenchmarksScreen() {
       </View>
 
       <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[3] }}>
-        Goals the app can mirror — a rhythm to keep, or a number to move. Tap to edit.
+        Goals the app can mirror — a rhythm to keep, a number to move, or both. Tap to edit.
       </Text>
 
       <View style={{ marginTop: theme.spacing[6], gap: theme.spacing[3] }}>

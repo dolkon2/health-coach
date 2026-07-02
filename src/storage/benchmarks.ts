@@ -10,7 +10,7 @@ import { getDb, type SqlDatabase } from './db';
 import { benchmarkToRow, rowToBenchmark, type BenchmarkRow } from './serialize';
 
 const COLUMNS =
-  'id, createdAt, resolvedAt, status, title, description, targetDate, relatedModalities, resolution, shape, pinned';
+  'id, createdAt, resolvedAt, status, title, description, targetDate, relatedModalities, behavior, outcome, pinned';
 
 export async function createBenchmark(
   b: Benchmark,
@@ -30,8 +30,8 @@ export async function createBenchmark(
       r.description,
       r.targetDate,
       r.relatedModalities,
-      r.resolution,
-      r.shape,
+      r.behavior,
+      r.outcome,
       r.pinned,
     ]
   );
@@ -62,7 +62,15 @@ export async function getBenchmarkById(
   return row ? rowToBenchmark(row) : null;
 }
 
-/** Merge a partial change into an existing benchmark and persist it. */
+/**
+ * Merge a partial change into an existing benchmark and persist it.
+ *
+ * Spread merge means a key must be PRESENT in the patch to change — so to
+ * remove a face, pass it explicitly as undefined (`{ outcome: undefined }`);
+ * omitting the key keeps the stored face. The edit form always sends both
+ * face keys for exactly this reason. Removing the last face throws (the
+ * serializer's ≥1-face gate).
+ */
 export async function updateBenchmark(
   id: string,
   patch: Partial<Omit<Benchmark, 'id'>>,
@@ -78,7 +86,7 @@ export async function updateBenchmark(
   await d.runAsync(
     `UPDATE benchmarks
      SET createdAt = ?, resolvedAt = ?, status = ?, title = ?, description = ?,
-         targetDate = ?, relatedModalities = ?, resolution = ?, shape = ?, pinned = ?
+         targetDate = ?, relatedModalities = ?, behavior = ?, outcome = ?, pinned = ?
      WHERE id = ?;`,
     [
       r.createdAt,
@@ -88,8 +96,8 @@ export async function updateBenchmark(
       r.description,
       r.targetDate,
       r.relatedModalities,
-      r.resolution,
-      r.shape,
+      r.behavior,
+      r.outcome,
       r.pinned,
       id,
     ]
