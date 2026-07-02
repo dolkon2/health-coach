@@ -137,6 +137,7 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
+  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }

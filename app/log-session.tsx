@@ -48,6 +48,10 @@ import {
 } from '@/storage/observations';
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { parseGpx } from '@/lib/gpxImport';
+import { metersToDisplay } from '@/lib/units';
 import {
   emptySessionForm,
   emptyExerciseDraft,
@@ -115,6 +119,7 @@ export default function LogSessionScreen() {
   );
   const [original, setOriginal] = useState<ObservationOf<'session'> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
 
@@ -271,6 +276,49 @@ export default function LogSessionScreen() {
       ...f,
       climb: { ...f.climb, sends: f.climb.sends.filter((s) => s.id !== id) },
     }));
+  }
+
+  // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
+  // Pick a .gpx exported from Garmin Connect / Slopes / Gaia / AllTrails, parse
+  // it client-side, and prefill the form: distance/duration/elevation land in
+  // the same editable fields (the user can still correct them); the geometry +
+  // provenance ride on the form and are written by buildSessionObservation.
+
+  async function importGpxFile() {
+    if (importing) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (res.canceled || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      const xml = await FileSystem.readAsStringAsync(asset.uri);
+      const gpx = parseGpx(xml);
+      setForm((f) => ({
+        ...f,
+        durationMin:
+          gpx.durationMin != null ? String(Math.max(1, Math.round(gpx.durationMin))) : f.durationMin,
+        endurance: {
+          ...f.endurance,
+          distance:
+            gpx.distanceM > 0
+              ? String(Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100)
+              : f.endurance.distance,
+          gpsPath: gpx.points,
+          ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
+          importMeta: {
+            format: 'gpx' as const,
+            ...(asset.name ? { filename: asset.name } : {}),
+            ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+          },
+        },
+        ...(gpx.name && f.notes.trim() === '' ? { notes: gpx.name } : {}),
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that file as GPX.');
+    } finally {
+      setImporting(false);
+    }
   }
 
   // ─── Save ──────────────────────────────────────────────────────────────────
@@ -485,6 +533,49 @@ export default function LogSessionScreen() {
               }
             />
           </View>
+          {form.endurance.gpsPath && form.endurance.gpsPath.length >= 2 ? (
+            <View style={{ gap: theme.spacing[2] }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text variant="label">Route attached</Text>
+                <RemoveButton
+                  label="Remove route"
+                  onPress={() =>
+                    update({
+                      endurance: {
+                        distance: form.endurance.distance,
+                        avgHr: form.endurance.avgHr,
+                        energySystem: form.endurance.energySystem,
+                      },
+                    })
+                  }
+                />
+              </View>
+              <Text variant="dataSm" color={theme.colors.textSecondary}>
+                {[
+                  form.endurance.importMeta?.filename,
+                  `${form.endurance.gpsPath.length} points`,
+                  form.endurance.elevationGainM != null
+                    ? `${form.endurance.elevationGainM} m gain`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </Text>
+            </View>
+          ) : (
+            <Button
+              label={importing ? 'Reading file…' : 'Import GPX file'}
+              variant="secondary"
+              onPress={importGpxFile}
+              disabled={importing}
+            />
+          )}
         </Card>
       ) : null}
 

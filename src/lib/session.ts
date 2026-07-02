@@ -17,6 +17,7 @@
 import type {
   EnergySystem,
   LiftingBlock,
+  GeoPoint,
   Modality,
   MovementPattern,
   ObservationOf,
@@ -78,7 +79,18 @@ export type SessionForm = {
   perceivedEffort: number | null; // 1–10, optional
   notes: string;
   gym: { exercises: ExerciseDraft[] };
-  endurance: { distance: string; avgHr: string; energySystem: EnergySystem };
+  endurance: {
+    distance: string;
+    avgHr: string;
+    energySystem: EnergySystem;
+    // Attached by GPX file import, never hand-edited. Present -> build() writes
+    // gpsPath/elevation onto the payload, tags the fileimport source, raises
+    // fidelity to the device-recorded level, and dates the session at the
+    // file's start time (occurredAt = when it happened, loggedAt = now).
+    gpsPath?: GeoPoint[];
+    elevationGainM?: number;
+    importMeta?: { format: 'gpx'; filename?: string; startTime?: string };
+  };
   climb: { style: ClimbStyle; sends: SendDraft[] };
   swim: {
     mode: SwimMode;
@@ -327,13 +339,22 @@ export function buildSessionObservation(
   } else if (surface === 'gps') {
     const distance = num(form.endurance.distance);
     const avgHr = num(form.endurance.avgHr);
+    const gpsPath = form.endurance.gpsPath;
+    const hasRoute = gpsPath != null && gpsPath.length >= 2;
     payload.endurance = {
       energySystem: form.endurance.energySystem,
       ...(distance !== null && distance > 0
         ? { distanceM: displayToMeters(distance, ctx.distanceUnit) }
         : {}),
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
+      ...(form.endurance.elevationGainM != null && form.endurance.elevationGainM > 0
+        ? { elevationGainM: Math.round(form.endurance.elevationGainM) }
+        : {}),
+      ...(hasRoute ? { gpsPath } : {}),
     };
+    // A device-recorded trace imported from a file is measured, not guessed:
+    // 0.9 — below a live watch import (~0.95, Phase 3), well above manual 0.5.
+    if (hasRoute && form.endurance.importMeta) fidelity = 0.9;
   } else if (surface === 'climbing') {
     payload.climbing = {
       style: form.climb.style,
@@ -357,15 +378,24 @@ export function buildSessionObservation(
   }
   // 'other' → duration + effort + notes only (no block).
 
+  // File-imported GPS sessions carry their provenance and happen when the file
+  // says they happened; everything else is a manual log dated now.
+  const imp =
+    surface === 'gps' && form.endurance.importMeta && payload.endurance?.gpsPath
+      ? form.endurance.importMeta
+      : null;
+
   return {
     id: ctx.id,
     kind: 'session',
-    occurredAt: ctx.now,
+    occurredAt: imp?.startTime ?? ctx.now,
     loggedAt: ctx.now,
     tz: ctx.tz,
     tier: 1,
     fidelity,
-    source: { type: 'manual' },
+    source: imp
+      ? { type: 'fileimport', format: imp.format, ...(imp.filename ? { filename: imp.filename } : {}) }
+      : { type: 'manual' },
     payload,
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
   };
@@ -463,6 +493,21 @@ export function sessionFormFromObservation(
           : '',
       avgHr: p.endurance.avgHr != null ? String(p.endurance.avgHr) : '',
       energySystem: p.endurance.energySystem,
+      ...(p.endurance.elevationGainM != null
+        ? { elevationGainM: p.endurance.elevationGainM }
+        : {}),
+      ...(p.endurance.gpsPath ? { gpsPath: p.endurance.gpsPath } : {}),
+      // Restore import provenance so an edit round-trips it (the edit path also
+      // preserves the original source/fidelity at save; this keeps build() honest).
+      ...(obs.source.type === 'fileimport'
+        ? {
+            importMeta: {
+              format: 'gpx' as const,
+              ...(obs.source.filename ? { filename: obs.source.filename } : {}),
+              startTime: obs.occurredAt,
+            },
+          }
+        : {}),
     };
   }
 
