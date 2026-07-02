@@ -23,6 +23,7 @@ import {
   type MacroRollup,
 } from '@/lib/foodLog';
 import { estimateMeal, describedToItems, ESTIMATOR_MODEL } from '@/lib/foodEstimate';
+import { estimateMealFromPhoto, photoToItems, VISION_MODEL } from '@/lib/foodVision';
 import type { MealTemplate } from '@core/observation';
 import { createObservation, getObservationById, updateObservation, getRecentFoodItems, type RecentFoodItem } from '@/storage/observations';
 import { createMealTemplate, deleteMealTemplate, listMealTemplates } from '@/storage/mealTemplates';
@@ -30,7 +31,7 @@ import { uuidv7 } from '@/lib/id';
 import { deviceTz } from '@/lib/date';
 import { USDA_API_KEY } from '@/lib/config';
 
-export type FoodLogMode = 'weigh' | 'describe' | 'scan';
+export type FoodLogMode = 'weigh' | 'describe' | 'scan' | 'photo';
 
 export interface FoodLogPreview {
   rollup: MacroRollup;
@@ -84,7 +85,12 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
         setOriginal(m);
         setItems(m.payload.items);
         setDescription(m.payload.description);
-        setMode(m.payload.inputMethod === 'described' ? 'describe' : 'weigh');
+        setMode(
+          m.payload.inputMethod === 'described' ? 'describe'
+          : m.payload.inputMethod === 'photo' ? 'photo'
+          : m.payload.inputMethod === 'barcode' ? 'scan'
+          : 'weigh'
+        );
         setTemplateId(m.payload.templateId ?? null);
         setOccurredAt(m.occurredAt);
       })
@@ -192,6 +198,29 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
     []
   );
 
+  /** Add foods from a photo. Claude segments the plate and estimates each food;
+   *  `imageBase64` is raw base64 (no data: prefix), `mediaType` e.g. 'image/jpeg'.
+   *  estimateMealFromPhoto returns [] on no key / offline / any failure, and
+   *  photoToItems then yields ONE blank keyless row the user fills in — so photo
+   *  logging degrades to manual entry rather than breaking. Returns the number of
+   *  rows added so the caller can advance its UI. */
+  const addPhoto = useCallback(
+    async (imageBase64: string, mediaType: string): Promise<number> => {
+      if (!imageBase64) return 0;
+      setBusy(true);
+      setError(null);
+      try {
+        const estimates = await estimateMealFromPhoto(imageBase64, mediaType);
+        const newItems = photoToItems(estimates);
+        setItems((xs) => [...xs, ...newItems]);
+        return newItems.length;
+      } finally {
+        setBusy(false);
+      }
+    },
+    []
+  );
+
   const removeItem = useCallback((index: number) => {
     setItems((xs) => xs.filter((_, i) => i !== index));
   }, []);
@@ -222,13 +251,17 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
 
   const logMeal = useCallback(async (): Promise<boolean> => {
     if (items.length === 0) return false;
+    const inputMethod = mode === 'weigh' ? 'weighed' : mode === 'scan' ? 'barcode' : mode === 'photo' ? 'photo' : 'described';
     const input: FoodLogInput = {
       description: description || 'Meal',
       items,
-      inputMethod: mode === 'weigh' ? 'weighed' : mode === 'scan' ? 'barcode' : 'described',
+      inputMethod,
       // Keyless items are LLM estimates — stamp the model so the meal's source
-      // reads { type: 'estimate', modelVersion } instead of a fake foodapi lineage.
-      ...(items.some((it) => it.foodId == null) ? { estimateModel: ESTIMATOR_MODEL } : {}),
+      // reads { type: 'estimate'/'photoestimate', modelVersion } instead of a fake
+      // foodapi lineage. Photo estimates carry the vision model, text the estimator.
+      ...(items.some((it) => it.foodId == null)
+        ? { estimateModel: mode === 'photo' ? VISION_MODEL : ESTIMATOR_MODEL }
+        : {}),
       ...(templateId ? { templateId } : {}),
     };
     if (isEdit && original) {
@@ -266,7 +299,7 @@ export function useFoodLog(editId?: string, defaultOccurredAt?: string) {
   return {
     mode, setMode,
     query, setQuery, candidates, recents, searching,
-    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, removeItem, updateItem,
+    items, description, setDescription, addRecent, addWeighed, addDescribed, addBarcode, addPhoto, removeItem, updateItem,
     selectedBasis, selectFood,
     savedMeals, loadSavedMeal, deleteSavedMeal,
     occurredAt, setOccurredAt,

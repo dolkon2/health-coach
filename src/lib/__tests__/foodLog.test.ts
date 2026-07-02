@@ -204,6 +204,21 @@ describe('buildMealLog — estimate provenance for keyless LLM items', () => {
     expect(obs.source).toEqual({ type: 'estimate', modelVersion: 'unknown' });
   });
 
+  it('a photo meal of keyless estimates reads as photoestimate — distinct from a text estimate', () => {
+    const obs = buildMealLog(
+      {
+        description: 'plate',
+        items: [estItem(), estItem()],
+        inputMethod: 'photo',
+        estimateModel: 'claude-haiku-4-5',
+      },
+      CTX
+    );
+    expect(obs.source).toEqual({ type: 'photoestimate', modelVersion: 'claude-haiku-4-5' });
+    expect(obs.source).not.toHaveProperty('provider');
+    expect(obs.payload.inputMethod).toBe('photo');
+  });
+
   it('a pure USDA meal is unaffected — still foodapi', () => {
     const obs = buildMealLog(
       { description: 'ribeye', items: [foodItem()], inputMethod: 'weighed' },

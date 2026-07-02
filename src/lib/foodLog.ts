@@ -209,11 +209,14 @@ export function canSaveFoodLog(input: FoodLogInput): boolean {
 /** Provenance for the meal Observation. Per-item provenance lives on items[];
  *  the envelope carries the representative first item's source. A meal holding
  *  any keyless (LLM-estimated) item can't claim a food-database lineage, so its
- *  provenance honestly reads `estimate` (food-logging-spec § direct estimation). */
-function mealSource(items: FoodItem[], estimateModel?: string): ObservationSource {
+ *  provenance honestly reads `estimate` — or `photoestimate` when the meal was
+ *  captured by photo, distinguishing a vision estimate from a text one
+ *  (food-logging-spec § direct estimation). */
+function mealSource(items: FoodItem[], inputMethod: InputMethod, estimateModel?: string): ObservationSource {
   const first = items[0];
   if (items.some((it) => it.foodId == null) || first?.sourceDb == null || first?.foodId == null) {
-    return { type: 'estimate', modelVersion: estimateModel ?? 'unknown' };
+    const type = inputMethod === 'photo' ? 'photoestimate' : 'estimate';
+    return { type, modelVersion: estimateModel ?? 'unknown' };
   }
   return { type: 'foodapi', provider: first.sourceDb, itemId: first.foodId };
 }
@@ -247,7 +250,7 @@ export function buildMealLog(input: FoodLogInput, ctx: FoodBuildContext): Observ
     tz: ctx.tz,
     tier: 1,
     fidelity: blendComposite(input.items), // composite — never displayed as a number
-    source: mealSource(input.items, input.estimateModel),
+    source: mealSource(input.items, input.inputMethod, input.estimateModel),
     payload,
   };
 }
