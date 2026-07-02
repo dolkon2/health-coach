@@ -13,6 +13,7 @@ export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './Fidelity
 export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
 export { StimulusLedger } from './StimulusLedger';
+export { BenchmarkRhythm } from './BenchmarkRhythm';
 export { SwipeToDelete } from './SwipeToDelete';
 export { WeekStrip } from './WeekStrip';
 export { DayNavHeader } from './DayNavHeader';
