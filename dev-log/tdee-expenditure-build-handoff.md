@@ -1,139 +1,167 @@
-# Handoff — Initial TDEE calculator + the expenditure/nutrition-benchmark foundation
+# Handoff — Build the whole expenditure + nutrition-benchmark system
 
-*Bootstrap for a fresh session (Fable) building on the `benchmarks` worktree
+*Bootstrap for a fresh hands-off session (Fable) on the `benchmarks` worktree
 (`~/Projects/health-coach-benchmarks`, branch `benchmarks`). Authored 2026-07-02
-from a strategy session with Dylan. Source-of-truth companions: the vault note
-"Outcome Depth — thinking notes" (Projects/Health Coach/), `planning/benchmarks-spec.md`
-v0.4, `planning/food-logging-spec.md`, `planning/correlation-engine-spec.md`.*
+from a strategy session with Dylan, who wants the ENTIRE system built while he
+sleeps. Every product decision below is pre-locked so you never have to guess —
+if you hit one that isn't, pick the honest default, leave a `⚑` in the dev-log,
+and keep going. Source-of-truth companions: vault note "Outcome Depth — thinking
+notes" (Projects/Health Coach/), `planning/benchmarks-spec.md` v0.4,
+`planning/food-logging-spec.md`, `planning/correlation-engine-spec.md`.*
 
 ---
 
-## The vision (what we're actually building toward)
+## The vision
 
-A **general TDEE estimator that is a better classic TDEE**: same familiar starting
-point, but the activity multiplier gets *measured*, not guessed, and **fidelity
-carries the uncertainty** so the number is never faked-precise. It graduates from a
-day-one prediction into a personal measurement.
+A **general TDEE estimator that is a better classic TDEE**: the familiar starting
+point, but the activity multiplier is *measured*, not guessed, and **fidelity carries
+the uncertainty** so the number is never faked-precise. It graduates from a day-one
+prediction into a personal measurement. On top of it sits a **nutrition benchmark
+family** — the goal layer for food, the same two-face (behavior/outcome) model the
+training benchmarks already use.
 
-The whole thing decomposes into **three separate levers** — keep them separate in
-the code, they are not one number:
+**Three separate levers — keep them separate in code, they are not one number:**
 
-1. **Range CENTER** ← intake + weight trend (the *measured* burn). MacroFactor's
-   residual method: "out" is solved for from what bodyweight actually did, never
-   predicted from motion.
-2. **Range WIDTH** ← fidelity (how sure we are). High fidelity → tight number; low
-   fidelity → wide band. **This already exists in the engine** as
-   `residualConfidence = logCompleteness × trendConfidence` (`core/src/expenditure.ts:153`).
+1. **Range CENTER** ← intake + weight trend (the *measured* burn; MacroFactor's residual).
+2. **Range WIDTH** ← fidelity. Already in the engine: `residualConfidence =
+   logCompleteness × trendConfidence` (`core/src/expenditure.ts:153`).
 3. **What training is worth** ← correlation of the measured center against logged
-   sessions, over time. Descriptive, backward-looking.
+   sessions. Descriptive, backward-looking. **NOTE-ONLY this session** (see below).
 
-### The one firewall that must never break (constitution / spine rule 1)
+### The firewall that must never break (spine rule 1)
 
-**The measured residual already CONTAINS the user's training burn.** Training data is
-what we *correlate the measured burn against* to learn what a session is worth — it is
-**never** fed forward to *predict* the burn. The instant we go "you did 4 sessions, so
-your TDEE = X," we have rebuilt the wearable's active-calorie guess — the exact
-dishonest thing this product exists to replace (see `correlation-engine-spec.md`,
-"Don't accidentally rebuild the wearable"). Prediction-from-activity is a **summoned-
-coach (Ring 3)** conversation only ("what levers can I pull on my expenditure?"),
-never a background mechanic. If you find yourself writing activity → expenditure, stop.
+The measured residual **already contains** the user's training burn. Training is
+*correlated against* the measured burn to learn what a session is worth — **never fed
+forward to predict it.** "You did 4 sessions, so TDEE = X" rebuilds the wearable's
+active-calorie guess, the exact thing this product replaces. Prediction-from-activity
+is a summoned-coach (Ring 3) conversation only. If you write activity → expenditure, stop.
 
 ---
 
-## Locked decisions (Dylan's calls + delegated defaults)
+## Locked decisions (do not re-litigate — build to these)
 
-- **Cold-start baseline is a labeled weak placeholder.** Day one there is no measured
-  data, so the number is a prediction from body metrics + activity, shown with a WIDE
-  range and explicitly marked the weak predicted kind. **Measured TDEE overwrites it**
-  the moment the weight trend clears the noise floor (`benchmarks-spec.md`, "TDEE
-  cold-start"). Never hide that the day-one number is the weak kind.
-- **BMR formula:** Mifflin–St Jeor as the floor (needs only height/weight/age/sex).
-  If bodyfat% is provided, upgrade to **Katch–McArdle** and narrow the band — give
-  more, get a sharper number (fidelity philosophy applied to the formula itself).
-- **Fidelity tiers (nutrition capture method), Dylan's revision:**
-  - **Tier 1** — incomplete log: a bare macro, e.g. "42g protein." Self-report, lowest.
-  - **Tier 2** — describe OR photo (description gets surprisingly accurate).
-  - **Tier 3** — weighed / scanned. Precise.
-- **Activity at cold-start — two routes (Dylan):**
-  - **Route 1 (ships now):** ask a simple "how active are you, typically?" — a
-    transparent placeholder, wide band, graduates away as measurement arrives.
-  - **Route 2 (future, noted):** "Do you have training plans?" → if so, they set them
-    and we *interpret* activity from the planned training. Depends on the Plan tab
-    (`phase-6-plan-tab-spec.md`), not built yet. Note it; do not build it this session.
-- **Range width:** wide population-formula error on the day-one predicted number
-  (~300–500 kcal, per the Cora note); the measured side narrows via
-  `residualConfidence`. Exact widths are tunable — flag them, don't agonize.
+- **Cold-start baseline = labeled weak placeholder.** Day one has no measured data, so
+  the number is predicted from body metrics + activity, shown with a WIDE range,
+  explicitly the weak kind. **Measured overwrites it** once the weight trend clears the
+  noise floor. Never hide that day-one is weak.
+- **BMR formula:** Mifflin–St Jeor floor (height/weight/age/sex). Bodyfat% given →
+  Katch–McArdle + narrower band (give more, get sharper).
+- **Fidelity tiers (nutrition capture method) — Dylan's revision:**
+  - **T1** — incomplete log: a bare macro, "42g protein." Lowest.
+  - **T2** — describe OR photo (description gets surprisingly accurate).
+  - **T3** — weighed / scanned. Precise.
+- **Activity at cold-start:** **Route 1 (build now)** — ask "how active are you,
+  typically?", a transparent placeholder, wide band, graduates away. **Route 2
+  (NOTE-ONLY)** — "do you have training plans?" → interpret activity from them; depends
+  on the unbuilt Plan tab.
+- **Fidelity benchmark firewall (resolves the food-spec tension):** a fidelity
+  benchmark targets the **capture-method distribution** (e.g. "80% of entries at T2+"),
+  a behavior the user controls. It must **NEVER** target the engine's derived
+  *earned-fidelity* score — making that a goal corrupts it (Goodhart). Two different
+  numbers; keep them apart.
+- **Macro targets = user-planned OR calculator-suggested.** The calculator may *offer* a
+  target (baseline TDEE + a rule like 0.8 g protein/lb, deficit for a weight goal), but
+  it lands as a benchmark the user **owns and edits** — prescription-on-request, never
+  imposed. Default the field to the suggestion; let them overwrite it.
+- **Nutrition benchmarks reuse the existing two-face model + entry flow** — extend
+  `src/lib/benchmarkForm.ts`, `app/edit-benchmark.tsx`, `app/benchmarks.tsx`, the Today
+  cards, and the Reflect rhythm/hero. Do NOT invent a parallel system.
+- **`days` measure type (the new primitive):** `{ type: 'days'; condition; target }` —
+  count of days in the window meeting a per-day condition, over week/month. Unifies with
+  the sports "outing days" idea. The condition references a daily dimension (protein ≥ X,
+  calories ≤ Y, or "day has a complete-enough log").
+- **Three-valued day (the honesty win):** for a day-predicate, a complete day is HIT or
+  MISSED; an incomplete-data day is **UNKNOWABLE** — rendered hazed (reuse the shipped
+  in-progress rhythm-bar treatment), never counted a miss, never breaks or extends a
+  revealed run. Averages compute over complete days only, with completeness shown
+  ("2,180 avg · 5 of 7 days logged"), never zero-padded (`null ≠ 0`).
+- **New `ResolvedDimension` members (additive union in `core/src/benchmark.ts`):**
+  `{ metric: 'calories' }`, `{ metric: 'macro'; macro: 'protein'|'carbs'|'fat'|'fiber' }`,
+  `{ metric: 'loggingConsistency' }`, `{ metric: 'loggingFidelity' }`, and
+  `{ metric: 'energyBalance' }` (measured intake − measured burn; the deficit outcome).
+  Migration if columns/format require it; the benchmark payload is JSON so likely not.
 
-## Future notes to RECORD (do not build this session)
+## NOTE-ONLY — record in the dev-log/backlog, do NOT build
 
-- **Step + sleep benchmarks** are coming — new behavior/outcome dimensions. The
-  `ResolvedDimension` union already reserves `{ metric: 'steps' }` and
-  `{ metric: 'sleepDuration' }` as commented additive rows in `core/src/benchmark.ts`.
-  Add a backlog note; do not wire.
-- **Nutrition benchmark family** (later pass, Dylan awake): cadence (log N days/wk),
-  fidelity (% at tier 2–3 — targets the *capture-method distribution*, NEVER the
-  engine's earned-fidelity score, which must stay un-goal-able / Goodhart), macro &
-  calorie targets (user-planned OR derived from the calculator), bodyweight outcome,
-  and eventually **deficit-vs-measured-expenditure** once the residual is wired + mature.
-
----
-
-## Build scope for THIS session (the initial TDEE calculator, end to end)
-
-Ship the cold-start calculator front to back. Two passes; stop and hand off after.
-
-### Pass 1 — Baseline TDEE engine (pure, `core/`, test-first)
-
-- New pure function, no I/O: `estimateBaselineTdee({ heightCm, age, sex, weightKg, bodyFatPct? })`
-  → `{ tdeeKcal, range: { low, high }, fidelity: 'LOW' }`.
-- Mifflin–St Jeor BMR × activity factor (Route-1 activity level passed in). Katch–McArdle
-  branch when `bodyFatPct` is present, with a narrower band.
-- Real unit tests: known-value BMR checks, the bodyfat-upgrade path, range widening,
-  a sanity band on a reference adult.
-
-### Pass 2 — Body-metrics capture + a surface
-
-- `useSettings` today holds only units ("real persisted settings come later" — that's
-  now). Add persisted body metrics (height, age/birth-year, sex, optional bodyfat) —
-  storage + a migration if a table/columns are needed; follow the existing migration
-  pattern (`src/storage/migrations/`).
-- A profile/settings entry to input them, and a surface that shows the baseline TDEE
-  **with its range and the "predicted — replaced by measurement" label**. Honest empty
-  state when metrics aren't set yet (never a fabricated number).
-
-**Then STOP.** Do NOT wire the measured residual, build fidelity chunking, or build the
-nutrition benchmarks unsupervised — those carry product-decision surface (the firewall,
-benchmark UI, the fidelity-goal spec fork) that Dylan wants to do awake. Leave a
-`dev-log/` handoff for Pass 3+ instead. Attempting Pass 3 (wiring `estimateExpenditure`
-to intake+weight) is allowed ONLY if 1+2 are fully clean and the path is obviously
-spine-safe; if in any doubt, stop and hand off.
+- **Training ↔ measured-burn correlation** ("your real multiplier is ~1.6"). Depends on
+  the correlation engine, its own spec. The measured TDEE ships without it.
+- **Step + sleep benchmarks.** The union reserves `{ metric: 'steps' }` /
+  `{ metric: 'sleepDuration' }` as commented rows. Note; don't wire.
+- **Plan-tab activity Route 2.** Noted above.
 
 ---
 
-## Guardrails (hard build constraints)
+## Build plan — the whole system, pass by pass, each verified before the next
 
-- **Engine-first, test-first.** Pure math in `core/`, tested, before any screen.
-- **Verify order:** jest → `expo export --platform ios` → **tsc LAST** (tsc after the
-  test files exist — jest strips types and will hide type errors otherwise).
-- **Single-concern commits**, a `dev-log/` note per pass, trailer
+Build A→F in order. Each is a single-concern commit (or a tight few) + a `dev-log/`
+note. Verify every pass (jest → export → tsc LAST) before moving on. Do not stop until
+F is green or you hit a genuine blocker you must flag.
+
+- **Pass A — Baseline TDEE engine (pure `core/`, test-first).**
+  `estimateBaselineTdee({ heightCm, age, sex, weightKg, bodyFatPct? }, activityLevel)`
+  → `{ tdeeKcal, range: {low, high}, fidelity: 'LOW' }`. Mifflin–St Jeor × activity
+  factor; Katch–McArdle branch on bodyfat. Real tests: known BMR values, bodyfat upgrade,
+  band widening, reference-adult sanity.
+
+- **Pass B — Body-metrics capture + baseline surface.** Persist height/age(or birth
+  year)/sex/optional bodyfat + activity level (real settings; `useSettings` holds only
+  units today). Migration as needed (follow `src/storage/migrations/`). A profile/settings
+  input + a surface showing baseline TDEE **with range + "predicted, replaced by
+  measurement" label**. Honest empty state before metrics are set.
+
+- **Pass C — Fidelity chunking.** Make capture method the legible unit (T1 incomplete /
+  T2 describe·photo / T3 weighed·scanned) in the food layer; a method→fidelity mapping
+  in `core/`; surface the method on entries. This is the substrate the fidelity benchmark
+  and the expenditure band both read.
+
+- **Pass D — Wire the measured residual.** A hook feeding live `estimateExpenditure`
+  intake (`dailyTotals`) + weight trend; measured TDEE with a `residualConfidence` band;
+  **measured overwrites the baseline** once the trend clears noise; honest "not enough
+  data yet" until then. (No training input — firewall.)
+
+- **Pass E — Day-predicate + nutrition-dimension math (pure `core/`, test-first).** The
+  `days` measure type; the new dimensions; the three-valued-day counting; energyBalance
+  from intake − measured burn (degrades to "not enough data" honestly). Heavy tests —
+  this is the logic core.
+
+- **Pass F — Nutrition benchmark entry + surfaces.** Extend the benchmark form/flow to
+  create nutrition benchmarks (cadence, fidelity, macro/calorie behavior; bodyweight +
+  energyBalance outcome), with the calculator-suggested-but-editable macro target. Today
+  cards + Reflect render them via the shipped components (three-valued rhythm for
+  day-predicates). Fidelity benchmark targets capture-method distribution only.
+
+**Then STOP** and write a `dev-log/` handoff for what's left (correlation, step/sleep,
+Route 2, any `⚑`s).
+
+---
+
+## Guardrails (hard)
+
+- **Engine-first, test-first.** Pure math in `core/`, tested, before screens.
+- **Verify order:** jest → `expo export --platform ios` → **tsc LAST**. Keep the FULL
+  suite green (currently 305 jest); never let a pass regress it.
+- **Single-concern commits**, `dev-log/` note per pass, trailer
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-- **Flag, don't reinterpret.** Where a decision isn't locked above, pick the honest
-  default, leave a `⚑` note in the dev-log, and keep moving — never silently resolve a
-  product question.
-- **Honesty spine:** predicted is labeled the weak kind; fidelity carries uncertainty
-  (never round to fake precision); `null ≠ 0` (a missing input is never a zero);
-  measured overwrites predicted.
-- **Secrets:** never commit `.env.local` or real keys; `app.json` holds no secrets.
-- **This is an isolated worktree** — do not `rm -rf node_modules` / `expo install --fix`;
-  if installing, `npm install --legacy-peer-deps`. Pick an unused Metro port.
+- **Flag, don't reinterpret.** Unlocked decision → honest default + `⚑` note, keep moving.
+- **Honesty spine:** predicted is labeled weak; fidelity carries uncertainty (no fake
+  precision); `null ≠ 0`; measured overwrites predicted.
+- **Secrets:** never commit `.env.local`/keys; `app.json` has none.
+- **Isolated worktree:** no `rm -rf node_modules` / `expo install --fix`; installs use
+  `npm install --legacy-peer-deps`; pick an unused Metro port.
+- **Optional self-verify (strong if the sim is up):** the iPhone 17 sim has sample data
+  seeded. You can seed more via python→sqlite3 in the app's row format, relaunch with
+  `xcrun simctl openurl <udid> "healthcoach://expo-development-client/?url=http%3A%2F%2Flocalhost%3A<port>"`,
+  deep-link (`healthcoach://reflect`), and screenshot with `xcrun simctl io <udid>
+  screenshot` — no taps needed. Terminate the app before writing the DB (WAL).
 
 ## Self-check before finishing (does it reach the vision?)
 
-1. Is the day-one number visibly the **weak predicted kind**, with a range — never a
-   bare confident figure?
-2. Did you keep the **three levers separate**, and did you avoid *anywhere* letting
-   training predict the burn (the firewall)?
-3. Does more input → sharper number (bodyfat → Katch–McArdle → tighter band)?
-4. jest green, export clean, **tsc 0 (run last)**; single-concern commits + dev-log.
-5. Did you RECORD (not build) the step/sleep benchmarks and the nutrition-benchmark
-   family for the next session?
+1. Day-one number reads as the **weak predicted kind** with a range — never a bare figure.
+2. **Three levers stayed separate**, and training **never** predicts burn (firewall held).
+3. More input → sharper number (bodyfat → Katch–McArdle → tighter band).
+4. Three-valued days render hit/missed/**unknowable**; runs unbroken by unknowable; no
+   zero-padding.
+5. Fidelity benchmark targets **capture-method distribution**, not earned-fidelity.
+6. Nutrition benchmarks reuse the shipped two-face flow + components (no parallel system).
+7. Full jest green, export clean, **tsc 0 (last)**; single-concern commits + dev-logs.
+8. Recorded (not built) the correlation, step/sleep, and Route 2 follow-ups.
