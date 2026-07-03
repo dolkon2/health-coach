@@ -16,6 +16,7 @@ export * from './baselineTdee';
 export * from './stimulus';
 export * from './nutrition/fidelity';
 export * from './nutrition/captureTier';
+export * from './nutrition/days';
 export * from './nutrition/adapter';
 export * from './nutrition/usda';
 export * from './nutrition/openfoodfacts';

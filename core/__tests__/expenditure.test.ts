@@ -7,7 +7,12 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import type { WeightTrendPoint } from '@core/trend';
-import { estimateExpenditure, KCAL_PER_KG, type DayIntake } from '@core/expenditure';
+import {
+  energyBalanceKcalPerDay,
+  estimateExpenditure,
+  KCAL_PER_KG,
+  type DayIntake,
+} from '@core/expenditure';
 
 const DAY_MS = 86_400_000;
 const START = Date.UTC(2026, 5, 1); // 2026-06-01
@@ -76,5 +81,21 @@ describe('per-window confidence (Item 2) + null is missing (Item 6)', () => {
     expect(w.meanIntakeKcal).toBe(2000);
     expect(w.meanIntakeKcal).not.toBe(Math.round((9 * 2000) / 14)); // not zero-filled (1286)
     expect(w.logCompleteness).toBeCloseTo(9 / 14, 2);
+  });
+});
+
+describe('energyBalanceKcalPerDay (Pass E — the deficit outcome)', () => {
+  it('is intake − measured burn: losing weight reads as a deficit', () => {
+    const w = estimateExpenditure(linearTrend(), intake(14, 2200)).windows[0];
+    const balance = energyBalanceKcalPerDay(w);
+    // ΔW = −0.5 kg over 13 days → −0.5·7700/13 ≈ −296 kcal/day.
+    expect(balance).not.toBeNull();
+    expect(balance!).toBeCloseTo((-0.5 * KCAL_PER_KG) / 13, 0);
+    expect(balance!).toBeLessThan(0);
+  });
+
+  it('degrades to null with the residual — not enough data is not a guess', () => {
+    const w = estimateExpenditure(linearTrend(), intake(14, null)).windows[0];
+    expect(energyBalanceKcalPerDay(w)).toBeNull();
   });
 });

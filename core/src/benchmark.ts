@@ -47,12 +47,41 @@ export type ResolvedDimension =
   // 'kayak' runs); bare `{ metric: 'sessionCount' }` counts ANY logged session.
   | { metric: 'sessionCount'; modality?: Modality; activity?: string }
   // The smoothed weighIn trend — the canonical outcome dimension.
-  | { metric: 'bodyweight' };
+  | { metric: 'bodyweight' }
+  // ─ Nutrition dimensions (expenditure build, Pass E) ─
+  // Daily calorie intake — behavior via a `days` measure (calories ≤/≥ X per day).
+  | { metric: 'calories' }
+  // A daily macro total — behavior via a `days` measure (protein ≥ X g per day).
+  | { metric: 'macro'; macro: MacroKind }
+  // "Day has a complete-enough log" — the logging-consistency behavior.
+  | { metric: 'loggingConsistency' }
+  // Capture-method distribution ("80% of entries at T2+") — a behavior the
+  // user controls. FIREWALL: this targets the CAPTURE tier only; it must
+  // never target the engine's derived earned-fidelity score (Goodhart).
+  | { metric: 'loggingFidelity' }
+  // Measured intake − measured burn (the deficit outcome). Reads the
+  // expenditure residual; honestly absent until measurement exists.
+  | { metric: 'energyBalance' };
 // Additive next (not wired yet):
 //   | { metric: 'distance'; modality?: Modality; activity?: string }   // behavior-magnitude OR outcome
 //   | { metric: 'exerciseLoad'; exercise: string }                     // strength outcome
-//   | { metric: 'steps' } | { metric: 'sleepDuration' }
+//   | { metric: 'steps' } | { metric: 'sleepDuration' }                // NOTE-ONLY (handoff): reserved, don't wire
 //   | { metric: 'subjective'; label: SubjectiveMetric } | { metric: 'climbGrade' }
+
+/** The four daily macro totals a nutrition benchmark can target. */
+export type MacroKind = 'protein' | 'carbs' | 'fat' | 'fiber';
+
+/**
+ * A per-day condition a `days` measure counts — the day-predicate. Each day
+ * resolves to HIT / MISSED / UNKNOWABLE (three-valued; an incomplete-data day
+ * is never counted a miss — core/nutrition/days.ts owns the math).
+ */
+export type DayCondition =
+  | { kind: 'calories'; op: 'atLeast' | 'atMost'; kcal: number }
+  | { kind: 'macro'; macro: MacroKind; op: 'atLeast' | 'atMost'; grams: number }
+  // The day has a complete-enough log. Deliberately two-valued: absence of
+  // logging IS the miss (you can't unknowably not-log), so no haze here.
+  | { kind: 'logged' };
 
 /**
  * Behavior — the face the user controls: a rhythm held per window (kayak
@@ -67,7 +96,13 @@ export type BehaviorFace = {
   window: 'week' | 'month';
   measure:
     | { type: 'count'; target: number } // events: 4 sessions          ← wired
-    | { type: 'magnitude'; target: number; unit: 'km' | 'mi' }; // sum: 100 km   ← type-ready, wired later
+    | { type: 'magnitude'; target: number; unit: 'km' | 'mi' } // sum: 100 km   ← type-ready, wired later
+    // Days in the window meeting a per-day condition (the new primitive —
+    // unifies with the sports "outing days" idea): "protein ≥ 150g on 5 days/wk".
+    | { type: 'days'; target: number; condition: DayCondition }
+    // Share of the window's entries at/above a capture tier: "80% at T2+".
+    // The fidelity benchmark's shape — capture-method distribution ONLY.
+    | { type: 'share'; targetPct: number; minTier: 'T2' | 'T3' };
 };
 
 /**

@@ -173,6 +173,18 @@ function bandFor(tdee: number, confidence: number): { low: number; high: number 
 }
 
 /**
+ * Measured energy balance for a window: mean intake − measured burn, kcal/day.
+ * Negative = deficit. This is the `energyBalance` outcome dimension's number
+ * (Pass E) — algebraically the weight-trend movement re-expressed in kcal/day,
+ * so it degrades exactly as honestly as the residual does: null whenever the
+ * window couldn't yield a measured TDEE ("not enough data", never a guess).
+ */
+export function energyBalanceKcalPerDay(w: ExpenditureWindow): number | null {
+  if (w.meanIntakeKcal == null || w.inferredTdeeKcal == null) return null;
+  return round0(w.meanIntakeKcal - w.inferredTdeeKcal);
+}
+
+/**
  * Phase 7 — earned fidelity (the integrity boundary, expressed in types now).
  *
  * It is the JOIN of a template's occurrences (a query over foodEntry logs, 2.4)

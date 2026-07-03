@@ -213,6 +213,22 @@ export function formFromBenchmark(b: Benchmark, weightUnit: WeightUnit): Benchma
   return form;
 }
 
+/** A short readable name for a non-session behavior dimension (nutrition family). */
+function behaviorDimensionLabel(d: ResolvedDimension): string {
+  switch (d.metric) {
+    case 'calories':
+      return 'Calories';
+    case 'macro':
+      return d.macro.charAt(0).toUpperCase() + d.macro.slice(1);
+    case 'loggingConsistency':
+      return 'Logging';
+    case 'loggingFidelity':
+      return 'Capture quality';
+    default:
+      return 'Sessions';
+  }
+}
+
 /** Compact second-position outcome fragment ("weight down to 75.0 kg"). */
 function outcomeFragment(o: OutcomeFace, weightUnit: WeightUnit): string {
   return o.target != null
@@ -227,9 +243,20 @@ export function summarizeBenchmark(b: Benchmark, weightUnit: WeightUnit): string
     ? (() => {
         const d = beh.dimension;
         const label =
-          d.metric === 'sessionCount' && d.activity ? activityLabel(d.activity) : 'Sessions';
+          d.metric === 'sessionCount'
+            ? d.activity
+              ? activityLabel(d.activity)
+              : 'Sessions'
+            : behaviorDimensionLabel(d);
         const m = beh.measure;
-        const amount = m.type === 'count' ? `${m.target}×` : `${m.target} ${m.unit}`;
+        const amount =
+          m.type === 'count'
+            ? `${m.target}×`
+            : m.type === 'magnitude'
+              ? `${m.target} ${m.unit}`
+              : m.type === 'days'
+                ? `${m.target} days`
+                : `${m.targetPct}% at ${m.minTier}+`;
         return `${label} · ${amount}/${WINDOW_LABEL[beh.window]}`;
       })()
     : null;
