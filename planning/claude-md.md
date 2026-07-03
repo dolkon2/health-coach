@@ -6,7 +6,7 @@ A personal health \+ training hub. One timeline for training, food, recovery, an
 
 This product is a **mirror, not a coach that leads.** Every feature is judged against these. If a proposed feature violates any of them, stop and flag it before building — don't quietly reinterpret it into something "safer."
 
-1. **Descriptive, not prescriptive.** Measure what actually happened. Never generate AI plans, targets, or recommended programs.  
+1. **Descriptive by default, prescriptive only on request.** Measure what actually happened. The app never *volunteers* a plan, target, or program — but when the user explicitly asks for one ("here are my goals, give me a plan"), the summoned coach answers fully and honestly (see § The summoned coach). Every unrequested surface stays purely descriptive.  
 2. **Outcome-measured, not predicted.** Derive things like TDEE from real weight trends, not forecasts. Show the user what their body did, not what a model guessed it would do.  
 3. **The AI reveals, not invents.** It surfaces what the data shows that the user couldn't easily see themselves. It never predicts the user's future, or tell them what to do. It assumes a competent user and earns its keep by surfacing things they couldn't easily see for themselves.  
 4. **The felt sense outranks the model.** When a wearable score conflicts with what you actually did, what you actually did wins. Tier-1 facts \> Tier-2 accumulated \> Tier-3 modeled. A "recovery score" may never gate, override, or contradict a logged session.  
@@ -19,7 +19,7 @@ Most products in this space assume the user doesn't know what to do, and sell **
 
 Before building any feature, check it against these:
 
-- Would a user see this and think "the app is telling me what to do"? → reject.  
+- Would a user see this and think "the app is telling me what to do" *without having asked*? → reject. (A summoned-coach answer to an explicit request is the one sanctioned exception — see § The summoned coach.)  
 - Does this use a population-level equation to generate a personal number? → reject.  
 - Does this reward the user with anything that doesn't already exist in the world? (e.g. a badge, a streak count, confetti) → reject.  
 - Does this fire without the user asking? Is the trigger "it's been a while" rather than "the data just said something"? → reject.  
@@ -33,6 +33,16 @@ Before building any feature, check it against these:
 - The user sees their own stats and what changed. The intelligence leaves no fingerprints.  
 - When AI speaks (plateau forensics, pattern detection), it surfaces suspects ranked by how much each moved, with uncertainty shown. It never delivers a verdict the data can't support.  
 - Detection thresholds use z-scores against the user's own personal baseline, not population constants. The threshold is visible and user-owned.
+
+## The summoned coach (Ring 3b) — the one sanctioned exception
+
+*Amended 2026-07-02.* This app is built for users who don't need prescriptive planning — but for those who ask, it's there. If someone says "give me a plan, here are my goals," give them the plan. The exception stays an exception through architecture, not labeling:
+
+- **Summoned only.** It exists when the user opens it and asks. It never initiates, never follows up unprompted, never appears because "it's been a while."  
+- **A separate room, not the mirror.** The coach lives in its own explicit mode. Ambient surfaces (Today, Reflect, the ledger) never show AI-authored programming.  
+- **Output is a draft.** A generated plan enters exactly like a PT-prescribed one: source-tagged, browsable, edited or discarded by the user, logged only when they actually do it. It never writes to the ledger on its own and never overrides a logged fact.  
+- **Grounded, not generic.** It reasons from the user's own data — restrictions, medications, history, benchmarks, forensics. Where the data can't support a claim, it says so.  
+- **Not medical advice.** Programming suggestions, never diagnosis or treatment.
 
 ## Evidence hierarchy (encoded in types)
 
