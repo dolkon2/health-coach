@@ -14,7 +14,7 @@
  * Firewall (spine rule 1): intake + weight trend are the ONLY inputs the
  * measured TDEE ever gets. Training sessions never enter this path.
  */
-import type { ObservationOf } from '@core/observation';
+import type { LocalDate, ObservationOf } from '@core/observation';
 import type { DayIntake } from '@core/expenditure';
 import { bucketByLocalDay } from '@core/timeline';
 
@@ -22,13 +22,20 @@ const round1 = (x: number): number => Math.round(x * 10) / 10;
 
 /** Per-local-day intake for the residual solver. A day appears only if it has
  *  entries; its kcal is the full-day sum, or null when any meal's kcal is
- *  unknown. Ascending by date. */
+ *  unknown. Ascending by date.
+ *
+ *  `todayDate`, when given, drops today and anything later: today is still
+ *  accumulating (a 600-kcal breakfast is not a 600-kcal day), and future-dated
+ *  entries are plans, not eating. Both would bias the residual TDEE low if
+ *  summed as final days — absent is the honest state until the day closes. */
 export function dailyIntakeFromEntries(
-  entries: ReadonlyArray<ObservationOf<'foodEntry'>>
+  entries: ReadonlyArray<ObservationOf<'foodEntry'>>,
+  todayDate?: LocalDate
 ): DayIntake[] {
   const byDay = bucketByLocalDay([...entries]);
   const out: DayIntake[] = [];
   for (const [date, obs] of byDay) {
+    if (todayDate != null && date >= todayDate) continue; // still accumulating / a plan
     let sum = 0;
     let unknowable = false;
     for (const o of obs as ObservationOf<'foodEntry'>[]) {

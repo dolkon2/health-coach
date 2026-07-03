@@ -83,4 +83,16 @@ describe('dailyIntakeFromEntries', () => {
   it('empty in, empty out', () => {
     expect(dailyIntakeFromEntries([])).toEqual([]);
   });
+
+  it('drops today and future-dated entries when todayDate is given — a half-eaten day is not a day', () => {
+    const days = dailyIntakeFromEntries(
+      [
+        mealObs('2026-06-01T12:00:00Z', 2000), // yesterday-ish: counts
+        mealObs('2026-06-02T08:00:00Z', 600), // today: still accumulating
+        mealObs('2026-06-03T12:00:00Z', 900), // tomorrow: a plan, not eating
+      ],
+      '2026-06-02'
+    );
+    expect(days).toEqual([{ date: '2026-06-01', kcal: 2000 }]);
+  });
 });

@@ -19,7 +19,7 @@ import type { WeightTrendPoint } from '@core/trend';
 import { estimateExpenditure, type ExpenditureReport, type ExpenditureWindow } from '@core/expenditure';
 import { listObservations } from '@/storage/observations';
 import { dailyIntakeFromEntries } from '@/lib/expenditureInputs';
-import { daysAgoUtc } from '@/lib/date';
+import { daysAgoUtc, todayLocalDate } from '@/lib/date';
 
 const INTAKE_WINDOW_DAYS = 90; // matches useWeightTrend's trend span
 
@@ -60,6 +60,11 @@ export function useExpenditure(trendPoints: WeightTrendPoint[]): Expenditure {
 
   useEffect(() => reload(), [reload]);
 
-  const report = estimateExpenditure(trendPoints, dailyIntakeFromEntries(entries));
+  // Today is excluded: a half-eaten day summed as final intake would bias
+  // the residual low (sim-verified 2026-07-03 — it did exactly that).
+  const report = estimateExpenditure(
+    trendPoints,
+    dailyIntakeFromEntries(entries, todayLocalDate())
+  );
   return { report, measured: report.latest, loading, error, reload };
 }

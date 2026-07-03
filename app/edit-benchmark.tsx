@@ -363,6 +363,21 @@ export default function EditBenchmarkScreen() {
 
   // ─── Step 2: fill the faces ────────────────────────────────────────────────
 
+  // Edit mode renders nothing until the benchmark hydrates — otherwise the
+  // unhydrated (null-dimension) form falls through to the bodyweight branch
+  // and flashes the wrong fields (found by the 2026-07-03 build review).
+  if (isEdit && !original) {
+    return (
+      <Screen>
+        {error ? (
+          <Text variant="bodySm" color={theme.colors.negative}>
+            {error}
+          </Text>
+        ) : null}
+      </Screen>
+    );
+  }
+
   const isActivityPath = form.dimension?.kind === 'activity';
   const isNutritionPath = form.dimension != null && isNutritionDimension(form.dimension);
   const headerLabel =
