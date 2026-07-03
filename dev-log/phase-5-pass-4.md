@@ -45,13 +45,15 @@ countable behavior face; trend points passed in from the screen's existing
 
 ## Decisions worth remembering (⚑ = flag for Dylan)
 
-- ⚑ **No-benchmark Reflect now puts the ledger first, weight trend below** —
+- ⚑→✅ **No-benchmark Reflect now puts the ledger first, weight trend below** —
   the spec is explicit ("Weight trend is not the default hero; the ledger
   is") but this reorders the screen as it existed since Phase 1. Easy to
-  revert if it reads wrong on device.
-- ⚑ **Reflect lenses = all active benchmarks, pinned or not.** Pin stays a
+  revert if it reads wrong on device. *(Blessed by Dylan 2026-07-02: keep
+  ledger-first.)*
+- ⚑→✅ **Reflect lenses = all active benchmarks, pinned or not.** Pin stays a
   Today-only control. If the lens row gets noisy, "pinned first" is the
-  obvious sort.
+  obvious sort. *(Blessed by Dylan 2026-07-02: keep all-active; "pinned
+  first" remains the agreed fix if noisy.)*
 - **Magnitude behavior faces render no rhythm** (null from the lib — a
   session count against a km target is the wrong number), and the hero slot
   is never rendered empty: a magnitude-behavior-only benchmark shows frame +
