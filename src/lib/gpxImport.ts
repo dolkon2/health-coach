@@ -18,6 +18,7 @@
  */
 import { XMLParser } from 'fast-xml-parser';
 import type { GeoPoint } from '@core/observation';
+import { elevationGainM, haversineM, thinTrack } from './geo';
 
 export type GpxImportResult = {
   name?: string; // <trk><name> or <metadata><name>
@@ -28,23 +29,6 @@ export type GpxImportResult = {
   durationMin?: number; // last valid <time> − first; absent if untimed
   startTime?: string; // ISO of the first timestamped point
 };
-
-/** Above this, the stored path is evenly thinned to ~half the cap. Stats are
- * computed first, on everything; only the stored geometry is thinned. Typical
- * recorded GPX (smart-recording watches, Slopes) is 1–4k points. */
-const MAX_STORED_POINTS = 4000;
-
-const EARTH_RADIUS_M = 6371000;
-
-function haversineM(a: GeoPoint, b: GeoPoint): number {
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLng = (b.lng - a.lng) * rad;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(s)));
-}
 
 type RawPt = Record<string, unknown>;
 
@@ -65,39 +49,6 @@ function parsePoint(pt: RawPt): GeoPoint | null {
     if (Number.isFinite(ms)) p.tsSec = Math.floor(ms / 1000);
   }
   return p;
-}
-
-/** Hysteresis elevation gain: only counts climbs once they clear the threshold,
- * so GPS elevation jitter doesn't inflate the number. */
-function elevationGain(points: GeoPoint[], thresholdM = 3): number | undefined {
-  let ref: number | null = null;
-  let gain = 0;
-  let sawEle = false;
-  for (const p of points) {
-    if (p.eleM == null) continue;
-    sawEle = true;
-    if (ref === null) {
-      ref = p.eleM;
-      continue;
-    }
-    const d = p.eleM - ref;
-    if (d >= thresholdM) {
-      gain += d;
-      ref = p.eleM;
-    } else if (d <= -thresholdM) {
-      ref = p.eleM;
-    }
-  }
-  return sawEle ? Math.round(gain) : undefined;
-}
-
-function thin(points: GeoPoint[]): GeoPoint[] {
-  if (points.length <= MAX_STORED_POINTS) return points;
-  const stride = Math.ceil(points.length / (MAX_STORED_POINTS / 2));
-  const out: GeoPoint[] = [];
-  for (let i = 0; i < points.length; i += stride) out.push(points[i]);
-  if (out[out.length - 1] !== points[points.length - 1]) out.push(points[points.length - 1]);
-  return out;
 }
 
 /**
@@ -172,11 +123,11 @@ export function parseGpx(xml: string): GpxImportResult {
       ? (endSec - startSec) / 60
       : undefined;
 
-  const gain = elevationGain(all);
+  const gain = elevationGainM(all);
 
   return {
     ...(name !== undefined ? { name } : {}),
-    points: thin(all),
+    points: thinTrack(all),
     pointCount: all.length,
     distanceM: Math.round(distanceM),
     ...(gain !== undefined ? { elevationGainM: gain } : {}),

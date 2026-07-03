@@ -51,6 +51,12 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Record your route while you log an outdoor session. Tracking runs only while you're recording, and your route stays on your device."
+        }
       ]
     ],
     "extra": {

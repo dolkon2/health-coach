@@ -90,6 +90,11 @@ export type SessionForm = {
     gpsPath?: GeoPoint[];
     elevationGainM?: number;
     importMeta?: { format: 'gpx'; filename?: string; startTime?: string };
+    // Attached by an in-app live GPS recording (lib/gpsTrack). Present -> build()
+    // writes the same gpsPath/elevation, keeps the source `manual` (a recording
+    // isn't a file), raises fidelity to the live-phone level (0.7), and dates the
+    // session at the recording's start (occurredAt = when it happened).
+    captureMeta?: { startTime: string };
   };
   climb: { style: ClimbStyle; sends: SendDraft[] };
   swim: {
@@ -355,6 +360,9 @@ export function buildSessionObservation(
     // A device-recorded trace imported from a file is measured, not guessed:
     // 0.9 — below a live watch import (~0.95, Phase 3), well above manual 0.5.
     if (hasRoute && form.endurance.importMeta) fidelity = 0.9;
+    // A live in-app phone recording sits between: measured, but phone GPS drifts
+    // and drops indoors, so 0.7 — above a manual guess (0.5), below a file import.
+    else if (hasRoute && form.endurance.captureMeta) fidelity = 0.7;
   } else if (surface === 'climbing') {
     payload.climbing = {
       style: form.climb.style,
@@ -379,16 +387,21 @@ export function buildSessionObservation(
   // 'other' → duration + effort + notes only (no block).
 
   // File-imported GPS sessions carry their provenance and happen when the file
-  // says they happened; everything else is a manual log dated now.
+  // says they happened; a live recording likewise happened when it started. Both
+  // date occurredAt to the route's start; everything else is a manual log dated now.
   const imp =
     surface === 'gps' && form.endurance.importMeta && payload.endurance?.gpsPath
       ? form.endurance.importMeta
+      : null;
+  const cap =
+    surface === 'gps' && form.endurance.captureMeta && payload.endurance?.gpsPath
+      ? form.endurance.captureMeta
       : null;
 
   return {
     id: ctx.id,
     kind: 'session',
-    occurredAt: imp?.startTime ?? ctx.now,
+    occurredAt: imp?.startTime ?? cap?.startTime ?? ctx.now,
     loggedAt: ctx.now,
     tz: ctx.tz,
     tier: 1,
@@ -507,6 +520,11 @@ export function sessionFormFromObservation(
               startTime: obs.occurredAt,
             },
           }
+        : {}),
+      // Restore capture provenance for a live-recorded route (manual source +
+      // geometry) so an edit keeps its 0.7 fidelity and start-dated occurredAt.
+      ...(obs.source.type === 'manual' && p.endurance.gpsPath
+        ? { captureMeta: { startTime: obs.occurredAt } }
         : {}),
     };
   }

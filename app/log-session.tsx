@@ -30,6 +30,7 @@ import {
   RemoveButton,
   Checkbox,
   RoutePreview,
+  GpsRecorderPanel,
 } from '@/components';
 import {
   ENERGY_SYSTEMS,
@@ -50,6 +51,7 @@ import {
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
 import { parseGpx } from '@/lib/gpxImport';
+import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
 import {
   emptySessionForm,
@@ -334,6 +336,33 @@ export default function LogSessionScreen() {
     }
   }
 
+  // ─── Live GPS capture (Layer 1 / rung 2: in-app phone tracking) ────────────
+  // The recorder hands back the same GeoPoint[] a GPX import does; we prefill the
+  // editable distance/duration and attach the geometry + capture provenance, so
+  // buildSessionObservation writes a manual-source session at live-phone fidelity
+  // (0.7), dated to the recording's start. Rebuilt (not spread) so a prior file
+  // import's provenance can't linger on a freshly recorded route.
+  function applyCapturedRoute(summary: TrackSummary) {
+    setForm((f) => ({
+      ...f,
+      durationMin:
+        summary.durationSec >= 60
+          ? String(Math.max(1, Math.round(summary.durationSec / 60)))
+          : f.durationMin,
+      endurance: {
+        distance:
+          summary.distanceM > 0
+            ? String(Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100)
+            : f.endurance.distance,
+        avgHr: f.endurance.avgHr,
+        energySystem: f.endurance.energySystem,
+        gpsPath: summary.points,
+        ...(summary.elevationGainM != null ? { elevationGainM: summary.elevationGainM } : {}),
+        captureMeta: { startTime: summary.startTime ?? new Date().toISOString() },
+      },
+    }));
+  }
+
   // ─── Save ──────────────────────────────────────────────────────────────────
 
   const validationError = validateSessionForm(form);
@@ -583,12 +612,15 @@ export default function LogSessionScreen() {
               </Text>
             </View>
           ) : (
-            <Button
-              label={importing ? 'Reading file…' : 'Import GPX file'}
-              variant="secondary"
-              onPress={importGpxFile}
-              disabled={importing}
-            />
+            <View style={{ gap: theme.spacing[3] }}>
+              <GpsRecorderPanel onCapture={applyCapturedRoute} />
+              <Button
+                label={importing ? 'Reading file…' : 'Import GPX file'}
+                variant="ghost"
+                onPress={importGpxFile}
+                disabled={importing}
+              />
+            </View>
           )}
         </Card>
       ) : null}

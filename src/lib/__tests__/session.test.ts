@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import { reveal, computeWeeklyStimulus } from '@core/stimulus';
+import type { GeoPoint } from '@core/observation';
 import {
   buildSessionObservation,
   emptySessionForm,
@@ -303,5 +304,56 @@ describe('Pass 6 — practice surface', () => {
     expect(inverted.activity).toBe('yoga');
     const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'pr2' });
     expect(rebuilt.payload.practice?.style).toBe('yin');
+  });
+});
+
+describe('Native GPS capture — live in-app recording (rung 2)', () => {
+  const gp = (over: Partial<GeoPoint>): GeoPoint => ({ lat: 0, lng: 0, tsSec: 0, ...over });
+
+  function recordedRun(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'run';
+    f.durationMin = '30';
+    f.endurance = {
+      distance: '',
+      avgHr: '',
+      energySystem: 'aerobic',
+      gpsPath: [gp({ lat: 0, lng: 0, tsSec: 1_000 }), gp({ lat: 0, lng: 1, tsSec: 1_600 })],
+      captureMeta: { startTime: '2026-06-26T16:30:00Z' },
+    };
+    return f;
+  }
+
+  it('is a tier-1 manual session at live-phone fidelity (0.7), dated to the recording start', () => {
+    const obs = buildSessionObservation(recordedRun(), CTX);
+    expect(obs.tier).toBe(1);
+    expect(obs.fidelity).toBe(0.7); // above a manual guess (0.5), below a file import (0.9)
+    expect(obs.source).toEqual({ type: 'manual' }); // a live recording isn't a file
+    expect(obs.occurredAt).toBe('2026-06-26T16:30:00Z'); // when it happened, not CTX.now
+    expect(obs.payload.endurance?.gpsPath).toHaveLength(2);
+  });
+
+  it('a manual GPS session with no recorded route stays a typed guess (0.5)', () => {
+    const f = emptySessionForm();
+    f.activity = 'run';
+    f.durationMin = '30';
+    f.endurance = { distance: '5', avgHr: '', energySystem: 'aerobic' };
+    expect(buildSessionObservation(f, CTX).fidelity).toBe(0.5);
+  });
+
+  it('round-trips the capture through invert → rebuild (fidelity + occurredAt preserved)', () => {
+    const obs = buildSessionObservation(recordedRun(), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.endurance.gpsPath).toHaveLength(2);
+    expect(inverted.endurance.captureMeta?.startTime).toBe('2026-06-26T16:30:00Z');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'gps2' });
+    expect(rebuilt.fidelity).toBe(0.7);
+    expect(rebuilt.source).toEqual({ type: 'manual' });
+    expect(rebuilt.occurredAt).toBe('2026-06-26T16:30:00Z');
   });
 });
