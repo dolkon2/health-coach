@@ -12,6 +12,7 @@ export * from './sessionTemplate';
 export * from './timeline';
 export * from './trend';
 export * from './expenditure';
+export * from './baselineTdee';
 export * from './stimulus';
 export * from './nutrition/fidelity';
 export * from './nutrition/adapter';
