@@ -52,7 +52,7 @@ Constitution guardrail that kept recurring: **conditions are context attached to
 - **Libraries (on-device, plain TS — fits `core/`):**
   - `igc-parser` (Turbo87) — **MIT.** Parses headers + B-records into `{ time, latitude, longitude, valid, pressureAltitude, gpsAltitude }`. https://github.com/Turbo87/igc-parser
   - `igc-xc-score` (mmomtchev) — **LGPL-v3.** Computes free distance + flat/FAI triangle using **XContest's own scoring rules** (also FFVL/FAI/XCLeague). Node + browser. Consumes igc-parser's output. https://github.com/mmomtchev/igc-xc-score
-- **License note:** `igc-xc-score` is LGPL-v3 — fine as an unmodified npm dependency; obligations attach only if forked/modified. Conscious-decision flag since the rest of `core/` is ours. *(User leaning OK with it.)*
+- **License note:** `igc-xc-score` is LGPL-v3 — fine as an unmodified npm dependency; obligations attach only if forked/modified. Conscious-decision flag since the rest of `core/` is ours. *(✅ Accepted 2026-07-02: use unmodified, never fork.)*
 - **Mapping:** IGC track → tier-1 Session; computed XC distance/triangle → tier-2 derived figure with confidence.
 
 ### Whitewater kayaking — strong open path
@@ -191,8 +191,8 @@ These are deliberately *not* resolved here — flagged so a future session picks
 
 1. ✅ **"Whole mapping structure" — RESOLVED (2026-06-30) by splitting the two readings:** the *literal maps* reading became its own spec (`gps-mapping-spec.md` — capture ladder, routes as first-class, map display, cohort map); the *source→Observation mapping* reading is this doc's adapter pattern, now exercised across eleven sports.
 2. ✅ **Garmin deep-dive — RESOLVED (2026-06-30): blocked.** Program suspended for new applicants + legal-entity requirement; logging ease already delivered by the OS floor; route handled by native GPS capture + Layer-2 file import. Full findings: `wearable-ingestion-spec.md` § Addendum.
-3. **`igc-xc-score` LGPL-v3 dependency** — confirm comfort (user leaning yes). Fine unmodified; matters only if forked.
-4. **Spot / saved-place concept — now four sports heavy.** Whitewater (gauge↔run), wing (spots with wind gauges), surf (breaks with buoy + tide station), ski (areas/zones with SNOTEL + avalanche zone) all want a lightweight user-owned "place" the conditions hang off. It's the one new primitive the outdoor integrations imply, and v0.2 doubled the demand. Recommend blessing it — see `outdoor-sports-master-plan.md` ⚑4.
+3. ✅ **`igc-xc-score` LGPL-v3 dependency — ACCEPTED (2026-07-02):** use as an unmodified npm dependency, never fork (obligations attach only if modified).
+4. ✅ **Spot / saved-place concept — BLESSED (2026-07-02).** Whitewater (gauge↔run), wing (spots with wind gauges), surf (breaks with buoy + tide station), ski (areas/zones with SNOTEL + avalanche zone) all hang conditions off it — the one new primitive the outdoor integrations imply. Blessed as a small user-owned entity (id + name + latlng + linked condition sources) — see `outdoor-sports-master-plan.md` ⚑4.
 5. ✅ **Extensibility list — RESOLVED (2026-07-01) by v0.2 of this doc** + `climbing-apps-research.md`: climbing, surfing, ski/snow, hiking/trail/rucking researched; OS-floor audit + sports-gap triage added. Remaining follow-ups now live in `backlog.md` and the master plan.
 6. **Climbing surface finalization** — the research is done; the surface decision (per-climb + optional per-attempt for indoor bouldering, revising `training-logging-spec.md` § Climbing) needs a blessing pass. See `climbing-apps-research.md` ⚑1.
 7. **Racket-sport match surface** — the one genuine new-surface pressure found by the gap audit. Deliberately deferred; practice-duration labels in the meantime.

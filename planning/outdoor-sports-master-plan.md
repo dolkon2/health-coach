@@ -42,16 +42,18 @@ The two views are complementary, not competing: layers answer "where does geomet
 
 ---
 
-## ⚑ Flagged for blessing (deliberately not resolved here)
+## ⚑ Flagged for blessing — RESOLVED 2026-07-02 (decision session with Dylan)
 
-Per the working rule — flag, don't reinterpret — these are queued for Dylan, in priority order:
+Per the working rule — flag, don't reinterpret — these were queued for Dylan and resolved in the 2026-07-02 decision session:
 
-1. **⚑ The native-GPS direction change itself.** `backlog.md` records it as "DIRECTION CHANGE, decision pending" and requires it be *blessed and written into* `training-logging-spec.md` § Outdoor / GPS before building. `gps-mapping-spec.md` is effectively that spec (rung 2 is first-class, pull-only, spine-checked) — but the ⚠ in `training-logging-spec.md` still stands and the section hasn't been rewritten. **Blessing = say yes, rewrite that section, drop the ⚠.** Everything GPS-shaped downstream sequences off this.
-2. **⚑ Stale Garmin wording inside `gps-mapping-spec.md`.** Its rung 1 and timeline table still say Garmin routes arrive via "the backend + Connect Activity API" / "Garmin route via FIT files (rides Ring 3/4 backend)" — written a minute before the Garmin addendum landed. The addendum's finding supersedes: the direct API is blocked, and FIT import is a *client-side manual* path (Layer 2), no backend. Small text fix, but it touches a contract-adjacent doc, so it rides along when ⚑1 is blessed rather than being edited silently.
-3. **⚑ `igc-xc-score` is LGPL-v3.** Fine as an unmodified npm dependency; obligations attach only if forked. User leaning yes — confirm and note it, or pick a different triangle-scorer later. (`outdoor-integrations.md`)
-4. **⚑ The "Spot / saved place" primitive.** Whitewater (gauge ↔ run mapping), wing (named spots with wind gauges), and now surf (named breaks with buoy + tide) and ski (named areas with SNOTEL/avalanche zone) all want a lightweight user-owned *place* that conditions hang off. Four sports asking is a pattern: this is the one new primitive the outdoor work implies. Recommend blessing it as a small entity (id + name + latlng + linked condition sources), same spirit as `Route`. (`outdoor-integrations.md` open Q4, now heavier)
-5. **⚑ `Route` entity vs `GpsTemplateShape` upgrade** — decide in the Phase 6 build plan (gps spec open Q2; likely a distinct `Route` entity referenced by templates and sessions).
-6. **⚑ In-app tracking placement** — Phase 3 fast-follow vs Phase 4 GPS-surface enrichment (gps spec open Q1; resolve when the Phase 3 map render lands).
+1. **✅ The native-GPS direction change — BLESSED.** `training-logging-spec.md` § Outdoor / GPS rewritten (⚠ dropped), `backlog.md` entry closed. Everything GPS-shaped downstream is unblocked.
+2. **✅ Stale Garmin wording in `gps-mapping-spec.md` — FIXED** (rode along with ⚑1 as planned): the division-of-labor note, rung 1, and the timeline table now say manual client-side FIT import (Layer 2), no backend.
+3. **✅ `igc-xc-score` LGPL-v3 — ACCEPTED** as an unmodified npm dependency; never fork it (obligations attach only if modified). Noted in `outdoor-integrations.md`.
+4. **✅ The "Spot / saved place" primitive — BLESSED** as a small user-owned entity (id + name + latlng + linked condition sources), same spirit as `Route`. (`outdoor-integrations.md` open Q4)
+5. **⏸ `Route` entity vs `GpsTemplateShape` upgrade — DEFERRED (confirmed)** to the Phase 6 build plan, where the trade-offs are concrete (gps spec open Q2; likely a distinct `Route` entity referenced by templates and sessions).
+6. **✅ In-app tracking placement — DECIDED: Phase 3 fast-follow.** Native capture ships as the fast-follow chunk right after Phase 3, not bundled into Phase 4 GPS-surface enrichment (gps spec open Q1).
+
+Still open, not part of this pass: climbing surface finalization + climbing import scope (`climbing-apps-research.md` ⚑1/⚑2) and the remaining rows of the open-questions index below.
 
 ---
 
@@ -86,7 +88,7 @@ Per the working rule — flag, don't reinterpret — these are queued for Dylan,
 | When | What | Why there |
 | :--- | :--- | :--- |
 | **Phase 3** (in build) | Layer 0 ingestion (HealthKit reader + Apple Watch routes) — unchanged; add the **sub-discipline tag** to the adapter design; fetch-and-freeze routes in-foreground (Health Connect consent lesson) | already specced; the research only sharpens it |
-| **Phase 3 fast-follow** | ⚑1 blessing → **native GPS capture** chunk (`gps-mapping-spec.md` rung 2) | unblocks the watchless route path; placement itself is ⚑6 |
+| **Phase 3 fast-follow** | **native GPS capture** chunk (`gps-mapping-spec.md` rung 2) — ⚑1 blessed + placement confirmed 2026-07-02 | unblocks the watchless route path |
 | **Small self-contained passes** (slot anywhere after Phase 3) | **FIT/GPX/TCX file import** (Layer 2 — one parser, covers Garmin/Slopes/Gaia/AllTrails exports); **climbing CSV importers** (MP, 8a.nu, BoardLib) + OpenBeta tagging; **conditions-freeze adapters** (buoy/tide, SNOTEL/avalanche, Overpass trail names, USGS gauges from v0.1) — each is a thin, independent adapter | the whole point of the pattern: none of these block anything, each lands alone |
 | **Phase 4** (templates) | **Climbing surface finalization** (⚑ in `climbing-apps-research.md`) — the research it was waiting on is done; hangboard assessments wire into benchmarks | the backlog already placed it here |
 | **Phase 6** (Plan tab) | **Routes as first-class** (`Route` entity, follow/compare, ⚑5) | resolves that spec's routes-as-sub-shape question |
@@ -100,12 +102,12 @@ Per the working rule — flag, don't reinterpret — these are queued for Dylan,
 
 | # | Question | Lives in | Blocks |
 | :-- | :--- | :--- | :--- |
-| 1 | Bless the native-GPS direction change + rewrite `training-logging-spec.md` § Outdoor/GPS | backlog / gps-mapping-spec | the native-capture build |
-| 2 | Fix stale Garmin wording in `gps-mapping-spec.md` (rung 1 + timeline) | this doc ⚑2 | nothing (rides with #1) |
-| 3 | `igc-xc-score` LGPL-v3 comfort | outdoor-integrations Q3 | paragliding scoring only |
-| 4 | Spot/place primitive (4 sports now want it) | outdoor-integrations Q4 | conditions-freeze adapters (partially) |
-| 5 | `Route` entity vs `GpsTemplateShape` upgrade | gps-mapping-spec Q2 | Phase 6 build plan |
-| 6 | In-app tracking placement (Phase 3 fast-follow vs Phase 4) | gps-mapping-spec Q1 | scheduling only |
+| 1 | ✅ RESOLVED 2026-07-02 — native-GPS direction change blessed; `training-logging-spec.md` § Outdoor/GPS rewritten | backlog / gps-mapping-spec | — (unblocked) |
+| 2 | ✅ RESOLVED 2026-07-02 — Garmin wording in `gps-mapping-spec.md` fixed (rung 1 + timeline) | this doc ⚑2 | — |
+| 3 | ✅ RESOLVED 2026-07-02 — `igc-xc-score` accepted, unmodified dependency only | outdoor-integrations Q3 | — |
+| 4 | ✅ RESOLVED 2026-07-02 — Spot/place primitive blessed | outdoor-integrations Q4 | — |
+| 5 | ⏸ Deferred (confirmed 2026-07-02) — `Route` entity vs `GpsTemplateShape`, decide in Phase 6 build plan | gps-mapping-spec Q2 | Phase 6 build plan |
+| 6 | ✅ RESOLVED 2026-07-02 — in-app tracking = Phase 3 fast-follow | gps-mapping-spec Q1 | — |
 | 7 | Climbing surface finalization (per-climb + per-attempt ladder vs current session-only stance) | climbing-apps-research ⚑1 | climbing logging build |
 | 8 | Climbing import scope for the first pass (MP + 8a.nu + BoardLib recommended) | climbing-apps-research ⚑2 | climbing import build |
 | 9 | Racket-sport match surface — build ever? | outdoor-integrations Q7 | nothing (deferred by design) |
