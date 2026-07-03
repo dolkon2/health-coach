@@ -33,6 +33,7 @@ import { addDays, todayLocalDate, weekOf } from '@/lib/date';
 import { useFoodEntriesByDay } from '@/hooks/useFoodEntriesByDay';
 import { useBodyProfile } from '@/hooks/useBodyProfile';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useExpenditure } from '@/hooks/useExpenditure';
 
 export default function NutritionScreen() {
   const theme = useTheme();
@@ -56,13 +57,15 @@ export default function NutritionScreen() {
   const { entriesByDay, daysWithFood, reload } = useFoodEntriesByDay(datesToFetch);
   const { profile, reload: reloadProfile } = useBodyProfile();
   const { points, reload: reloadTrend } = useWeightTrend();
+  const { measured, reload: reloadExpenditure } = useExpenditure(points);
 
   useFocusEffect(
     useCallback(() => {
       reload();
       reloadProfile();
       reloadTrend();
-    }, [reload, reloadProfile, reloadTrend])
+      reloadExpenditure();
+    }, [reload, reloadProfile, reloadTrend, reloadExpenditure])
   );
 
   const selectDay = useCallback((d: string) => {
@@ -158,6 +161,7 @@ export default function NutritionScreen() {
         <ExpenditureCard
           profile={profile}
           weightKg={points.length > 0 ? points[points.length - 1].trendKg : null}
+          measured={measured}
           onEditProfile={() => router.push('/body-profile')}
           onLogWeighIn={() => router.push('/log-weigh-in')}
         />
