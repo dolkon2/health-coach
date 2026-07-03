@@ -9,12 +9,14 @@
  */
 import { useState } from 'react';
 import { View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Button } from '@/components';
 import { useTheme } from '@/theme';
 import { seedSampleData, clearSampleData } from '@/lib/devSeed';
 
 export default function SettingsScreen() {
   const theme = useTheme();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -55,6 +57,19 @@ export default function SettingsScreen() {
           label={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
           variant="outline"
           onPress={theme.toggleScheme}
+        />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Body stats</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Height, birth year, and how active you typically are — behind the
+          predicted daily burn, until measurement takes over.
+        </Text>
+        <Button
+          label="Edit body stats"
+          variant="outline"
+          onPress={() => router.push('/body-profile')}
         />
       </Card>
 

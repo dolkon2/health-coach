@@ -11,6 +11,7 @@ import { migration005 } from './005_session_templates';
 import { migration006 } from './006_wearable_state';
 import { migration007 } from './007_benchmark_v03';
 import { migration008 } from './008_benchmark_faces';
+import { migration009 } from './009_settings';
 
 export type Migration = {
   version: number;
@@ -27,4 +28,5 @@ export const migrations: Migration[] = [
   migration006,
   migration007,
   migration008,
+  migration009,
 ];

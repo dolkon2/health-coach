@@ -83,6 +83,10 @@ function ThemedStack() {
         name="edit-benchmark"
         options={{ title: 'Benchmark', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="body-profile"
+        options={{ title: 'Body stats', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

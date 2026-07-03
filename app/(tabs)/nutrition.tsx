@@ -26,10 +26,13 @@ import {
   DayNavHeader,
   WeekStrip,
   DayMealList,
+  ExpenditureCard,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { addDays, todayLocalDate, weekOf } from '@/lib/date';
 import { useFoodEntriesByDay } from '@/hooks/useFoodEntriesByDay';
+import { useBodyProfile } from '@/hooks/useBodyProfile';
+import { useWeightTrend } from '@/hooks/useWeightTrend';
 
 export default function NutritionScreen() {
   const theme = useTheme();
@@ -51,11 +54,15 @@ export default function NutritionScreen() {
   }, [weekContaining, selectedDate]);
 
   const { entriesByDay, daysWithFood, reload } = useFoodEntriesByDay(datesToFetch);
+  const { profile, reload: reloadProfile } = useBodyProfile();
+  const { points, reload: reloadTrend } = useWeightTrend();
 
   useFocusEffect(
     useCallback(() => {
       reload();
-    }, [reload])
+      reloadProfile();
+      reloadTrend();
+    }, [reload, reloadProfile, reloadTrend])
   );
 
   const selectDay = useCallback((d: string) => {
@@ -143,6 +150,16 @@ export default function NutritionScreen() {
             )
           }
           style={{ marginTop: theme.spacing[3] }}
+        />
+      </View>
+
+      {/* Expenditure — the daily-burn estimate (baseline now; measured in Pass D). */}
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <ExpenditureCard
+          profile={profile}
+          weightKg={points.length > 0 ? points[points.length - 1].trendKg : null}
+          onEditProfile={() => router.push('/body-profile')}
+          onLogWeighIn={() => router.push('/log-weigh-in')}
         />
       </View>
 
