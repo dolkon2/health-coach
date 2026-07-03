@@ -18,6 +18,7 @@ import { useWearableSync } from '@/hooks/useWearableSync';
 import { useSettings } from '@/settings/useSettings';
 import { formatWeight, formatDelta } from '@/lib/units';
 import { dailyTotals, fidelityTreatment, mealDisplayName, type DailyMacroTotal } from '@/lib/foodLog';
+import { captureLabel } from '@core/nutrition/captureTier';
 import { deleteObservation } from '@/storage/observations';
 
 // A captured macro renders as a rounded integer; a genuinely unknown one as "—",
@@ -308,14 +309,22 @@ export default function TodayScreen() {
                           {localTimeLabel(o.occurredAt, o.tz)}
                         </Text>
                       </View>
-                      <Text
-                        variant="bodySm"
-                        color={theme.colors.textSecondary}
-                        style={{ opacity: treat.opacity }}
+                      <View
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
                       >
-                        {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
-                        {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
-                      </Text>
+                        <Text
+                          variant="bodySm"
+                          color={theme.colors.textSecondary}
+                          style={{ flex: 1, opacity: treat.opacity }}
+                        >
+                          {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
+                          {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
+                        </Text>
+                        {/* Capture method as the legible unit (T1/T2/T3). */}
+                        <Text variant="label" color={theme.colors.textMuted}>
+                          {captureLabel(o.payload)}
+                        </Text>
+                      </View>
                     </Card>
                   </Pressable>
                 </SwipeToDelete>

@@ -323,7 +323,9 @@ export function isKind<K extends ObservationKind>(
  * alcohol are optional, not required, so their absence does not make a log
  * partial. See food-logging-spec.md § Partial logs are a first-class honest state.
  */
-export function isPartial(meal: FoodEntryPayload): boolean {
+export function isPartial(
+  meal: Pick<FoodEntryPayload, 'kcal' | 'proteinG' | 'carbsG' | 'fatG'>
+): boolean {
   return (
     meal.kcal === null ||
     meal.proteinG === null ||

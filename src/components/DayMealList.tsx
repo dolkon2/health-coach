@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import type { ObservationOf } from '@core/observation';
 import { blendComposite } from '@core/nutrition/fidelity';
+import { captureLabel } from '@core/nutrition/captureTier';
 import { Card } from './Card';
 import { Text } from './Text';
 import { SwipeToDelete } from './SwipeToDelete';
@@ -254,14 +255,26 @@ export function DayMealList({
                               {localTimeLabel(o.occurredAt, o.tz)}
                             </Text>
                           </View>
-                          <Text
-                            variant="bodySm"
-                            color={theme.colors.textSecondary}
-                            style={{ opacity: treat.opacity }}
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: theme.spacing[2],
+                            }}
                           >
-                            {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
-                            {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
-                          </Text>
+                            <Text
+                              variant="bodySm"
+                              color={theme.colors.textSecondary}
+                              style={{ flex: 1, opacity: treat.opacity }}
+                            >
+                              {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
+                              {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
+                            </Text>
+                            {/* Capture method as the legible unit (T1/T2/T3). */}
+                            <Text variant="label" color={theme.colors.textMuted}>
+                              {captureLabel(o.payload)}
+                            </Text>
+                          </View>
                         </Pressable>
 
                         {expandable ? (
