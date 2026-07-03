@@ -2,7 +2,7 @@
 
 *Companion to `wearable-ingestion-spec.md`, `training-logging-spec.md`, `cohorts-spec.md`, and `CLAUDE.md`.*
 
-*Division of labor: `wearable-ingestion-spec.md` owns **import** — pulling GPS routes off a device (Apple Watch `HKWorkoutRoute` in Phase 3, Garmin FIT files via the backend later, Strava rejected). This doc owns the pieces that spec does not: **capturing a route without a wearable**, **routes as first-class navigable/comparable objects**, the **map display layer**, and the path into **cohorts**. Where the two overlap (the `route` field on a Session, the map render), `wearable-ingestion-spec.md` is the authority and this doc points at it rather than restating it.*
+*Division of labor: `wearable-ingestion-spec.md` owns **import** — pulling GPS routes off a device (Apple Watch `HKWorkoutRoute` in Phase 3, Garmin FIT files via manual client-side import later — Layer 2, no backend — Strava rejected). This doc owns the pieces that spec does not: **capturing a route without a wearable**, **routes as first-class navigable/comparable objects**, the **map display layer**, and the path into **cohorts**. Where the two overlap (the `route` field on a Session, the map render), `wearable-ingestion-spec.md` is the authority and this doc points at it rather than restating it.*
 
 ---
 
@@ -22,7 +22,7 @@ Fidelity earns its keep in food, where intake feeds the TDEE residual and loggin
 
 Best to floor. Every rung produces a map except the last, and the wearable buys **fidelity, not access** — nobody is locked out of seeing their loop.
 
-1. **Watch import** *(owned by `wearable-ingestion-spec.md`)*. Apple Watch routes arrive through HealthKit in Phase 3; Garmin routes attach when the backend + Connect Activity API land. The richest path: full trace, per-second HR, splits. If the user has a watch, **prefer this and do not re-record** — burning phone battery to duplicate what the watch already captured is the spine violation, and the dedup logic for it is already specced.
+1. **Watch import** *(owned by `wearable-ingestion-spec.md`)*. Apple Watch routes arrive through HealthKit in Phase 3; Garmin routes arrive via manual FIT-file import (Layer 2, client-side — the direct Connect API is blocked; see `wearable-ingestion-spec.md` § Addendum). The richest path: full trace, per-second HR, splits. If the user has a watch, **prefer this and do not re-record** — burning phone battery to duplicate what the watch already captured is the spine violation, and the dedup logic for it is already specced.
 
 2. **In-app phone tracking** *(new — this doc)*. For the user with **no wearable**, the phone is the only GPS device there is, so recording with it is not a spine violation — the work is genuinely needed, not duplicated. This is a first-class capture surface, **not** a reluctant fallback: it is the *primary* path for the (large) watchless audience, and it's table stakes (every running app has it). It produces the same `route` coordinate array and the same Session shape as an import, `source: { type: 'manual' }`. It is **pull-only**: the user starts and stops it; it never runs in the background, and it never pushes anything mid-run (see § The line, below).
 
@@ -119,7 +119,7 @@ GPS is not a single phase — it's a capability that ladders across the existing
 | Piece | Lands in | Status |
 | :--- | :--- | :--- |
 | Route **import** + display (Apple Watch via `HKWorkoutRoute`) | Phase 3 / Ring 2.5 | specced (`wearable-ingestion-spec.md`), in build (Pass 3–4) |
-| Garmin route via FIT files | "Phase backend" (rides Ring 3/4 backend) | specced, backend-gated |
+| Garmin route via FIT files | Small self-contained pass (Layer 2 — client-side manual import, no backend) | specced |
 | **In-app phone tracking** (watchless capture) | New chunk **just after Phase 3** — reuses the Phase 3 Pass 4 map-render; emits the same `route`-bearing Session | this doc |
 | **Routes as first-class** (save / follow / navigate / compare) | **Phase 6 / Plan tab** — resolves its open "routes-as-sub-shape" question; reuses planned-vs-actual machinery | this doc |
 | **Map display polish** (elevation, splits, thumbnails) | Incremental: starts Phase 3 (Apple Watch render), deepens with in-app tracking | this doc |
