@@ -13,6 +13,7 @@ import { todayLocalLabel, yearLabel, localTimeLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useBenchmarkStatuses } from '@/hooks/useBenchmarkStatuses';
+import { useExpenditure } from '@/hooks/useExpenditure';
 import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
 import { useWearableSync } from '@/hooks/useWearableSync';
 import { useSettings } from '@/settings/useSettings';
@@ -55,10 +56,13 @@ export default function TodayScreen() {
   const contributions = useTodayStimulusContributions(sessionsToday);
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
   const wearable = useWearableSync(reloadToday);
+  // The measured expenditure window feeds any energy-balance outcome face —
+  // the same residual the Nutrition tab's burn card shows.
+  const { measured, reload: reloadExpenditure } = useExpenditure(trendPoints);
   // Pinned benchmarks read the same smoothed points the trend chart uses —
   // one weigh-in query serves both the weigh-in card and the outcome faces.
   const { entries: benchmarkEntries, reload: reloadBenchmarks } =
-    useBenchmarkStatuses(trendPoints);
+    useBenchmarkStatuses(trendPoints, measured);
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   // Also polls HealthKit (throttled, no-op until the user has connected).
@@ -71,8 +75,9 @@ export default function TodayScreen() {
       reloadToday();
       reloadTrend();
       reloadBenchmarks();
+      reloadExpenditure();
       wearable.syncNow();
-    }, [reloadToday, reloadTrend, reloadBenchmarks, wearable.syncNow])
+    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, wearable.syncNow])
   );
 
   const removeAndReload = useCallback(

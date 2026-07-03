@@ -21,8 +21,14 @@
  * No React, no storage.
  */
 import type { Benchmark, BehaviorFace } from '@core/benchmark';
-import type { ObservationOf } from '@core/observation';
-import { currentWindowRange, sessionMatchesDimension, type WindowRange } from './benchmarkStatus';
+import type { LocalDate, ObservationOf } from '@core/observation';
+import { captureTierShare, evaluateDaysWindow } from '@core/nutrition/days';
+import {
+  currentWindowRange,
+  nutritionDaysInRange,
+  sessionMatchesDimension,
+  type WindowRange,
+} from './benchmarkStatus';
 
 /** Which face keys the Reflect hero. Outcome wins when both exist. */
 export function heroFaceOf(b: Benchmark): 'outcome' | 'behavior' {
@@ -70,13 +76,19 @@ export type WindowCount = {
   toIso: string;
   count: number;
   target: number;
-  /** False for the current, still-open window. */
+  /** False when the window has no revealed verdict yet — the still-open
+   *  current window, or (for day-predicates) a window whose unknowable days
+   *  left it undecidable. Rendered hazed either way; never counted a miss. */
   complete: boolean;
+  /** True only for the still-open current window (drives the "now" label).
+   *  Optional for older callers; absent ⇒ derived from `complete`. */
+  current?: boolean;
 };
 
 /**
  * Factual per-window counts for the rhythm view. Null for a magnitude measure
- * (a session count against a km target would be the wrong number).
+ * (a session count against a km target would be the wrong number) and for the
+ * nutrition measures (nutritionWindowCounts reads food entries instead).
  */
 export function behaviorWindowCounts(
   face: BehaviorFace,
@@ -92,7 +104,53 @@ export function behaviorWindowCounts(
     count: matching.filter((s) => s.occurredAt >= r.fromIso && s.occurredAt < r.toIso).length,
     target,
     complete: r.toIso <= nowIso,
+    current: r.toIso > nowIso,
   }));
+}
+
+/**
+ * Per-window rhythm for the nutrition measures, three-valued at the window
+ * grain (expenditure build, Pass F):
+ *   - days predicate → count = days HIT; `complete` is true only when the
+ *     window's verdict is revealed (hit or missed) — an elapsed window whose
+ *     unknowable days left it undecidable renders hazed, exactly like the
+ *     in-progress one, and `consecutiveAtTarget` then skips it, so the
+ *     revealed run is never broken (or extended) by unknowable data.
+ *   - share → count = the window's % of entries at/above the tier against a
+ *     target of targetPct; windows with no entries stay hazed at zero.
+ * Null for measures this function doesn't own.
+ */
+export function nutritionWindowCounts(
+  face: BehaviorFace,
+  entries: ObservationOf<'foodEntry'>[],
+  nowIso: string,
+  n: number,
+  todayDate: LocalDate
+): WindowCount[] | null {
+  if (face.measure.type !== 'days' && face.measure.type !== 'share') return null;
+  const measure = face.measure;
+  return pastWindowRanges(face.window, nowIso, n).map((r) => {
+    const current = r.toIso > nowIso;
+    const { days, totalDays } = nutritionDaysInRange(entries, r, todayDate);
+    if (measure.type === 'days') {
+      const res = evaluateDaysWindow(days, measure.condition, measure.target, { totalDays });
+      return {
+        ...r,
+        count: res.hits,
+        target: measure.target,
+        complete: res.verdict !== 'unknowable',
+        current,
+      };
+    }
+    const share = captureTierShare(days, measure.minTier);
+    return {
+      ...r,
+      count: share?.pct ?? 0,
+      target: measure.targetPct,
+      complete: !current && share != null,
+      current,
+    };
+  });
 }
 
 /**

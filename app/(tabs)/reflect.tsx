@@ -31,6 +31,7 @@ import { useTheme } from '@/theme';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useWeeklyStimulus } from '@/hooks/useWeeklyStimulus';
 import { useBenchmarkReflect } from '@/hooks/useBenchmarkReflect';
+import { useExpenditure } from '@/hooks/useExpenditure';
 import { useSettings } from '@/settings/useSettings';
 import { outcomeLine } from '@/lib/benchmarkStatus';
 
@@ -40,8 +41,11 @@ export default function ReflectScreen() {
   const { weightUnit } = useSettings();
   const { points, raw, reload: reloadTrend } = useWeightTrend();
   const { weeks, sessionsById, reload: reloadStimulus } = useWeeklyStimulus();
+  // The measured expenditure window feeds an energy-balance outcome lens —
+  // the same residual the Nutrition tab's burn card shows.
+  const { measured, reload: reloadExpenditure } = useExpenditure(points);
   const { benchmarks, lens, lensId, setLensId, reload: reloadBenchmarks } =
-    useBenchmarkReflect(points);
+    useBenchmarkReflect(points, measured);
 
   // Re-fetch on focus — e.g. after logging from Today (mirrors Today's pattern).
   useFocusEffect(
@@ -49,10 +53,15 @@ export default function ReflectScreen() {
       reloadTrend();
       reloadStimulus();
       reloadBenchmarks();
-    }, [reloadTrend, reloadStimulus, reloadBenchmarks])
+      reloadExpenditure();
+    }, [reloadTrend, reloadStimulus, reloadBenchmarks, reloadExpenditure])
   );
 
-  const weightIsHero = lens?.hero === 'outcome';
+  const outcomeMetric = lens?.benchmark.outcome?.dimension.metric;
+  const weightIsHero = lens?.hero === 'outcome' && outcomeMetric === 'bodyweight';
+  // An energy-balance outcome keys a numeric hero (no chart exists for it):
+  // the measured balance, or the honest not-enough-data line.
+  const balanceIsHero = lens?.hero === 'outcome' && outcomeMetric === 'energyBalance';
   const rhythm =
     lens?.windowCounts && lens.benchmark.behavior ? (
       <BenchmarkRhythm
@@ -127,6 +136,31 @@ export default function ReflectScreen() {
                   against the movement it was meant to produce. */}
               {rhythm ? <View style={{ marginTop: theme.spacing[6] }}>{rhythm}</View> : null}
             </>
+          ) : balanceIsHero ? (
+            <>
+              {/* Energy balance: measured intake − measured burn. Reads as a
+                  plain number with its provenance, or the honest absence. */}
+              <View style={{ marginTop: theme.spacing[6], gap: theme.spacing[2] }}>
+                <Text variant="label">Energy balance</Text>
+                <Text
+                  variant={lens.outcome?.kind === 'balance' ? 'dataLg' : 'body'}
+                  color={
+                    lens.outcome?.kind === 'balance'
+                      ? theme.colors.text
+                      : theme.colors.textMuted
+                  }
+                >
+                  {lens.outcome ? outcomeLine(lens.outcome, weightUnit) : ''}
+                </Text>
+                {lens.outcome?.kind !== 'balance' ? (
+                  <Text variant="bodySm" color={theme.colors.textMuted}>
+                    Measured from your logged food and weigh-in trend once both
+                    can carry it — never predicted.
+                  </Text>
+                ) : null}
+              </View>
+              {rhythm ? <View style={{ marginTop: theme.spacing[6] }}>{rhythm}</View> : null}
+            </>
           ) : rhythm ? (
             <View style={{ marginTop: theme.spacing[6] }}>{rhythm}</View>
           ) : null}
@@ -149,15 +183,6 @@ export default function ReflectScreen() {
           <View style={{ marginTop: theme.spacing[8] }}>{weightChart}</View>
         </>
       )}
-
-      {/* No fabricated expenditure — honest about what's missing (Phase 2). */}
-      <Text
-        variant="dataSm"
-        color={theme.colors.textMuted}
-        style={{ marginTop: theme.spacing[8] }}
-      >
-        Expenditure available once food logging is in (Phase 2).
-      </Text>
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>

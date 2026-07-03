@@ -95,7 +95,7 @@ export function BenchmarkRhythm({ counts, run, window }: BenchmarkRhythmProps) {
                   fill={theme.colors.textMuted}
                   textAnchor="middle"
                 >
-                  {c.complete ? shortDate(c.fromIso) : 'now'}
+                  {(c.current ?? !c.complete) ? 'now' : shortDate(c.fromIso)}
                 </SvgText>
               </React.Fragment>
             );

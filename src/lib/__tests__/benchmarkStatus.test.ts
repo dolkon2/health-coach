@@ -78,7 +78,8 @@ describe('currentWindowRange', () => {
     // Real occurredAt values carry milliseconds; a bare 'T00:00:00Z' boundary
     // would sort AFTER '00:00:00.500Z' and push this session a week back.
     const s = session('2026-06-29T00:00:00.500Z', { activity: 'kayak' });
-    expect(behaviorStatus(kayakFace, [s], NOW)!.count).toBe(1);
+    const status = behaviorStatus(kayakFace, [s], NOW)!;
+    expect(status.kind === 'count' && status.count).toBe(1);
   });
 });
 
@@ -131,11 +132,12 @@ describe('behaviorStatus', () => {
       session('2026-06-30T11:00:00Z', { modality: 'paddle' }), // legacy fallback — in
     ];
     const s = behaviorStatus(kayakFace, sessions, NOW);
-    expect(s).toEqual({ count: 3, target: 4, windowLabel: 'this week' });
+    expect(s).toEqual({ kind: 'count', count: 3, target: 4, windowLabel: 'this week' });
   });
 
   it('shows an honest zero when nothing qualifies yet', () => {
     expect(behaviorStatus(kayakFace, [], NOW)).toEqual({
+      kind: 'count',
       count: 0,
       target: 4,
       windowLabel: 'this week',
@@ -149,6 +151,7 @@ describe('behaviorStatus', () => {
       session('2026-06-30T08:00:00Z', { activity: 'kayak' }), // June — out
     ];
     expect(behaviorStatus(face, sessions, NOW)).toEqual({
+      kind: 'count',
       count: 1,
       target: 4,
       windowLabel: 'this month',
@@ -172,7 +175,7 @@ describe('outcomeStatus', () => {
   };
 
   it('is honest about having no data', () => {
-    expect(outcomeStatus(face, [])).toEqual({ kind: 'noData' });
+    expect(outcomeStatus(face, [])).toEqual({ kind: 'noData', what: 'weight' });
   });
 
   it('reports the latest trend, recent movement, and signed distance to target', () => {
@@ -210,12 +213,12 @@ describe('outcomeStatus', () => {
 
 describe('card lines', () => {
   it('renders the behavior count plainly — no streak, no celebration', () => {
-    expect(behaviorLine({ count: 2, target: 4, windowLabel: 'this week' })).toBe(
+    expect(behaviorLine({ kind: 'count', count: 2, target: 4, windowLabel: 'this week' })).toBe(
       '2/4 this week'
     );
-    expect(behaviorLine({ count: 0, target: 12, windowLabel: 'this month' })).toBe(
-      '0/12 this month'
-    );
+    expect(
+      behaviorLine({ kind: 'count', count: 0, target: 12, windowLabel: 'this month' })
+    ).toBe('0/12 this month');
   });
 
   it('renders observed movement with the weigh-in card grammar, kg and lb', () => {

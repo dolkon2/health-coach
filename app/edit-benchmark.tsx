@@ -25,6 +25,10 @@ import {
   Snowflake,
   Flower2,
   Scale,
+  Flame,
+  Drumstick,
+  ClipboardCheck,
+  ScanLine,
   Activity as ActivityIcon,
 } from 'lucide-react-native';
 import { Screen, Text, Button, Card, Field, ChipSelect, type ChipOption } from '@/components';
@@ -36,14 +40,29 @@ import {
   validateBenchmarkForm,
   formFromBenchmark,
   defaultTitle,
+  isNutritionDimension,
+  type BenchmarkDimension,
   type BenchmarkForm,
   type BenchmarkWindow,
+  type FidelityMinTier,
+  type IntakeOp,
+  type OutcomePairDim,
   type TrendDirection,
 } from '@/lib/benchmarkForm';
+import {
+  suggestCalorieCeiling,
+  suggestProteinGrams,
+  SUGGESTED_DEFICIT_KCAL,
+} from '@/lib/benchmarkSuggest';
+import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useBodyProfile } from '@/hooks/useBodyProfile';
+import { useExpenditure } from '@/hooks/useExpenditure';
+import { metricsFrom } from '@/lib/bodyProfile';
+import { estimateBaselineTdee } from '@core/baselineTdee';
 import { createBenchmark, getBenchmarkById, updateBenchmark } from '@/storage/benchmarks';
 import { headlineActivities, moreActivities, activityById, type Activity } from '@/lib/activity';
 import { uuidv7 } from '@/lib/id';
-import type { Benchmark } from '@core/benchmark';
+import type { Benchmark, MacroKind } from '@core/benchmark';
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -68,6 +87,41 @@ const DIRECTIONS: ChipOption<TrendDirection>[] = [
   { value: 'up', label: 'Gain' },
 ];
 
+const INTAKE_OPS_CEILING_FIRST: ChipOption<IntakeOp>[] = [
+  { value: 'atMost', label: 'Stay under' },
+  { value: 'atLeast', label: 'At least' },
+];
+const INTAKE_OPS_FLOOR_FIRST: ChipOption<IntakeOp>[] = [
+  { value: 'atLeast', label: 'At least' },
+  { value: 'atMost', label: 'Stay under' },
+];
+const MACROS: ChipOption<MacroKind>[] = [
+  { value: 'protein', label: 'Protein' },
+  { value: 'carbs', label: 'Carbs' },
+  { value: 'fat', label: 'Fat' },
+  { value: 'fiber', label: 'Fiber' },
+];
+const MIN_TIERS: ChipOption<FidelityMinTier>[] = [
+  { value: 'T2', label: 'T2 or better' },
+  { value: 'T3', label: 'T3 only' },
+];
+const OUTCOME_PAIR_DIMS: ChipOption<OutcomePairDim>[] = [
+  { value: 'bodyweight', label: 'Bodyweight' },
+  { value: 'energyBalance', label: 'Energy balance' },
+];
+const BALANCE_DIRECTIONS: ChipOption<TrendDirection>[] = [
+  { value: 'down', label: 'Deficit' },
+  { value: 'up', label: 'Surplus' },
+];
+
+/** Step-2 header for the nutrition paths. */
+const NUTRITION_HEADER: Record<string, string> = {
+  calories: 'Calories',
+  macro: 'Macros',
+  logging: 'Logging',
+  fidelity: 'Capture quality',
+};
+
 /** Chip sentinel for "any logged session" in the paired-behavior picker —
  *  maps to `pairedActivityId: null` (a bare sessionCount dimension). */
 const ANY_SESSION = 'any';
@@ -89,6 +143,23 @@ export default function EditBenchmarkScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
+
+  // The suggestion inputs (locked: "default the field to the suggestion; let
+  // them overwrite it"). Weight = the trend's latest point; TDEE = measured
+  // when it exists, else the predicted baseline. Null data → no suggestion —
+  // the field stays honestly empty.
+  const { points } = useWeightTrend();
+  const { profile } = useBodyProfile();
+  const { measured } = useExpenditure(points);
+  const weightKg = points.length > 0 ? points[points.length - 1].trendKg : null;
+  const tdeeKcal =
+    measured?.inferredTdeeKcal ??
+    (profile && weightKg != null
+      ? estimateBaselineTdee(
+          metricsFrom(profile, weightKg, new Date().getFullYear()),
+          profile.activityLevel
+        ).tdeeKcal
+      : null);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -118,6 +189,35 @@ export default function EditBenchmarkScreen() {
   function pickBodyweight() {
     setForm((f) => ({ ...f, dimension: { kind: 'bodyweight' }, secondFace: false }));
     setStep('detail');
+  }
+  function pickNutrition(kind: 'calories' | 'macro' | 'logging' | 'fidelity') {
+    setForm((f) => {
+      const next: BenchmarkForm = {
+        ...f,
+        dimension: { kind } as BenchmarkDimension,
+        secondFace: false,
+      };
+      // Calculator-suggested, user-owned: prefill only an empty field.
+      if (kind === 'calories' && !f.calorieKcal.trim()) {
+        const s = suggestCalorieCeiling(tdeeKcal);
+        if (s != null) next.calorieKcal = String(s);
+      }
+      if (kind === 'macro' && !f.macroGrams.trim() && f.macro === 'protein') {
+        const s = suggestProteinGrams(weightKg);
+        if (s != null) next.macroGrams = String(s);
+      }
+      return next;
+    });
+    setStep('detail');
+  }
+  // Switching the macro resets the amount deterministically: protein gets its
+  // suggestion back; other macros start blank (a protein number would lie there).
+  function switchMacro(macro: MacroKind) {
+    setForm((f) => ({
+      ...f,
+      macro,
+      macroGrams: macro === 'protein' ? String(suggestProteinGrams(weightKg) ?? '') : '',
+    }));
   }
 
   const validationError = validateBenchmarkForm(form);
@@ -213,6 +313,24 @@ export default function EditBenchmarkScreen() {
           <PickTile label="Bodyweight" Icon={Scale} onPress={pickBodyweight} />
         </View>
 
+        {/* Nutrition family (expenditure build, Pass F) — same grammar, food data. */}
+        <Text variant="label" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[6] }}>
+          Nutrition
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: theme.spacing[3],
+            marginTop: theme.spacing[3],
+          }}
+        >
+          <PickTile label="Calories" Icon={Flame} onPress={() => pickNutrition('calories')} />
+          <PickTile label="Protein" Icon={Drumstick} onPress={() => pickNutrition('macro')} />
+          <PickTile label="Log food" Icon={ClipboardCheck} onPress={() => pickNutrition('logging')} />
+          <PickTile label="Capture" Icon={ScanLine} onPress={() => pickNutrition('fidelity')} />
+        </View>
+
         <Pressable
           onPress={() => setShowMore((v) => !v)}
           accessibilityRole="button"
@@ -246,11 +364,13 @@ export default function EditBenchmarkScreen() {
   // ─── Step 2: fill the faces ────────────────────────────────────────────────
 
   const isActivityPath = form.dimension?.kind === 'activity';
-  const headerLabel = isActivityPath
-    ? form.dimension && form.dimension.kind === 'activity'
+  const isNutritionPath = form.dimension != null && isNutritionDimension(form.dimension);
+  const headerLabel =
+    form.dimension?.kind === 'activity'
       ? activityLabelFor(form.dimension.activityId)
-      : ''
-    : 'Bodyweight';
+      : isNutritionPath
+        ? NUTRITION_HEADER[form.dimension!.kind]
+        : 'Bodyweight';
 
   const behaviorCard = (
     <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[5] }}>
@@ -284,26 +404,186 @@ export default function EditBenchmarkScreen() {
   const outcomeCard = (
     <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[5] }}>
       <FaceHeader label="Outcome" sub="the part you watch" />
-      <View style={{ gap: theme.spacing[2] }}>
-        <Text variant="label">Which way?</Text>
-        <ChipSelect
-          options={DIRECTIONS}
-          value={form.direction}
-          onChange={(direction) => update({ direction })}
-        />
-      </View>
-      <Field
-        label={`Target weight (${weightUnit}, optional)`}
-        value={form.target}
-        onChangeText={(target) => update({ target })}
-        placeholder="—"
-        suffix={weightUnit}
-        keyboardType="decimal-pad"
-      />
-      <Text variant="bodySm" color={theme.colors.textMuted}>
-        Leave the target blank to just track the direction.
-      </Text>
-      {isActivityPath ? <RemoveFaceLink onPress={() => update({ secondFace: false })} /> : null}
+      {isNutritionPath ? (
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="label">Watch what?</Text>
+          <ChipSelect
+            options={OUTCOME_PAIR_DIMS}
+            value={form.outcomePairDim}
+            onChange={(outcomePairDim) => update({ outcomePairDim })}
+          />
+        </View>
+      ) : null}
+      {isNutritionPath && form.outcomePairDim === 'energyBalance' ? (
+        <>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Which way?</Text>
+            <ChipSelect
+              options={BALANCE_DIRECTIONS}
+              value={form.balanceDirection}
+              onChange={(balanceDirection) => update({ balanceDirection })}
+            />
+          </View>
+          <Field
+            label="Around how much (optional)"
+            value={form.balanceKcal}
+            onChangeText={(balanceKcal) => update({ balanceKcal })}
+            placeholder="—"
+            suffix="cal/day"
+            keyboardType="number-pad"
+          />
+          <Text variant="bodySm" color={theme.colors.textMuted}>
+            Measured from your logged food and weigh-in trend — it reads
+            &ldquo;not enough data&rdquo; until both can carry it. Never predicted.
+          </Text>
+        </>
+      ) : (
+        <>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Which way?</Text>
+            <ChipSelect
+              options={DIRECTIONS}
+              value={form.direction}
+              onChange={(direction) => update({ direction })}
+            />
+          </View>
+          <Field
+            label={`Target weight (${weightUnit}, optional)`}
+            value={form.target}
+            onChangeText={(target) => update({ target })}
+            placeholder="—"
+            suffix={weightUnit}
+            keyboardType="decimal-pad"
+          />
+          <Text variant="bodySm" color={theme.colors.textMuted}>
+            Leave the target blank to just track the direction.
+          </Text>
+        </>
+      )}
+      {isActivityPath || isNutritionPath ? (
+        <RemoveFaceLink onPress={() => update({ secondFace: false })} />
+      ) : null}
+    </Card>
+  );
+
+  // ─── Nutrition behavior cards (days predicates + capture share) ─────────────
+
+  const windowChips = (
+    <View style={{ gap: theme.spacing[2] }}>
+      <Text variant="label">Per</Text>
+      <ChipSelect options={WINDOWS} value={form.window} onChange={(window) => update({ window })} />
+    </View>
+  );
+
+  const daysField = (
+    <Field
+      label="On how many days"
+      value={form.daysTarget}
+      onChangeText={(daysTarget) => update({ daysTarget })}
+      placeholder="5"
+      suffix="days"
+      keyboardType="number-pad"
+    />
+  );
+
+  const nutritionBehaviorCard = (
+    <Card style={{ marginTop: theme.spacing[5], gap: theme.spacing[5] }}>
+      <FaceHeader label="Behavior" sub="the part you control" />
+      {form.dimension?.kind === 'calories' ? (
+        <>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Direction</Text>
+            <ChipSelect
+              options={INTAKE_OPS_CEILING_FIRST}
+              value={form.calorieOp}
+              onChange={(calorieOp) => update({ calorieOp })}
+            />
+          </View>
+          <Field
+            label="Calories"
+            value={form.calorieKcal}
+            onChangeText={(calorieKcal) => update({ calorieKcal })}
+            placeholder="2200"
+            suffix="cal"
+            keyboardType="number-pad"
+          />
+          {tdeeKcal != null ? (
+            <Text variant="bodySm" color={theme.colors.textMuted}>
+              Pre-filled from your current burn estimate − {SUGGESTED_DEFICIT_KCAL} cal.
+              Yours to change.
+            </Text>
+          ) : null}
+          {daysField}
+          {windowChips}
+        </>
+      ) : null}
+      {form.dimension?.kind === 'macro' ? (
+        <>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Which macro</Text>
+            <ChipSelect options={MACROS} value={form.macro} onChange={switchMacro} />
+          </View>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Direction</Text>
+            <ChipSelect
+              options={INTAKE_OPS_FLOOR_FIRST}
+              value={form.macroOp}
+              onChange={(macroOp) => update({ macroOp })}
+            />
+          </View>
+          <Field
+            label="Amount"
+            value={form.macroGrams}
+            onChangeText={(macroGrams) => update({ macroGrams })}
+            placeholder="150"
+            suffix="g"
+            keyboardType="number-pad"
+          />
+          {form.macro === 'protein' && weightKg != null ? (
+            <Text variant="bodySm" color={theme.colors.textMuted}>
+              Pre-filled at ≈0.8 g per lb of your trend weight. Yours to change.
+            </Text>
+          ) : null}
+          {daysField}
+          {windowChips}
+        </>
+      ) : null}
+      {form.dimension?.kind === 'logging' ? (
+        <>
+          {daysField}
+          {windowChips}
+          <Text variant="bodySm" color={theme.colors.textMuted}>
+            A day counts when everything logged that day carries full macros —
+            partial entries leave it short of complete.
+          </Text>
+        </>
+      ) : null}
+      {form.dimension?.kind === 'fidelity' ? (
+        <>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Capture tier</Text>
+            <ChipSelect
+              options={MIN_TIERS}
+              value={form.fidelityMinTier}
+              onChange={(fidelityMinTier) => update({ fidelityMinTier })}
+            />
+          </View>
+          <Field
+            label="Share of entries"
+            value={form.fidelityPct}
+            onChangeText={(fidelityPct) => update({ fidelityPct })}
+            placeholder="80"
+            suffix="%"
+            keyboardType="number-pad"
+          />
+          {windowChips}
+          <Text variant="bodySm" color={theme.colors.textMuted}>
+            Counts HOW entries were captured — weighed and scanned are T3,
+            described and photo are T2, partial logs are T1. Never the
+            app&rsquo;s own confidence score.
+          </Text>
+        </>
+      ) : null}
     </Card>
   );
 
@@ -326,15 +606,19 @@ export default function EditBenchmarkScreen() {
 
       {/* Primary face first — the one the step-1 pick seeded — then the
           optional pairing. Never pushed: a quiet link, one tap to remove. */}
-      {isActivityPath ? (
+      {isActivityPath || isNutritionPath ? (
         <>
-          {behaviorCard}
+          {isNutritionPath ? nutritionBehaviorCard : behaviorCard}
           {form.secondFace ? (
             outcomeCard
           ) : (
             <PairFaceLink
               label="＋ Pair an outcome"
-              sub="a measured result to watch alongside the rhythm"
+              sub={
+                isNutritionPath
+                  ? 'bodyweight or energy balance — a measured result to watch'
+                  : 'a measured result to watch alongside the rhythm'
+              }
               onPress={() => update({ secondFace: true })}
             />
           )}

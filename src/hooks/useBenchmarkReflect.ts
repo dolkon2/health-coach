@@ -1,5 +1,6 @@
 /**
- * useBenchmarkReflect — the benchmark lens over Reflect (Phase 5 Pass 4).
+ * useBenchmarkReflect — the benchmark lens over Reflect (Phase 5 Pass 4;
+ * nutrition family in the expenditure build, Pass F).
  *
  * Loads ACTIVE benchmarks — not just pinned ones. The pin gates Today
  * ("Pin to Today"); the spec's lifecycle table says active *frames Reflect*
@@ -8,24 +9,28 @@
  * switch it; switching recomposes the tab — that recomposition is what earns
  * the name "Reflect".
  *
- * One sessions query, floored at the OLDEST rhythm window of the current
- * lens, run only when the lens has a countable behavior face. Trend points
- * are passed in from the screen's existing useWeightTrend, same as Today —
- * Reflect never queries weigh-ins twice.
+ * One observations query per data family, floored at the OLDEST rhythm window
+ * of the current lens: sessions for a countable session face, food entries
+ * (padded for local-day bucketing) for a nutrition face. Trend points and the
+ * measured expenditure window are passed in from the screen — Reflect never
+ * queries the same data twice.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Benchmark } from '@core/benchmark';
 import type { ObservationOf } from '@core/observation';
 import type { WeightTrendPoint } from '@core/trend';
+import type { ExpenditureWindow } from '@core/expenditure';
 import { isKind } from '@core/observation';
 import { listBenchmarks } from '@/storage/benchmarks';
 import { listObservations } from '@/storage/observations';
+import { todayLocalDate } from '@/lib/date';
 import { outcomeStatus, type OutcomeStatus } from '@/lib/benchmarkStatus';
 import {
   defaultLensId,
   heroFaceOf,
   pastWindowRanges,
   behaviorWindowCounts,
+  nutritionWindowCounts,
   consecutiveAtTarget,
   type WindowCount,
 } from '@/lib/benchmarkReflect';
@@ -40,7 +45,7 @@ export type BenchmarkLens = {
   hero: 'outcome' | 'behavior';
   /** Rhythm counts, oldest → newest. Null when the lens has no countable behavior face. */
   windowCounts: WindowCount[] | null;
-  /** The revealed run — consecutive complete windows at target. */
+  /** The revealed run — consecutive verdict-revealed windows at target. */
   run: number;
   /** Observed movement of the outcome face. Null when the lens has no outcome face. */
   outcome: OutcomeStatus | null;
@@ -50,7 +55,10 @@ function rhythmN(window: 'week' | 'month'): number {
   return window === 'week' ? RHYTHM_WEEKS : RHYTHM_MONTHS;
 }
 
-export function useBenchmarkReflect(trendPoints: WeightTrendPoint[]): {
+export function useBenchmarkReflect(
+  trendPoints: WeightTrendPoint[],
+  measured: ExpenditureWindow | null = null
+): {
   benchmarks: Benchmark[];
   lens: BenchmarkLens | null;
   lensId: string | null;
@@ -59,6 +67,7 @@ export function useBenchmarkReflect(trendPoints: WeightTrendPoint[]): {
 } {
   const [benchmarks, setBenchmarks] = useState<Benchmark[]>([]);
   const [sessions, setSessions] = useState<ObservationOf<'session'>[]>([]);
+  const [foodEntries, setFoodEntries] = useState<ObservationOf<'foodEntry'>[]>([]);
   const [chosenId, setChosenId] = useState<string | null>(null);
 
   const lensId = useMemo(() => {
@@ -69,11 +78,21 @@ export function useBenchmarkReflect(trendPoints: WeightTrendPoint[]): {
   const lensBenchmark = benchmarks.find((b) => b.id === lensId) ?? null;
   const face = lensBenchmark?.behavior;
   const needSessions = face != null && face.measure.type === 'count';
-  // Primitive re-fetch key: the sessions floor moves only when the lens's
+  const needFood =
+    face != null && (face.measure.type === 'days' || face.measure.type === 'share');
+  // Primitive re-fetch key: the observations floor moves only when the lens's
   // window shape does, not on every render's new object identities.
-  const sessionsFloor = needSessions
-    ? pastWindowRanges(face.window, new Date().toISOString(), rhythmN(face.window))[0].fromIso
-    : null;
+  const rhythmFloor =
+    face != null && (needSessions || needFood)
+      ? pastWindowRanges(face.window, new Date().toISOString(), rhythmN(face.window))[0].fromIso
+      : null;
+  const sessionsFloor = needSessions ? rhythmFloor : null;
+  // Food pads the floor by two days: meals bucket by their OWN local civil
+  // day, which can precede the UTC window boundary.
+  const foodFloor =
+    needFood && rhythmFloor
+      ? new Date(Date.parse(rhythmFloor) - 2 * 86_400_000).toISOString()
+      : null;
 
   const reload = useCallback(() => {
     let cancelled = false;
@@ -110,26 +129,44 @@ export function useBenchmarkReflect(trendPoints: WeightTrendPoint[]): {
     };
   }, [sessionsFloor]);
 
+  useEffect(() => {
+    if (!foodFloor) {
+      setFoodEntries([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const rows = await listObservations({ from: foodFloor, kinds: ['foodEntry'] });
+      if (cancelled) return;
+      setFoodEntries(rows.filter((o): o is ObservationOf<'foodEntry'> => isKind(o, 'foodEntry')));
+    })().catch(() => {
+      if (!cancelled) setFoodEntries([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [foodFloor]);
+
   const lens = useMemo((): BenchmarkLens | null => {
     if (!lensBenchmark) return null;
     const nowIso = new Date().toISOString();
+    const beh = lensBenchmark.behavior;
     const counts =
-      lensBenchmark.behavior != null
-        ? behaviorWindowCounts(
-            lensBenchmark.behavior,
-            sessions,
-            nowIso,
-            rhythmN(lensBenchmark.behavior.window)
-          )
+      beh != null
+        ? beh.measure.type === 'days' || beh.measure.type === 'share'
+          ? nutritionWindowCounts(beh, foodEntries, nowIso, rhythmN(beh.window), todayLocalDate())
+          : behaviorWindowCounts(beh, sessions, nowIso, rhythmN(beh.window))
         : null;
     return {
       benchmark: lensBenchmark,
       hero: heroFaceOf(lensBenchmark),
       windowCounts: counts,
       run: counts ? consecutiveAtTarget(counts) : 0,
-      outcome: lensBenchmark.outcome ? outcomeStatus(lensBenchmark.outcome, trendPoints) : null,
+      outcome: lensBenchmark.outcome
+        ? outcomeStatus(lensBenchmark.outcome, trendPoints, measured)
+        : null,
     };
-  }, [lensBenchmark, sessions, trendPoints]);
+  }, [lensBenchmark, sessions, foodEntries, trendPoints, measured]);
 
   return { benchmarks, lens, lensId, setLensId: setChosenId, reload };
 }

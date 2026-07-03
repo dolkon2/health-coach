@@ -16,10 +16,18 @@
  * No React, no storage — the hook feeds it, tests read it directly.
  */
 import type { BehaviorFace, OutcomeFace, ResolvedDimension } from '@core/benchmark';
-import type { ObservationOf } from '@core/observation';
+import type { LocalDate, ObservationOf } from '@core/observation';
 import type { WeightTrendPoint } from '@core/trend';
+import type { ExpenditureWindow } from '@core/expenditure';
+import { energyBalanceKcalPerDay } from '@core/expenditure';
 import { isoWeekStart } from '@core/stimulus';
 import { weightTrendDelta } from '@core/trend';
+import { bucketByLocalDay } from '@core/timeline';
+import {
+  captureTierShare,
+  evaluateDaysWindow,
+  type NutritionDay,
+} from '@core/nutrition/days';
 import { formatWeight, formatDelta, type WeightUnit } from './units';
 
 // ─── Windows ─────────────────────────────────────────────────────────────────
@@ -82,16 +90,38 @@ export function sessionMatchesDimension(
 
 // ─── Behavior face status ────────────────────────────────────────────────────
 
-export type BehaviorStatus = {
-  count: number; // qualifying sessions logged so far in the window
-  target: number;
-  windowLabel: 'this week' | 'this month';
-};
+export type WindowLabel = 'this week' | 'this month';
+
+export type BehaviorStatus =
+  // qualifying sessions logged so far in the window
+  | { kind: 'count'; count: number; target: number; windowLabel: WindowLabel }
+  // days meeting the predicate — three-valued: unknowable is neither hit nor miss
+  | {
+      kind: 'days';
+      hits: number;
+      misses: number;
+      unknowable: number;
+      target: number;
+      windowLabel: WindowLabel;
+    }
+  // share of entries at/above a capture tier; pct null until an entry exists
+  | {
+      kind: 'share';
+      pct: number | null;
+      targetPct: number;
+      minTier: 'T2' | 'T3';
+      windowLabel: WindowLabel;
+    };
+
+function windowLabelOf(window: BehaviorFace['window']): WindowLabel {
+  return window === 'week' ? 'this week' : 'this month';
+}
 
 /**
  * The factual count for the current window. Returns null for a magnitude
  * measure — not creatable in the v1 form, and a session count would be the
- * wrong number to show against a km target (never fake a number).
+ * wrong number to show against a km target (never fake a number) — and for
+ * the nutrition measures, which read food entries (nutritionBehaviorStatus).
  */
 export function behaviorStatus(
   face: BehaviorFace,
@@ -107,16 +137,92 @@ export function behaviorStatus(
       sessionMatchesDimension(s, face.dimension)
   ).length;
   return {
+    kind: 'count',
     count,
     target: face.measure.target,
-    windowLabel: face.window === 'week' ? 'this week' : 'this month',
+    windowLabel: windowLabelOf(face.window),
   };
+}
+
+// ─── Nutrition behavior status (days predicates + capture-tier share) ────────
+
+/** The window's civil dates, from the range's opening day (inclusive) to its
+ *  closing day (exclusive). Same UTC-civil posture as the ranges themselves. */
+export function windowDates(range: WindowRange): LocalDate[] {
+  const out: LocalDate[] = [];
+  const end = range.toIso.slice(0, 10);
+  for (let d = new Date(range.fromIso); ; d.setUTCDate(d.getUTCDate() + 1)) {
+    const day = d.toISOString().slice(0, 10);
+    if (day >= end) break;
+    out.push(day);
+  }
+  return out;
+}
+
+/**
+ * Assemble the window's elapsed days for the three-valued day engine: one
+ * NutritionDay per civil date up to today (empty meals for unlogged days —
+ * the engine decides what absence means per condition), today in progress.
+ * Meals bucket by their OWN local civil day (a late meal lands on the day it
+ * belongs to), while window boundaries stay UTC-civil — the same documented
+ * quirk-1/10 posture the session windows use.
+ */
+export function nutritionDaysInRange(
+  entries: ObservationOf<'foodEntry'>[],
+  range: WindowRange,
+  todayDate: LocalDate
+): { days: NutritionDay[]; totalDays: number } {
+  const byDay = bucketByLocalDay([...entries]);
+  const dates = windowDates(range);
+  const days = dates
+    .filter((d) => d <= todayDate)
+    .map((d) => ({
+      date: d,
+      meals: ((byDay.get(d) ?? []) as ObservationOf<'foodEntry'>[]).map((o) => o.payload),
+      inProgress: d === todayDate,
+    }));
+  return { days, totalDays: dates.length };
+}
+
+/** The current window's status for a nutrition behavior face (days / share).
+ *  Null for measures this function doesn't own. */
+export function nutritionBehaviorStatus(
+  face: BehaviorFace,
+  entries: ObservationOf<'foodEntry'>[],
+  nowIso: string,
+  todayDate: LocalDate
+): BehaviorStatus | null {
+  const range = currentWindowRange(face.window, nowIso);
+  const { days, totalDays } = nutritionDaysInRange(entries, range, todayDate);
+
+  if (face.measure.type === 'days') {
+    const r = evaluateDaysWindow(days, face.measure.condition, face.measure.target, { totalDays });
+    return {
+      kind: 'days',
+      hits: r.hits,
+      misses: r.misses,
+      unknowable: r.unknowable,
+      target: r.target,
+      windowLabel: windowLabelOf(face.window),
+    };
+  }
+  if (face.measure.type === 'share') {
+    const share = captureTierShare(days, face.measure.minTier);
+    return {
+      kind: 'share',
+      pct: share?.pct ?? null,
+      targetPct: face.measure.targetPct,
+      minTier: face.measure.minTier,
+      windowLabel: windowLabelOf(face.window),
+    };
+  }
+  return null;
 }
 
 // ─── Outcome face status ─────────────────────────────────────────────────────
 
 export type OutcomeStatus =
-  | { kind: 'noData' } // no trend yet — the card says so, honestly
+  | { kind: 'noData'; what?: 'weight' | 'balance' } // nothing measured yet — the card says so, honestly
   | {
       kind: 'moving';
       trendKg: number; // latest smoothed weight
@@ -124,14 +230,30 @@ export type OutcomeStatus =
       deltaDays: number | null;
       targetKg?: number; // the face's threshold, when set
       toTargetKg?: number; // signed distance: trend − target (+ ⇒ above)
-    };
+    }
+  // the measured energy balance (intake − burn); exists only once the
+  // expenditure residual does — degrades to noData, never a guess
+  | { kind: 'balance'; kcalPerDay: number; targetKcal?: number };
 
-/** The observed movement of the outcome dimension (bodyweight — the only
- *  outcome dimension wired). Reads the same smoothed points the trend chart
- *  renders; reports what IS, not what was wished for. */
-export function outcomeStatus(face: OutcomeFace, points: WeightTrendPoint[]): OutcomeStatus {
+/** The observed movement of the outcome dimension. Bodyweight reads the same
+ *  smoothed points the trend chart renders; energyBalance reads the measured
+ *  expenditure window. Reports what IS, not what was wished for. */
+export function outcomeStatus(
+  face: OutcomeFace,
+  points: WeightTrendPoint[],
+  measured: ExpenditureWindow | null = null
+): OutcomeStatus {
+  if (face.dimension.metric === 'energyBalance') {
+    const balance = measured ? energyBalanceKcalPerDay(measured) : null;
+    if (balance == null) return { kind: 'noData', what: 'balance' };
+    return {
+      kind: 'balance',
+      kcalPerDay: balance,
+      ...(face.target != null ? { targetKcal: face.target } : {}),
+    };
+  }
   if (face.dimension.metric !== 'bodyweight' || points.length === 0) {
-    return { kind: 'noData' };
+    return { kind: 'noData', what: 'weight' };
   }
   const latest = points[points.length - 1];
   const delta = weightTrendDelta(points, 14);
@@ -148,8 +270,18 @@ export function outcomeStatus(face: OutcomeFace, points: WeightTrendPoint[]): Ou
 
 // ─── Card lines ──────────────────────────────────────────────────────────────
 
-/** "2/4 this week" — the sovereign number, plain. */
+/** "2/4 this week" / "3/5 days this week · 2 unknown" / "82% at T2+ this
+ *  week · target 80%" — the sovereign number, plain. Unknowable days are
+ *  named, never folded into the misses. */
 export function behaviorLine(s: BehaviorStatus): string {
+  if (s.kind === 'days') {
+    const base = `${s.hits}/${s.target} days ${s.windowLabel}`;
+    return s.unknowable > 0 ? `${base} · ${s.unknowable} unknown` : base;
+  }
+  if (s.kind === 'share') {
+    if (s.pct == null) return `no entries yet ${s.windowLabel}`;
+    return `${s.pct}% at ${s.minTier}+ ${s.windowLabel} · target ${s.targetPct}%`;
+  }
   return `${s.count}/${s.target} ${s.windowLabel}`;
 }
 
@@ -160,7 +292,14 @@ export function behaviorLine(s: BehaviorStatus): string {
  * relation without grading it.
  */
 export function outcomeLine(s: OutcomeStatus, unit: WeightUnit): string {
-  if (s.kind === 'noData') return 'no weight data yet';
+  if (s.kind === 'noData') {
+    return s.what === 'balance' ? 'not enough data to measure yet' : 'no weight data yet';
+  }
+  if (s.kind === 'balance') {
+    const word = s.kcalPerDay <= 0 ? 'deficit' : 'surplus';
+    const base = `≈ ${Math.abs(s.kcalPerDay)} cal/day ${word} · measured`;
+    return s.targetKcal != null ? `${base} · target ~${s.targetKcal}` : base;
+  }
   const parts = [formatWeight(s.trendKg, unit)];
   if (s.deltaKg != null && s.deltaDays != null) {
     parts.push(`${formatDelta(s.deltaKg, unit)} over ${s.deltaDays} days`);
