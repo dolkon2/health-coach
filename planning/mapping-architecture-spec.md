@@ -70,12 +70,21 @@ plus a per-point elevation-source tag and optional channels (hr, speed, power, c
 | Adapter | Sport driver | Where it lives | Dependency | Status |
 |---|---|---|---|---|
 | GPX | hiking, running, MTB, any GPX export | `core/` (pure text) | none | **Phase 1 (now)** |
-| HealthKit route | running, hiking, swim, ski, paddle | `src/` (native — CLLocation) | expo native | Phase 4 |
+| HealthKit route | running, hiking, swim, ski, paddle | `src/` (native — `HKWorkoutRoute`) | already installed¹ | Phase 4 |
 | FIT | Garmin devices (run/ride/ski/paddle) | `core/` wrapper | `fit-file-parser` (npm) | Phase 5 |
 | IGC | paragliding | `core/` (pure text, B-records) | none | Phase 5 (flight) |
 
 The contract is what matters: every adapter converges on `RawTrackPoint[]`, so Layer 2 is
 written once and never learns about formats.
+
+¹ **The HealthKit route adapter is not greenfield — it has a waiting home.**
+`src/lib/healthkit/reader.ts` already exposes a `WearableSource` interface whose
+`readActivities()` is an explicit `notImplemented(..., 'Phase 3 Pass 3')` stub, and
+`wearable-ingestion-spec.md` § Pass 3 already specs "read `HKWorkoutRoute`, populate the
+route coordinate array." The Phase-4 route adapter *is* that stubbed Pass 3 — implement the
+stub against the shared interface, don't invent a parallel path. Steps + sleep ingestion
+(`normalize.ts`, `ingest.ts`) is the pattern to mirror (pure normalize · source-precedence ·
+dedup).
 
 ### Layer 2 — Track normalization (`core/src/track.ts`) — the de-risking layer
 
@@ -104,22 +113,48 @@ Get this type right and every downstream layer is plumbing. It does:
 Output is a `Track`: the processed points, the per-source elevation confidence, the stats,
 and the bbox. Pure, deterministic, fixture-tested. No Expo, no map, no network.
 
+**`GeoPoint` needs a non-breaking extension.** Today `observation.ts` has
+`GeoPoint = { lat, lng, tsSec, eleM? }` — enough for a coordinate, too thin for the
+elevation-fidelity model. Add *optional* fields so nothing existing breaks: `eleSource?`
+(`'barometric' | 'gps' | 'dem' | 'none'`) and optional per-point channels (`hrBpm?`,
+`speedMps?`). Also pin the ambiguous `tsSec` semantics: it is **seconds since activity
+start** (rebased), not Unix epoch — the deck.gl float32 constraint makes this the honest
+default, and the processed `Track` guarantees it. Extend the type; do not replace it.
+
 ### Layer 3 — GPS-envelope Observation (no new schema)
 
 A `Track` populates the **existing** `EnduranceBlock.gpsPath` / `PaddlingBlock.gpsPath`
-(`GeoPoint[]`) that `observation.ts` already defines, and the `gps_data.route: GeoJSON`
-the training spec describes. The Observation's own `tier`/`fidelity` reflect the track's
-elevation-source confidence. This is deliberately *not* a new record type — GPS is just
-another thing that becomes an Observation.
+(`GeoPoint[]`) that `observation.ts` already defines. The Observation's own `tier`/`fidelity`
+reflect the track's elevation-source confidence. This is deliberately *not* a new record type
+— GPS is just another thing that becomes an Observation.
+
+**Reconcile the route field first — it is defined three incompatible ways today:**
+
+| Where | Name | Shape |
+|---|---|---|
+| `observation.ts` (code, canonical) | `gpsPath` | `GeoPoint[]` |
+| `training-logging-spec.md` | `gps_data.route` | GeoJSON |
+| `wearable-ingestion-spec.md` | `route` | `coordinate[]` |
+
+**Decision: `gpsPath: GeoPoint[]` on the block is canonical** (it's the one in running code,
+and `GeoPoint[]` carries per-point time/elevation/channels that a bare GeoJSON LineString
+drops). GeoJSON is a *render-time projection* of a Track, not the stored form — derive it
+where MapLibre needs it, don't store it. The two specs' `route`/`gps_data.route` wording
+should be aligned to `gpsPath` (a one-line note in each is enough; no schema migration —
+these are prose docs). Settle this in Phase 1 before anything writes a track.
 
 ### Layer 4 — Render (one component)
 
 One `<RouteMap track={…}/>` on `@maplibre/maplibre-react-native`. Renders any `Track`
-regardless of sport. This is the first thing needing the one-time Expo **dev build** (config
-plugin, not Expo Go) — the only real infra tax in the whole plan, paid once. MapLibre RN
-ships a built-in `OfflineManager` (`createPack({mapStyle, bounds, minZoom, maxZoom})`) — the
-offline-region download that every peak app in every sport treats as non-negotiable — and
-the `bounds` come straight from the Track's bbox (Layer 2).
+regardless of sport. **The Expo dev build is already paid for** — the app runs a custom dev
+client today (`@kingstinct/react-native-healthkit` is installed for wearable ingestion; there
+is no Expo Go build to migrate off). Adding MapLibre is a config-plugin + rebuild, *not* the
+one-time migration the earlier draft of this doc implied. The remaining external dependency
+is a **tile/basemap provider API key** (MapTiler or Stadia free tier) — that needs a human
+(account signup), so it's the natural Phase-3 handoff point for an autonomous build. MapLibre
+RN ships a built-in `OfflineManager` (`createPack({mapStyle, bounds, minZoom, maxZoom})`) —
+the offline-region download every peak app treats as non-negotiable — and the `bounds` come
+straight from the Track's bbox (Layer 2).
 
 ### Layer 4½ — 3D replay (deferred)
 
@@ -161,22 +196,27 @@ These read the *same* canonical Track. No new ingestion, no new render — pure 
 
 ## Build order (inside-out, mirrors the rings)
 
-| Phase | Deliverable | Dev build? | Status |
+| Phase | Deliverable | New native dep? | Status |
 |---|---|---|---|
 | 0 | This spec | no | ✅ done |
-| 1 | `core/src/track.ts` spine + GPX adapter + tests | no | **in progress** |
-| 2 | Track → Observation persistence + timeline wiring | no | next |
-| 3 | Expo dev build + `<RouteMap>` (renders any Track) | **yes (once)** | — |
-| 4 | **Hiking/Running vertical slice** (HealthKit+GPX → render → elevation profile) | yes | first proof |
-| 5 | Per-sport overlays + algorithms, walked outward (ski → flight → water → wind) | yes | the long tail |
-| 6 | 3D replay (webview GL JS + deck.gl) | yes | polish |
+| 1 | Route-field reconciliation + `GeoPoint` extension + `core/src/track.ts` spine + GPX adapter + tests | no | **next (autonomous)** |
+| 2 | Track → Observation persistence + timeline wiring + fidelity reconciliation | no | **next (autonomous)** |
+| — | *handoff: pick tile provider (MapTiler/Stadia), get API key* | — | needs a human |
+| 3 | `@maplibre/maplibre-react-native` config plugin + `<RouteMap>` (renders any Track) | maplibre (config plugin, dev client already exists) | after key |
+| 4 | **Hiking/Running vertical slice** (HealthKit route via the `readActivities` stub + GPX → render → elevation profile) | no | first proof |
+| 5 | Per-sport overlays + algorithms, walked outward (ski → flight → water → wind) | FIT lib at ski/Garmin | the long tail |
+| 6 | 3D replay (webview GL JS + deck.gl) | no (webview) | polish |
 
-**Why this order:** Phases 1–2 are stack-agnostic `core/` work with tests and need no dev
-build — the project's strongest ground, and where correctness is cheapest to establish. The
-Expo/EAS detour isn't hit until Phase 3. Hiking/Running is the Phase-4 proving ground because
-it exercises the whole spine (HealthKit + GPX ingest, DEM elevation, basemap, elevation
-profile) with **no NC-licensed data and no bespoke algorithm** — the cleanest possible
-end-to-end test, which then becomes the template every other sport copies.
+**Why this order:** Phases 1–2 are stack-agnostic `core/` + storage work with tests and need
+no new native dependency — the project's strongest ground, where correctness is cheapest to
+establish, and **fully completable by an unsupervised session** (no device, no map, no API
+key). Phase 3 is where an external dependency (a tile-provider API key) first needs a human,
+so that's the clean autonomous-build stopping line. The Expo dev client itself is *already*
+in place from wearable ingestion — adding MapLibre is a config-plugin rebuild, not a
+migration. Hiking/Running is the Phase-4 proving ground because it exercises the whole spine
+(HealthKit route + GPX ingest, DEM elevation, basemap, elevation profile) with **no
+NC-licensed data and no bespoke algorithm** — the cleanest end-to-end test, which then
+becomes the template every other sport copies.
 
 ## Invariants (carried from the constitution)
 
