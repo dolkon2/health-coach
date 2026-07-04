@@ -4,6 +4,10 @@
 58 claims extracted, top 25 adversarially verified (3-vote panels) — 25 confirmed, 0 refuted.
 Confidence labels below reflect that verification. Where something was NOT verified, it says so.*
 
+*See also `sport-mapping-research.md` — a companion pass covering the sport-specific data
+layers (paragliding/SeeYou/XContest, whitewater, skiing, wind/kite, hiking/MTB) this doc
+doesn't go into.*
+
 **Context in this repo:** we don't render maps yet. `training-logging-spec.md` defines the
 outdoor/GPS logging surface with `gps_data.route: GeoJSON`, and `wearable-ingestion-spec.md`
 plans FIT/GPX/TCX ingestion from the Garmin Connect Activity API plus HealthKit. The spec's
