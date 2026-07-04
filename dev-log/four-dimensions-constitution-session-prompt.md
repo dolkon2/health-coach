@@ -49,6 +49,18 @@ geographic heatmap that fills in because the user actually went places (see
 
 ## What to actually do
 
+0. **Amend the constitution's own "stop and flag" rule with an explicit override clause.**
+   The sentence *"stop and flag it before building — don't quietly reinterpret it into
+   something 'safer'"* appears near-verbatim in both `CLAUDE.md`'s intro and
+   `planning/claude-md.md`'s North star section. Add to it: flagging is not a veto. If the
+   user considers a flagged conflict and pushes back deliberately — a considered override, not
+   a shrug — that override stands, and the flag should not be re-raised on every future pass.
+   Suggested language to adapt (not copy verbatim, match the doc's existing voice): *"Flag it
+   once, plainly, with the reasoning. If the user considers it and overrides anyway, that
+   stands — the rule exists to prevent silent reinterpretation, not to relitigate a decision
+   the user has already made deliberately."* Do this everywhere the "stop and flag" sentence
+   is duplicated, not just one copy. This is a general process amendment (not specific to the
+   four-dimensions work) — bundle it with this pass since both touch the same rule.
 1. **Decide where in `claude-md.md` this lives.** Candidates to weigh (your call, this is
    genuinely underdetermined): a new section near the north star, an expansion of the
    "AI as engine, not face" section, or its own section entirely. It should read as
@@ -74,6 +86,8 @@ geographic heatmap that fills in because the user actually went places (see
 
 ## Definition of done
 
+- The "stop and flag" rule amended with the override clause, everywhere it's duplicated
+  (`CLAUDE.md` intro + `planning/claude-md.md` North star section).
 - `CLAUDE.md` / `planning/claude-md.md` amended with the four-dimension framework as an
   organizing lens, in the document's existing voice and rigor.
 - No mastery/unlock/threshold language anywhere in the amendment.

@@ -50,6 +50,13 @@ when it isn't one.
 - Brand voice, marketing language, visual identity built around the four dimensions.
 - A route/session is *tagged* with a dimension. That's categorization, not scoring.
 
+**This flag stands once, not forever.** Raising it here is the constitution's own
+"stop and flag, don't quietly reinterpret" rule doing its job — but the flag isn't a veto.
+If the person building this considers the tension and overrides it deliberately (not just
+brushes past it), that override stands. The point of flagging is to prevent silent drift into
+gamification, not to relitigate a decision already made with eyes open. See the session
+prompt for the matching amendment to the constitution's own flagging rule.
+
 **Out: the four dimensions as a mechanic.**
 - No mastery levels, no percentage-complete-per-element, no defined threshold for "mastering"
   a dimension.
