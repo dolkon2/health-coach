@@ -11,6 +11,7 @@ export * from './conditions/snapshot';
 export * from './conditions/usgs';
 export * from './conditions/gaugeTrend';
 export * from './conditions/openMeteo';
+export * from './conditions/similar';
 export * from './gear';
 export * from './spot';
 export * from './swim';
