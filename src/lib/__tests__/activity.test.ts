@@ -29,6 +29,7 @@ const MODALITIES = new Set([
   'hike',
   'hiit',
   'mobility',
+  'dance',
   'other',
 ]);
 

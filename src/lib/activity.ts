@@ -77,7 +77,7 @@ export const ACTIVITIES: Activity[] = [
   { id: 'mobility', label: 'Mobility', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
   { id: 'meditation', label: 'Meditation', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mindfulness'] },
   { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['martial-arts'] },
-  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['dance'] },
+  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'dance', icon: 'flower', defaultIdentityTags: ['dance'] },
 ];
 
 /**

@@ -45,6 +45,7 @@ export type Modality =
   | 'hike'
   | 'hiit'
   | 'mobility'
+  | 'dance'
   | 'other';
 
 export type MovementPattern =
