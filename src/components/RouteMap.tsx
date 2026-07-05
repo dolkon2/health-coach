@@ -16,6 +16,11 @@
  * module load, so a static import would break tests and crash older dev builds.
  * require() runs only when RouteMap actually renders on-device, so importing
  * this file from anywhere is always safe.
+ *
+ * Pinned to @maplibre/maplibre-react-native v10 — its config plugin is compatible
+ * with Expo SDK 53's @expo/config-plugins (v11 needs a newer Expo). v10's classic
+ * API: MapView (mapStyle) / Camera (bounds) / ShapeSource (shape) / LineLayer
+ * (camelCase style), exposed on the module's default aggregate export.
  */
 import React from 'react';
 import type { ComponentType, ReactNode } from 'react';
@@ -26,14 +31,16 @@ import { mapStyleUrl } from '@/lib/config';
 import { RoutePreview } from './RoutePreview';
 
 // ── Thin typed adapter over the four MapLibre pieces we use ───────────────────
-// Types only the props we pass, verified against the package's d.ts (v11):
-// Map.mapStyle, Camera.bounds, GeoJSONSource.data, Layer.type/paint/layout. The
-// native render is validated by the human's prebuild + visual check, not tsc.
+// Types only the props we pass, verified against the v10 d.ts: MapView.mapStyle,
+// Camera.bounds, ShapeSource.shape, LineLayer.style. The native render itself is
+// validated by the human's prebuild + on-device check, not tsc.
 type LngLat = [number, number];
 type MapLibreModule = {
-  Map: ComponentType<{
+  MapView: ComponentType<{
     mapStyle: string;
     style?: object;
+    attributionEnabled?: boolean;
+    logoEnabled?: boolean;
     children?: ReactNode;
   }>;
   Camera: ComponentType<{
@@ -45,17 +52,11 @@ type MapLibreModule = {
       paddingLeft?: number;
       paddingRight?: number;
     };
-    animationMode?: 'flyTo' | 'easeTo' | 'linearTo' | 'moveTo' | 'none';
     animationDuration?: number;
   }>;
-  GeoJSONSource: ComponentType<{ id: string; data: object; children?: ReactNode }>;
-  Layer: ComponentType<{
-    id: string;
-    type: 'line';
-    source?: string;
-    paint?: object;
-    layout?: object;
-  }>;
+  ShapeSource: ComponentType<{ id: string; shape: object; children?: ReactNode }>;
+  LineLayer: ComponentType<{ id: string; sourceID?: string; style?: object }>;
+  setAccessToken?: (token: string | null) => void;
 };
 
 let cachedModule: MapLibreModule | null = null;
@@ -65,7 +66,12 @@ function loadMapLibre(): MapLibreModule | null {
   triedLoad = true;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    cachedModule = require('@maplibre/maplibre-react-native') as MapLibreModule;
+    const mod = require('@maplibre/maplibre-react-native');
+    // v10 exposes an aggregate default export; fall back to the namespace.
+    const G = (mod && mod.default ? mod.default : mod) as MapLibreModule;
+    // MapLibre needs no access token; set null once to silence the token warning.
+    G.setAccessToken?.(null);
+    cachedModule = G;
   } catch {
     cachedModule = null; // no native module in this build / environment
   }
@@ -111,7 +117,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
     // Native module absent (old dev build / jest) — fall back to the trace.
     return <RoutePreview path={path} height={height} />;
   }
-  const { Map, Camera, GeoJSONSource, Layer } = MapLibre;
+  const { MapView, Camera, ShapeSource, LineLayer } = MapLibre;
 
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -133,7 +139,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
         borderColor: theme.colors.border,
       }}
     >
-      <Map mapStyle={styleUrl} style={{ flex: 1 }}>
+      <MapView mapStyle={styleUrl} style={{ flex: 1 }}>
         <Camera
           bounds={{
             ne: [maxLng, maxLat],
@@ -145,15 +151,18 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
           }}
           animationDuration={0}
         />
-        <GeoJSONSource id={SOURCE_ID} data={toLineString(path)}>
-          <Layer
+        <ShapeSource id={SOURCE_ID} shape={toLineString(path)}>
+          <LineLayer
             id={LAYER_ID}
-            type="line"
-            paint={{ 'line-color': theme.colors.sandstone, 'line-width': 3 }}
-            layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            style={{
+              lineColor: theme.colors.sandstone,
+              lineWidth: 3,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
           />
-        </GeoJSONSource>
-      </Map>
+        </ShapeSource>
+      </MapView>
     </View>
   );
 }
