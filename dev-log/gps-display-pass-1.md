@@ -37,9 +37,9 @@ Fidelity is deliberately **not** an axis here — no GPS fidelity-ladder UI (spe
 
 1. **MapLibre, not Mapbox** (spec open q#4). Open, no per-load billing; MapTiler for the tiles. Style URL is built in code from env; the free key + custom style id live only in the gitignored `.env.local`.
 2. **Modern `paint`/`layout` layer props**, not the deprecated `style` prop (removed in maplibre-rn v12) — future-proof. The native module is typed via a thin local adapter interface (only the four props we pass, verified against the package d.ts); the actual native render is validated by the human's prebuild + visual check, not tsc.
-3. ⚑ **`RoutePreview` kept *alongside* `RouteMap`** as the prompt asked. Once the tile map renders, the little SVG trace above it is somewhat redundant — a candidate to drop after the visual check. Left in for now.
-4. ⚑ **Elevation is shown in metres** regardless of the km/mi setting — matches the app's existing convention (`… m gain`). If mi users should see feet, that's a small unit-conversion follow-up.
-5. ⚑ **The map lives inside the `log-session` ScrollView.** Pan/zoom vs. page-scroll gesture contention is a real on-device UX question — the visual check should confirm it feels right; may want gesture handling or a tap-to-expand full-screen map later.
+3. ~~⚑~~ **`RoutePreview` kept alongside `RouteMap`** — **RESOLVED 2026-07-05:** SVG trace stays for now; drops during the planned redesign pass (when the custom MapTiler style also lands).
+4. ~~⚑~~ **Elevation shown in metres** — **RESOLVED 2026-07-05:** metres is fine regardless of km/mi setting.
+5. ~~⚑~~ **Map inside ScrollView** — **RESOLVED 2026-07-05:** gesture contention acceptable on-device; revisit during redesign if needed.
 6. **Wired into the GPS (`endurance`) surface only.** The `paddling` block also carries `gpsPath`, but it isn't a distinct form surface yet — future.
 7. **MapTiler attribution left ON** (their ToS requires it) — do not disable.
 
@@ -47,8 +47,6 @@ Fidelity is deliberately **not** an axis here — no GPS fidelity-ladder UI (spe
 
 - **299 jest passing** (new: `elevationProfile.test.ts` ×5, `splits.test.ts` ×6; the pure functions are covered — components follow the house pattern of testing the pure layer, not RN render).
 - **tsc 0 errors.**
-- **`npm install --legacy-peer-deps` only** (locked rule); single dep added: `@maplibre/maplibre-react-native@^11.3.6`.
-- **Remaining steps — both a human's:**
-  1. **Native rebuild.** MapLibre is a new native module → needs a fresh dev build (`expo prebuild` + `expo run:ios`, or EAS). Not run here by design. The Expo config plugin is already in `app.json`.
-  2. **Visual check on device.** Open a logged GPS session that has a route (record a short walk or import a GPX), confirm the map draws the polyline over tiles, the elevation profile matches the climb, and the splits read right. Then eyeball flags ⚑3–⚑5. **The `.env.local` is already set** with the MapTiler key + style id, so the map should light up on first run with no further config.
-- **Not yet user-confirmed:** anything requiring the native render (the map itself). Everything below the render boundary — the pure series + the degradations — is tested/typed.
+- **`npm install --legacy-peer-deps` only** (locked rule); dep pinned to `@maplibre/maplibre-react-native@10.4.2` (v11 incompatible with SDK 53, see commit `1267d4f`).
+- **VERIFIED ON-DEVICE 2026-07-05:** MapTiler outdoor topo tiles + sandstone route polyline rendering on Dylan's physical iPhone 17 Pro (both zoomed-out Gorge view and zoomed-in street-level). Elevation profile (↑ 30 m · 249–274 m) and splits (0.12 km · 19:36 /km) confirmed. Tiny-route camera fix (`c64f4c7`) prevents blank tiles on small bounding boxes. All ⚑ flags resolved.
+- **All commits pushed** to `origin/claude/outdoor-sports-workspace-fbl5` (HEAD `c64f4c7`, clean).
