@@ -27,7 +27,13 @@ export type StimulusLedgerWeek = {
   weekStart: LocalDate;
   // Sparsely populated: only patterns that carried working volume that week
   // appear as keys. Consumers iterate Object.entries (no fabricated zero rows).
+  // Hold sets count here in `sets` but contribute ZERO volumeLoadKg — a hold has
+  // no reps to multiply, and inventing a load-equivalent would be fabricated volume.
   byPattern: Record<MovementPattern, { sets: number; volumeLoadKg: number }>;
+  // Sparse like byPattern: total isometric hold seconds per pattern (working
+  // sets only) — the honest aggregate for hold work, kept beside (never folded
+  // into) volumeLoadKg.
+  holdSecByPattern: Record<MovementPattern, number>;
   // Always fully populated (three keys), zero when nothing was logged.
   byEnergySystem: Record<EnergySystem, { minutes: number }>;
   sessionIds: ObservationId[];
@@ -51,6 +57,7 @@ function emptyWeek(weekStart: LocalDate): StimulusLedgerWeek {
   return {
     weekStart,
     byPattern: {} as StimulusLedgerWeek['byPattern'],
+    holdSecByPattern: {} as StimulusLedgerWeek['holdSecByPattern'],
     byEnergySystem: {
       aerobic: { minutes: 0 },
       glycolytic: { minutes: 0 },
@@ -99,8 +106,14 @@ export function computeWeeklyStimulus(
         if (set.isWarmup === true) continue; // working sets only
         const cur = week.byPattern[set.movementPattern] ?? { sets: 0, volumeLoadKg: 0 };
         cur.sets += 1;
+        // Hold sets store reps: 0, so they honestly add nothing here — hold work
+        // accrues seconds below, never a fabricated load (agrees with revealLifting).
         cur.volumeLoadKg += set.weightKg * set.reps;
         week.byPattern[set.movementPattern] = cur;
+        if (set.holdSec != null && set.holdSec > 0) {
+          week.holdSecByPattern[set.movementPattern] =
+            (week.holdSecByPattern[set.movementPattern] ?? 0) + set.holdSec;
+        }
       }
     }
 
@@ -152,7 +165,12 @@ function revealLifting(session: ObservationOf<'session'>): string {
     return sets.length > 0 ? 'warm-up only · 0 working sets' : durationLine(session);
   }
 
+  // Hold sets (reps: 0, holdSec > 0) contribute zero volume load here — same rule
+  // as computeWeeklyStimulus, so the ledger and this line never disagree. Their
+  // seconds get their own honest segment instead of a fabricated load figure.
   const volumeLoadKg = working.reduce((sum, s) => sum + s.weightKg * s.reps, 0);
+  const holdSec = working.reduce((sum, s) => sum + (s.holdSec ?? 0), 0);
+  const hasRepSets = working.some((s) => s.reps > 0);
 
   // Patterns present, ordered by how many working sets each carried (desc).
   const setsByPattern = new Map<MovementPattern, number>();
@@ -165,9 +183,11 @@ function revealLifting(session: ObservationOf<'session'>): string {
     .join(' + ');
 
   const setWord = working.length === 1 ? 'set' : 'sets';
-  return `${patterns} · ${working.length} ${setWord} · ${groupThousands(
-    Math.round(volumeLoadKg)
-  )} kg volume load`;
+  const parts = [`${patterns}`, `${working.length} ${setWord}`];
+  // Rep work present (even at 0 kg bodyweight) → the volume-load figure, as before.
+  if (hasRepSets) parts.push(`${groupThousands(Math.round(volumeLoadKg))} kg volume load`);
+  if (holdSec > 0) parts.push(`${groupThousands(Math.round(holdSec))} s held`);
+  return parts.join(' · ');
 }
 
 function revealEndurance(session: ObservationOf<'session'>): string {

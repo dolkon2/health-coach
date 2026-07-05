@@ -157,10 +157,12 @@ export type WeighInPayload = {
 
 export type LiftingBlock = {
   sets: Array<{
-    exercise: string; // e.g. 'barbell back squat'
+    exercise: string; // e.g. 'barbell back squat' — the stored fact, always present
+    exerciseId?: string; // Free Exercise DB slug when picked from the library; the name above stays the fact
     movementPattern: MovementPattern; // required — the engine depends on it
-    weightKg: number;
-    reps: number;
+    weightKg: number; // external load; on a bodyweight movement this is ADDED load (0 = strict bodyweight)
+    reps: number; // 0 for a pure hold set — the hold time is the work, so volume math (weightKg × reps) honestly contributes nothing
+    holdSec?: number; // isometric hold time in seconds (planche, plank, L-sit). Absent = a reps set; never a fabricated 0
     rir?: number; // reps in reserve, optional
     isWarmup?: boolean;
     completedAt?: ISOInstant; // when the set was finished, stamped live by the logger.

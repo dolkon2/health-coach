@@ -50,6 +50,7 @@ export type SetDraft = {
   id: string;
   weight: string;
   reps: string;
+  holdSec: string; // isometric hold seconds — a set is a hold set when this is filled (Body P1a)
   rir: string;
   isWarmup: boolean;
   completedAt?: string; // ISO instant, stamped when the set is marked complete (Pass 3b)
@@ -58,6 +59,7 @@ export type SetDraft = {
 export type ExerciseDraft = {
   id: string;
   name: string;
+  exerciseId?: string; // Free Exercise DB slug when picked from the library; `name` stays the stored fact
   movementPattern: MovementPattern | null; // required to save; null until tagged
   sets: SetDraft[];
 };
@@ -109,7 +111,7 @@ export type SessionForm = {
 };
 
 export function emptySetDraft(id: string): SetDraft {
-  return { id, weight: '', reps: '', rir: '', isWarmup: false };
+  return { id, weight: '', reps: '', holdSec: '', rir: '', isWarmup: false };
 }
 
 export function emptyExerciseDraft(id: string, setId: string): ExerciseDraft {
@@ -198,10 +200,19 @@ function num(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** A set the user actually filled in: a positive-rep entry (weight may be 0 = bodyweight). */
+/**
+ * A set the user actually filled in: positive reps OR a positive hold time.
+ * A reps set still needs an explicit weight (0 = bodyweight) — unchanged rule.
+ * A hold set may leave weight empty (empty = strict bodyweight, stored as 0 kg
+ * of ADDED load); if a weight is typed it must parse to >= 0.
+ */
 export function isSetFilled(s: SetDraft): boolean {
-  const reps = num(s.reps);
   const weight = num(s.weight);
+  const holdSec = num(s.holdSec);
+  if (holdSec !== null && holdSec > 0) {
+    return s.weight.trim() === '' || (weight !== null && weight >= 0);
+  }
+  const reps = num(s.reps);
   return reps !== null && reps > 0 && weight !== null && weight >= 0;
 }
 
@@ -270,15 +281,24 @@ function buildLifting(exercises: ExerciseDraft[], weightUnit: WeightUnit): Lifti
       throw new Error(`Movement pattern required for "${ex.name.trim() || 'exercise'}".`);
     }
     const pattern = ex.movementPattern;
-    return ex.sets.filter(isSetFilled).map((s) => ({
-      exercise: ex.name.trim(),
-      movementPattern: pattern,
-      weightKg: displayToKg(Number(s.weight), weightUnit),
-      reps: Math.round(Number(s.reps)),
-      ...(num(s.rir) !== null ? { rir: Number(s.rir) } : {}),
-      ...(s.isWarmup ? { isWarmup: true } : {}),
-      ...(s.completedAt ? { completedAt: s.completedAt } : {}),
-    }));
+    return ex.sets.filter(isSetFilled).map((s) => {
+      // A hold set stores reps: 0 — the hold time is the work, not a fabricated
+      // rep count. An empty weight on a hold set is strict bodyweight: 0 kg of
+      // ADDED load (weightKg on a bodyweight movement means added external load).
+      const reps = num(s.reps);
+      const holdSec = num(s.holdSec);
+      return {
+        exercise: ex.name.trim(),
+        ...(ex.exerciseId ? { exerciseId: ex.exerciseId } : {}),
+        movementPattern: pattern,
+        weightKg: displayToKg(num(s.weight) ?? 0, weightUnit),
+        reps: reps !== null && reps > 0 ? Math.round(reps) : 0,
+        ...(holdSec !== null && holdSec > 0 ? { holdSec: Math.round(holdSec) } : {}),
+        ...(num(s.rir) !== null ? { rir: Number(s.rir) } : {}),
+        ...(s.isWarmup ? { isWarmup: true } : {}),
+        ...(s.completedAt ? { completedAt: s.completedAt } : {}),
+      };
+    });
   });
   return { sets };
 }
@@ -469,12 +489,13 @@ export function sessionFormFromObservation(
   // Rebuild from whichever block is populated (not the coarse modality) so an
   // identity that normalises to 'other' (Surf, Wingfoil) still restores its body.
   if (p.lifting) {
-    // Group flat sets back under their exercise (name + pattern). Same name
-    // logged with different patterns becomes two groups, preserving order.
+    // Group flat sets back under their exercise (name + pattern + library id,
+    // \u0001-separated so names can't collide). Same name logged with different
+    // patterns (or different library exercises) becomes two groups, preserving order.
     const groups: ExerciseDraft[] = [];
     const indexByKey = new Map<string, number>();
     for (const s of p.lifting.sets) {
-      const key = `${s.exercise}${s.movementPattern}`;
+      const key = `${s.exercise}\u0001${s.movementPattern}\u0001${s.exerciseId ?? ''}`;
       let idx = indexByKey.get(key);
       if (idx === undefined) {
         idx = groups.length;
@@ -482,6 +503,7 @@ export function sessionFormFromObservation(
         groups.push({
           id: idFactory(),
           name: s.exercise,
+          ...(s.exerciseId ? { exerciseId: s.exerciseId } : {}),
           movementPattern: s.movementPattern,
           sets: [],
         });
@@ -489,7 +511,10 @@ export function sessionFormFromObservation(
       groups[idx].sets.push({
         id: idFactory(),
         weight: numStr(kgToDisplay(s.weightKg, units.weightUnit), 2),
-        reps: String(s.reps),
+        // A hold set stored reps: 0 by convention — restore the reps field empty,
+        // the way the user left it, not a literal '0'.
+        reps: s.reps === 0 && s.holdSec != null ? '' : String(s.reps),
+        holdSec: s.holdSec != null ? String(s.holdSec) : '',
         rir: s.rir != null ? String(s.rir) : '',
         isWarmup: s.isWarmup === true,
         ...(s.completedAt ? { completedAt: s.completedAt } : {}),

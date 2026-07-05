@@ -13,6 +13,8 @@ import type { GeoPoint } from '@core/observation';
 import {
   buildSessionObservation,
   emptySessionForm,
+  emptySetDraft,
+  isSetFilled,
   resolveSurface,
   sessionFormFromObservation,
   validateSessionForm,
@@ -38,7 +40,7 @@ function calisthenicsForm(): SessionForm {
       id: 'e1',
       name: 'pull-up',
       movementPattern: 'upper-pull',
-      sets: [{ id: 'a', weight: '0', reps: '10', rir: '1', isWarmup: false }],
+      sets: [{ id: 'a', weight: '0', reps: '10', holdSec: '', rir: '1', isWarmup: false }],
     },
   ];
   return f;
@@ -140,6 +142,7 @@ describe('Pass 3 — gym duration derived from set timestamps (no manual fallbac
           id: `s${i}`,
           weight: '100',
           reps: '5',
+          holdSec: '',
           rir: '',
           isWarmup: false,
           ...(completedAt ? { completedAt } : {}),
@@ -355,5 +358,120 @@ describe('Native GPS capture — live in-app recording (rung 2)', () => {
     expect(rebuilt.fidelity).toBe(0.7);
     expect(rebuilt.source).toEqual({ type: 'manual' });
     expect(rebuilt.occurredAt).toBe('2026-06-26T16:30:00Z');
+  });
+});
+describe('Body P1a — hold (isometric) sets on the gym surface', () => {
+  /** A calisthenics session with one hold exercise: 2 working holds + 1 warm-up hold. */
+  function holdForm(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'calisthenics';
+    f.gym.exercises = [
+      {
+        id: 'e1',
+        name: 'plank',
+        movementPattern: 'core',
+        sets: [
+          { id: 'w', weight: '', reps: '', holdSec: '20', rir: '', isWarmup: true },
+          { id: 'a', weight: '', reps: '', holdSec: '60', rir: '', isWarmup: false },
+          { id: 'b', weight: '', reps: '', holdSec: '45', rir: '', isWarmup: false },
+        ],
+      },
+    ];
+    return f;
+  }
+
+  it('isSetFilled accepts a hold-only set (reps>0 OR holdSec>0)', () => {
+    const empty = emptySetDraft('x');
+    expect(isSetFilled(empty)).toBe(false);
+    expect(isSetFilled({ ...empty, holdSec: '30' })).toBe(true); // hold, weight empty = bodyweight
+    expect(isSetFilled({ ...empty, holdSec: '30', weight: '10' })).toBe(true); // weighted hold
+    expect(isSetFilled({ ...empty, holdSec: '0' })).toBe(false); // 0 s is not a hold
+    // Rep-set rule unchanged: reps alone without a weight is still unfilled.
+    expect(isSetFilled({ ...empty, reps: '5' })).toBe(false);
+    expect(isSetFilled({ ...empty, reps: '5', weight: '0' })).toBe(true);
+  });
+
+  it('a hold-only exercise validates and builds: holdSec stored, reps 0, 0 kg added load', () => {
+    expect(validateSessionForm(holdForm())).toBeNull();
+    const obs = buildSessionObservation(holdForm(), CTX);
+    const sets = obs.payload.lifting?.sets ?? [];
+    expect(sets).toHaveLength(3);
+    for (const s of sets) {
+      expect(s.reps).toBe(0); // the hold time is the work — no fabricated rep count
+      expect(s.weightKg).toBe(0); // empty weight = strict bodyweight (0 added load)
+    }
+    expect(sets.map((s) => s.holdSec)).toEqual([20, 60, 45]);
+  });
+
+  it('a weighted hold stores the typed weight as ADDED load', () => {
+    const f = holdForm();
+    f.gym.exercises[0].sets = [
+      { id: 'a', weight: '10', reps: '', holdSec: '30', rir: '', isWarmup: false },
+    ];
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.lifting?.sets[0].weightKg).toBe(10);
+    expect(obs.payload.lifting?.sets[0].holdSec).toBe(30);
+  });
+
+  it('round-trips hold sets through invert → rebuild (payload identical)', () => {
+    const obs = buildSessionObservation(holdForm(), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    const sets = inverted.gym.exercises[0].sets;
+    expect(sets.map((s) => s.holdSec)).toEqual(['20', '60', '45']);
+    expect(sets.every((s) => s.reps === '')).toBe(true); // restored the way it was left, not '0'
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's2' });
+    expect(rebuilt.payload.lifting).toEqual(obs.payload.lifting);
+  });
+
+  it('round-trips a library exerciseId per set while the name stays the stored fact', () => {
+    const f = holdForm();
+    f.gym.exercises[0].exerciseId = 'plank';
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.lifting?.sets.every((s) => s.exerciseId === 'plank')).toBe(true);
+    expect(obs.payload.lifting?.sets[0].exercise).toBe('plank');
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.gym.exercises).toHaveLength(1);
+    expect(inverted.gym.exercises[0].exerciseId).toBe('plank');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's3' });
+    expect(rebuilt.payload.lifting).toEqual(obs.payload.lifting);
+  });
+
+  it('reveal(): hold-only session speaks seconds held, never a 0 kg volume-load line', () => {
+    const obs = buildSessionObservation(holdForm(), CTX);
+    // Warm-up hold excluded: 60 + 45 = 105 s across 2 working sets.
+    expect(reveal(obs)).toBe('core · 2 sets · 105 s held');
+  });
+
+  it('reveal(): mixed reps + holds shows both figures, holds adding no volume', () => {
+    const f = holdForm();
+    f.gym.exercises.push({
+      id: 'e2',
+      name: 'weighted pull-up',
+      movementPattern: 'upper-pull',
+      sets: [
+        { id: 'c', weight: '20', reps: '5', holdSec: '', rir: '', isWarmup: false },
+        { id: 'd', weight: '20', reps: '5', holdSec: '', rir: '', isWarmup: false },
+      ],
+    });
+    const obs = buildSessionObservation(f, CTX);
+    // 4 working sets; volume = 20*5 + 20*5 = 200 kg (holds contribute zero); 105 s held.
+    expect(reveal(obs)).toBe('core + upper-pull · 4 sets · 200 kg volume load · 105 s held');
+  });
+
+  it('weekly stimulus: holds count as pattern sets + holdSecByPattern, zero volumeLoadKg', () => {
+    const obs = buildSessionObservation(holdForm(), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.byPattern.core).toEqual({ sets: 2, volumeLoadKg: 0 });
+    expect(week.holdSecByPattern.core).toBe(105); // warm-up hold excluded
   });
 });

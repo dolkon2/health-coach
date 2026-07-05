@@ -49,16 +49,16 @@ function pullDayForm(): SessionForm {
       name: 'barbell row',
       movementPattern: 'upper-pull',
       sets: [
-        { id: 'w', weight: '40', reps: '8', rir: '', isWarmup: true }, // warm-up, no volume
-        { id: 'a', weight: '100', reps: '5', rir: '2', isWarmup: false },
-        { id: 'b', weight: '100', reps: '5', rir: '1', isWarmup: false },
+        { id: 'w', weight: '40', reps: '8', holdSec: '', rir: '', isWarmup: true }, // warm-up, no volume
+        { id: 'a', weight: '100', reps: '5', holdSec: '', rir: '2', isWarmup: false },
+        { id: 'b', weight: '100', reps: '5', holdSec: '', rir: '1', isWarmup: false },
       ],
     },
     {
       id: 'e2',
       name: 'lat pulldown',
       movementPattern: 'upper-pull',
-      sets: [{ id: 'c', weight: '70', reps: '10', rir: '2', isWarmup: false }],
+      sets: [{ id: 'c', weight: '70', reps: '10', holdSec: '', rir: '2', isWarmup: false }],
     },
   ];
   return form;
@@ -113,8 +113,8 @@ describe('session flow (Pass 4)', () => {
         name: 'back squat',
         movementPattern: 'quad-dom',
         sets: [
-          { id: 'w', weight: '60', reps: '5', rir: '', isWarmup: true },
-          { id: 'a', weight: '120', reps: '3', rir: '2', isWarmup: false },
+          { id: 'w', weight: '60', reps: '5', holdSec: '', rir: '', isWarmup: true },
+          { id: 'a', weight: '120', reps: '3', holdSec: '', rir: '2', isWarmup: false },
         ],
       },
     ];
@@ -139,15 +139,15 @@ describe('session flow (Pass 4)', () => {
         id: 'e1',
         name: 'deadlift',
         movementPattern: 'hip-hinge',
-        sets: [{ id: 'a', weight: '140', reps: '3', rir: '2', isWarmup: false }],
+        sets: [{ id: 'a', weight: '140', reps: '3', holdSec: '', rir: '2', isWarmup: false }],
       },
       {
         id: 'e2',
         name: 'front squat',
         movementPattern: 'quad-dom',
         sets: [
-          { id: 'b', weight: '100', reps: '5', rir: '2', isWarmup: false },
-          { id: 'c', weight: '100', reps: '5', rir: '1', isWarmup: false },
+          { id: 'b', weight: '100', reps: '5', holdSec: '', rir: '2', isWarmup: false },
+          { id: 'c', weight: '100', reps: '5', holdSec: '', rir: '1', isWarmup: false },
         ],
       },
     ];
