@@ -37,6 +37,7 @@ override stands and the flag doesn't get re-raised on the next pass.
 - `ai-consultant-prompt.md` — Phase 7 (AI consultant)
 - `competitive-landscape.md` — Cora, trainhybrid, Edge, etc.
 - `brand-kit.md` — design tokens and visual direction
+- `screens-features-status.md` — **read this for current design/nav status** — Dylan's screen redesign is live in Notion and moves faster than this repo; points to the live Notion page + summarizes open nav decisions and the brand-kit-vs-code gap
 - `phase-1-build-spec.md` — what we built first (the minimum useful loop)
 - `game-plan-and-prompts.md` — build sequence + ring↔phase↔pass legend
 - `backlog.md` — deferred items, open constraints, known quirks
