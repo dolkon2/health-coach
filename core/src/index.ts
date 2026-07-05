@@ -13,6 +13,7 @@ export * from './conditions/gaugeTrend';
 export * from './conditions/openMeteo';
 export * from './gear';
 export * from './spot';
+export * from './swim';
 export * from './benchmark';
 export * from './sessionTemplate';
 export * from './timeline';
