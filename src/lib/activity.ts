@@ -61,6 +61,7 @@ export const ACTIVITIES: Activity[] = [
   { id: 'sail', label: 'Sail', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'aerobic' },
   { id: 'windsurf', label: 'Windsurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
   { id: 'kitesurf', label: 'Kitesurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
+  { id: 'parawing', label: 'Parawing', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
   { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed' },
   { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'] },
   { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
