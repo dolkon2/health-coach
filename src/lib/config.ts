@@ -15,6 +15,12 @@
  * through Claude before resolving against USDA (multi-item meals, vague
  * portions). When unset, the regex parser handles it — the feature gracefully
  * degrades.
+ *
+ * MapTiler: optional. When a key is set, the GPS route map (RouteMap) renders
+ * vector tiles under the recorded polyline; when unset, the map degrades to the
+ * SVG route trace (RoutePreview) — nothing is fabricated, nothing is blocked.
+ * MAP_STYLE_ID selects the tile style (defaults to `outdoor`). The style URL is
+ * assembled here in code so the key/style never land in app.json or git.
  */
 
 export const USDA_API_KEY: string =
@@ -22,3 +28,18 @@ export const USDA_API_KEY: string =
 
 export const ANTHROPIC_API_KEY: string | null =
   process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || null;
+
+export const MAPTILER_KEY: string | null =
+  process.env.EXPO_PUBLIC_MAPTILER_KEY || null;
+
+export const MAP_STYLE_ID: string =
+  process.env.EXPO_PUBLIC_MAP_STYLE_ID || 'outdoor';
+
+/**
+ * MapTiler style URL for the route map, or `null` when no key is configured (the
+ * caller falls back to the SVG trace). Never hardcodes or logs the key.
+ */
+export function mapStyleUrl(): string | null {
+  if (!MAPTILER_KEY) return null;
+  return `https://api.maptiler.com/maps/${MAP_STYLE_ID}/style.json?key=${MAPTILER_KEY}`;
+}
