@@ -10,8 +10,10 @@
  */
 import { getDb, type SqlDatabase } from './db';
 import type { BodyProfile } from '@/lib/bodyProfile';
+import type { Settings } from '@/lib/appSettings';
 
 const K_BODY_PROFILE = 'bodyProfile';
+const K_APP_SETTINGS = 'appSettings';
 
 export async function getSettingJson<T>(key: string, db?: SqlDatabase): Promise<T | null> {
   const d = db ?? (await getDb());
@@ -44,4 +46,15 @@ export async function getBodyProfile(db?: SqlDatabase): Promise<BodyProfile | nu
 
 export async function setBodyProfile(profile: BodyProfile, db?: SqlDatabase): Promise<void> {
   await setSettingJson(K_BODY_PROFILE, profile, db);
+}
+
+/** Null until the user has changed a setting — the hook renders DEFAULT_SETTINGS
+ *  on null. The stored blob may be a subset of Settings (saved before a field
+ *  existed), so it comes back as Partial and the hook merges over defaults. */
+export async function getAppSettings(db?: SqlDatabase): Promise<Partial<Settings> | null> {
+  return getSettingJson<Partial<Settings>>(K_APP_SETTINGS, db);
+}
+
+export async function setAppSettings(settings: Settings, db?: SqlDatabase): Promise<void> {
+  await setSettingJson(K_APP_SETTINGS, settings, db);
 }

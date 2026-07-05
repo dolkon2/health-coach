@@ -10,13 +10,26 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Button } from '@/components';
+import { Screen, Text, Card, Button, ChipSelect } from '@/components';
 import { useTheme } from '@/theme';
 import { seedSampleData, clearSampleData } from '@/lib/devSeed';
+import { useSettings, useUpdateSettings } from '@/settings/useSettings';
+import type { WeightUnit, DistanceUnit } from '@/lib/units';
+
+const WEIGHT_UNITS: Array<{ value: WeightUnit; label: string }> = [
+  { value: 'lb', label: 'lb' },
+  { value: 'kg', label: 'kg' },
+];
+const DISTANCE_UNITS: Array<{ value: DistanceUnit; label: string }> = [
+  { value: 'km', label: 'km' },
+  { value: 'mi', label: 'mi' },
+];
 
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { weightUnit, distanceUnit } = useSettings();
+  const updateSettings = useUpdateSettings();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -73,11 +86,36 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[2] }}>
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Units</Text>
         <Text variant="body" color={theme.colors.textMuted}>
-          kg · km (configurable in a later pass)
+          How weights and distances read. Storage stays kg and metres — this
+          only changes what you see.
         </Text>
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="bodySm" color={theme.colors.textSecondary}>
+            Weight
+          </Text>
+          <ChipSelect
+            options={WEIGHT_UNITS}
+            value={weightUnit}
+            onChange={(u) => {
+              void updateSettings({ weightUnit: u });
+            }}
+          />
+        </View>
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="bodySm" color={theme.colors.textSecondary}>
+            Distance
+          </Text>
+          <ChipSelect
+            options={DISTANCE_UNITS}
+            value={distanceUnit}
+            onChange={(u) => {
+              void updateSettings({ distanceUnit: u });
+            }}
+          />
+        </View>
       </Card>
 
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[2] }}>

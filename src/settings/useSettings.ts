@@ -1,30 +1,80 @@
 /**
- * useSettings — a stub settings hook (Pass 3).
+ * useSettings — persisted app settings (settings store, key 'appSettings').
  *
- * Real persisted settings (a Settings screen writing to storage) come later.
- * For now this returns fixed defaults so the rest of the app can read units
- * from one place instead of hard-coding them. When settings get persisted,
- * only this file changes — every caller keeps working.
+ * A tiny module-level store, not a per-hook load: expo-router keeps the tabs
+ * mounted, so a unit changed on the Settings screen has to re-render every
+ * mounted caller. One shared snapshot + useSyncExternalStore does that without
+ * a context provider to thread through the tree.
+ *
+ * Until the stored blob loads — and forever if nothing was ever saved — the
+ * snapshot is DEFAULT_SETTINGS, the same values the pre-persistence stub
+ * returned, so every existing `useSettings()` caller keeps working unchanged.
+ * Persistence lives in the settings table (migration 009); the JSON accessors
+ * follow the body-profile tenant (see storage/settings.ts).
  */
-import type { WeightUnit, DistanceUnit } from '@/lib/units';
-import type { NutritionFocus } from '@/lib/foodLog';
+import { useSyncExternalStore } from 'react';
+import { DEFAULT_SETTINGS, withDefaults, type Settings } from '@/lib/appSettings';
+import { getAppSettings, setAppSettings } from '@/storage/settings';
 
-export type Settings = {
-  weightUnit: WeightUnit;
-  distanceUnit: DistanceUnit;
-  nutritionFocus: NutritionFocus; // display-only: which macro renders large in food UI
-  restTimerSec: number; // default between-sets rest; the gym timer starts from this.
-  defaultPoolLengthM: number; // remembered pool length; the swim form prefills it.
-};
+export type { Settings };
 
-const DEFAULTS: Settings = {
-  weightUnit: 'lb', // Dylan logs in pounds; storage stays kg (see units.ts).
-  distanceUnit: 'km', // endurance distance; storage stays metres (see units.ts).
-  nutritionFocus: 'calories', // the hero number; a lens over the data, never a gate on it.
-  restTimerSec: 120, // 2 min — a sensible default until a Settings screen persists it.
-  defaultPoolLengthM: 25, // a 25 m pool is the common default.
-};
+let snapshot: Settings = DEFAULT_SETTINGS;
+const listeners = new Set<() => void>();
+let hydrated = false; // a stored read (or a user write) has settled the snapshot
+let hydrating = false;
 
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
+// Load once, on the first subscriber. A user write before this settles flips
+// `hydrated`, so the late read never clobbers a change the user just made.
+function ensureHydrated(): void {
+  if (hydrated || hydrating) return;
+  hydrating = true;
+  getAppSettings()
+    .then((stored) => {
+      if (!hydrated && stored != null) {
+        snapshot = withDefaults(stored);
+        emit();
+      }
+    })
+    .catch(() => {
+      // an unreadable store behaves as never-saved: defaults, never a crash
+    })
+    .finally(() => {
+      hydrated = true;
+      hydrating = false;
+    });
+}
+
+function subscribe(listener: () => void): () => void {
+  ensureHydrated();
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/** The current settings — same signature as the old stub; callers unchanged. */
 export function useSettings(): Settings {
-  return DEFAULTS;
+  return useSyncExternalStore(subscribe, () => snapshot, () => snapshot);
+}
+
+/**
+ * Persist a partial change (e.g. `{ weightUnit: 'kg' }`). The snapshot updates
+ * synchronously so the UI reflects it at once; the returned promise settles
+ * when the write lands. The full blob is written — a partial stored value
+ * merges back over the defaults on the next read (withDefaults).
+ */
+export async function updateSettings(patch: Partial<Settings>): Promise<void> {
+  snapshot = { ...snapshot, ...patch };
+  hydrated = true; // the user's write is the source of truth now
+  emit();
+  await setAppSettings(snapshot);
+}
+
+/** Hook form of {@link updateSettings}, for symmetry with useSettings(). */
+export function useUpdateSettings(): (patch: Partial<Settings>) => Promise<void> {
+  return updateSettings;
 }

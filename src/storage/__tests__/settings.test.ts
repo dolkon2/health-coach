@@ -15,8 +15,11 @@ import {
   setSettingJson,
   getBodyProfile,
   setBodyProfile,
+  getAppSettings,
+  setAppSettings,
 } from '../settings';
 import type { BodyProfile } from '@/lib/bodyProfile';
+import { DEFAULT_SETTINGS } from '@/lib/appSettings';
 
 const PROFILE: BodyProfile = {
   heightCm: 180,
@@ -54,5 +57,35 @@ describe('settings key/value store', () => {
     await runMigrations(db);
     await db.runAsync(`INSERT INTO settings (key, value) VALUES ('bodyProfile', 'not json');`);
     expect(await getBodyProfile(db)).toBeNull();
+  });
+});
+
+describe('app settings tenant', () => {
+  it('returns null until a setting is changed (defaults live in the hook, not storage)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    expect(await getAppSettings(db)).toBeNull();
+  });
+
+  it('round-trips the full blob and overwrites in place', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await setAppSettings(DEFAULT_SETTINGS, db);
+    expect(await getAppSettings(db)).toEqual(DEFAULT_SETTINGS);
+
+    const next = { ...DEFAULT_SETTINGS, weightUnit: 'kg', distanceUnit: 'mi' } as const;
+    await setAppSettings(next, db);
+    expect(await getAppSettings(db)).toEqual(next);
+  });
+
+  it('reads a partial blob back as-is — the hook merges defaults, storage does not', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    // A blob saved before a field existed: only weightUnit present.
+    await db.runAsync(`INSERT INTO settings (key, value) VALUES ('appSettings', ?);`, [
+      JSON.stringify({ weightUnit: 'kg' }),
+    ]);
+    expect(await getAppSettings(db)).toEqual({ weightUnit: 'kg' });
   });
 });
