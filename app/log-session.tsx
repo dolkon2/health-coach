@@ -30,6 +30,9 @@ import {
   RemoveButton,
   Checkbox,
   RoutePreview,
+  RouteMap,
+  ElevationProfile,
+  Splits,
   GpsRecorderPanel,
 } from '@/components';
 import {
@@ -610,6 +613,13 @@ export default function LogSessionScreen() {
                   .filter(Boolean)
                   .join('  ·  ')}
               </Text>
+              {/* Full display stack — map over tiles, then the derived charts.
+                  Each is self-absenting: RouteMap degrades to the SVG trace with
+                  no MapTiler key, ElevationProfile hides with no altitude, Splits
+                  hide when the track is untimed (gps-mapping-spec.md). */}
+              <RouteMap path={form.endurance.gpsPath} />
+              <ElevationProfile points={form.endurance.gpsPath} />
+              <Splits points={form.endurance.gpsPath} unit={distanceUnit} />
             </View>
           ) : (
             <View style={{ gap: theme.spacing[3] }}>

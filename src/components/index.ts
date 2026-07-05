@@ -14,6 +14,7 @@ export { WeightTrendChart } from './WeightTrendChart';
 export { RoutePreview, routePathD } from './RoutePreview';
 export { ElevationProfile, elevationPaths } from './ElevationProfile';
 export { Splits } from './Splits';
+export { RouteMap } from './RouteMap';
 export { GpsRecorderPanel } from './GpsRecorderPanel';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';
