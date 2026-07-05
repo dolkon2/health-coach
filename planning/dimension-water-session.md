@@ -62,8 +62,10 @@ The **Notion "New Training Database"** is the most up-to-date spec. Read the Not
 ### Wind — wing/kite (biggest net-new sport, no logbook benchmark to copy)
 - **The conditions-freeze + quiver combo IS the category-defining feature.** Nobody serves "what did I ride last time in these conditions?"
 - **Open-Meteo** — `wind_speed_10m`, `wind_gusts_10m`, `wind_direction_10m`, current + historical (backdated logs!) — free, keyless, global → the conditions freeze.
-- **Bespoke fields:** spot picker (lat/lng), sport sub-type (kite/wing/windsurf), kite-or-wing size + board/foil from quiver, subjective note.
+- **Bespoke fields:** spot picker (lat/lng), sport sub-type (kite/wing/windsurf/parawing), kite-or-wing size + board/foil from quiver, subjective note.
 - **Quiver is central** — kites/wings by size, boards by volume, foils by area. Riders build personal lookup tables ("18kt SW at spot X = 9m + 95L board") in spreadsheets TODAY.
+- **Future split point:** kite/wing/windsurf/parawing may each split into separate top-level sports eventually — the sub-sport discriminator is the designed split point (registry entries + bespoke fields per sub-sport), but this build pass keeps ONE Wind surface since the conditions freeze + kit model are identical across all four.
+- **Session style (downwind vs. back-and-forth):** riders either do downwind runs/laps (start spot ≠ end spot, shuttle logistics) or ride back-and-forth at one launch. Needs a session-style field on the Wind log. A downwinder wants launch + landing spots (or a named run), not a single spot ref — and GPS interpretation differs too (one-way distance vs. out-and-back).
 - **HealthKit:** no kitesurf type — ingest `.sailing` / `.surfingSports` (catches Watch, Garmin, Surfr/Hoolan sessions).
 - **WeatherFlow Tempest** — free personal-station token; network-wide is enterprise-gated. Later premium upgrade.
 - Defer: jump detection (WOO/Surfr own it; hard with phone-in-drybag), speed-run analytics, tack/jibe segmentation, leaderboards.
