@@ -268,7 +268,7 @@ describe('Pass 6 — practice surface', () => {
     const f = emptySessionForm();
     f.activity = 'yoga';
     f.durationMin = '45';
-    f.practice = { style };
+    f.practice = { ...f.practice, style };
     return f;
   }
 
@@ -514,5 +514,203 @@ describe('Body P1a — deprecated martial-arts sessions stay editable', () => {
     expect(rebuilt.payload.activity).toBe('martial-arts');
     expect(rebuilt.payload.modality).toBe('other'); // unchanged nearest modality
     expect(rebuilt.payload.durationMin).toBe(60);
+  });
+});
+
+describe('Body P1b — practice-side fields', () => {
+  const invert = (obs: ObservationOf<'session'>) => {
+    let n = 0;
+    return sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+  };
+
+  it('round-trips styleId + free style together (taxonomy pick keeps the text fact)', () => {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.practice = { ...f.practice, style: 'vinyasa', styleId: 'vinyasa' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice).toEqual({ style: 'vinyasa', styleId: 'vinyasa' });
+
+    const rebuilt = buildSessionObservation(invert(obs), { ...CTX, id: 'p2' });
+    expect(rebuilt.payload.practice).toEqual({ style: 'vinyasa', styleId: 'vinyasa' });
+  });
+
+  it('round-trips the dance context tag', () => {
+    const f = emptySessionForm();
+    f.activity = 'dance';
+    f.durationMin = '90';
+    f.practice = { ...f.practice, contextTag: 'social' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice?.contextTag).toBe('social');
+
+    const inverted = invert(obs);
+    expect(inverted.practice.contextTag).toBe('social');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'd2' });
+    expect(rebuilt.payload.practice?.contextTag).toBe('social');
+  });
+
+  it('round-trips body areas — side and tightness kept, unrated stays absent', () => {
+    const f = emptySessionForm();
+    f.activity = 'mobility';
+    f.durationMin = '20';
+    f.practice = {
+      ...f.practice,
+      bodyAreas: [
+        { id: 'b1', zoneId: 'hips', tightness: '4' },
+        { id: 'b2', zoneId: 'calves-ankles', side: 'left', tightness: '' },
+        { id: 'b3', zoneId: '', tightness: '3' }, // zoneless draft: never built
+      ],
+    };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice?.bodyAreas).toEqual([
+      { zoneId: 'hips', tightness: 4 },
+      { zoneId: 'calves-ankles', side: 'left' }, // not rated ≠ rated low
+    ]);
+
+    const inverted = invert(obs);
+    expect(inverted.practice.bodyAreas.map((a) => a.zoneId)).toEqual([
+      'hips',
+      'calves-ankles',
+    ]);
+    expect(inverted.practice.bodyAreas[0].tightness).toBe('4');
+    expect(inverted.practice.bodyAreas[1].tightness).toBe('');
+    expect(inverted.practice.bodyAreas[1].side).toBe('left');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'm2' });
+    expect(rebuilt.payload.practice?.bodyAreas).toEqual(obs.payload.practice?.bodyAreas);
+  });
+
+  it('rejects an out-of-range tightness instead of clamping it', () => {
+    const f = emptySessionForm();
+    f.activity = 'mobility';
+    f.durationMin = '20';
+    f.practice = {
+      ...f.practice,
+      bodyAreas: [{ id: 'b1', zoneId: 'hips', tightness: '9' }],
+    };
+    expect(validateSessionForm(f)).toMatch(/Tightness/);
+  });
+
+  it('pain attaches to a NON-practice session and 0 persists as a recorded reading', () => {
+    const f = calisthenicsForm(); // gym surface
+    f.painAreas = [
+      { id: 'p1', zoneId: 'knees', side: 'right', pain: '0' },
+      { id: 'p2', zoneId: 'lower-back', pain: '3' },
+      { id: 'p3', zoneId: 'hips', pain: '' }, // untouched draft: absent, NOT a 0
+    ];
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.painAreas).toEqual([
+      { zoneId: 'knees', side: 'right', pain: 0 },
+      { zoneId: 'lower-back', pain: 3 },
+    ]);
+
+    const inverted = invert(obs);
+    expect(inverted.painAreas.map((a) => a.pain)).toEqual(['0', '3']);
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'c2' });
+    expect(rebuilt.payload.painAreas).toEqual(obs.payload.painAreas);
+  });
+
+  it('a session with no pain entries carries NO painAreas key (absent ≠ pain-free)', () => {
+    const obs = buildSessionObservation(calisthenicsForm(), CTX);
+    expect('painAreas' in obs.payload).toBe(false);
+  });
+
+  it('rejects an out-of-range pain score instead of clamping it', () => {
+    const f = calisthenicsForm();
+    f.painAreas = [{ id: 'p1', zoneId: 'knees', pain: '11' }];
+    expect(validateSessionForm(f)).toMatch(/Pain/);
+  });
+});
+
+describe('Body P1b — breathwork through the session form', () => {
+  function whm(rounds: Array<{ sec: string; breaths?: string }>, durationMin = ''): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'breathwork';
+    f.durationMin = durationMin;
+    f.breathwork = {
+      patternId: 'whm',
+      cycles: '',
+      capture: 'manual',
+      rounds: rounds.map((r, i) => ({
+        id: `r${i}`,
+        retentionSec: r.sec,
+        breaths: r.breaths ?? '',
+      })),
+    };
+    return f;
+  }
+
+  it('a duration-less manual session with rounds is VALID (rounds-present = filled)', () => {
+    expect(validateSessionForm(whm([{ sec: '95' }]))).toBeNull();
+  });
+
+  it('without rounds, breathwork still needs a duration like any practice', () => {
+    expect(validateSessionForm(whm([]))).toMatch(/duration/);
+  });
+
+  it('a typed duration must still parse — the exemption never swallows garbage', () => {
+    expect(validateSessionForm(whm([{ sec: '95' }], '0'))).toMatch(/duration/);
+  });
+
+  it('builds rounds without fabricating a duration, and the edit path restores them', () => {
+    const obs = buildSessionObservation(
+      whm([{ sec: '95', breaths: '35' }, { sec: '112' }]),
+      CTX
+    );
+    expect('durationMin' in obs.payload).toBe(false); // absent, never a 0
+    expect(obs.payload.breathwork).toEqual({
+      patternId: 'whm',
+      rounds: [{ retentionSeconds: 95, breathsCount: 35 }, { retentionSeconds: 112 }],
+      capture: 'manual',
+    });
+    expect(obs.payload.practice).toBeUndefined(); // no fabricated practice block
+
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.durationMin).toBe('');
+    expect(inverted.breathwork.rounds.map((r) => r.retentionSec)).toEqual(['95', '112']);
+    expect(inverted.breathwork.rounds[0].breaths).toBe('35');
+    expect(inverted.breathwork.capture).toBe('manual');
+
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'bw2' });
+    expect(rebuilt.payload.breathwork).toEqual(obs.payload.breathwork);
+    expect('durationMin' in rebuilt.payload).toBe(false);
+  });
+
+  it('an aborted (empty) round is never stored as a 0-second row', () => {
+    const obs = buildSessionObservation(
+      whm([{ sec: '95' }, { sec: '' }], '12'),
+      CTX
+    );
+    expect(obs.payload.breathwork?.rounds).toEqual([{ retentionSeconds: 95 }]);
+    expect(obs.payload.durationMin).toBe(12); // a typed duration is honored
+  });
+
+  it('breathwork fields are keyed on the activity — yoga never grows the block', () => {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.breathwork = {
+      patternId: 'whm',
+      cycles: '',
+      capture: 'manual',
+      rounds: [{ id: 'r0', retentionSec: '90', breaths: '' }],
+    };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.breathwork).toBeUndefined();
+  });
+
+  it('cycles-only (timed pattern) builds without rounds or capture', () => {
+    const f = whm([], '10');
+    f.breathwork = { patternId: 'box-4-4-4-4', cycles: '20', capture: null, rounds: [] };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.breathwork).toEqual({ patternId: 'box-4-4-4-4', cycles: 20 });
   });
 });

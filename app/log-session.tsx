@@ -748,7 +748,7 @@ export default function LogSessionScreen() {
           <Field
             label="Style (optional)"
             value={form.practice.style}
-            onChangeText={(style) => update({ practice: { style } })}
+            onChangeText={(style) => update({ practice: { ...form.practice, style } })}
             placeholder="e.g. vinyasa, hatha, mobility"
             keyboardType="default"
           />

@@ -15,12 +15,16 @@
  * reach storage (constitution: the engine's inputs stay honest).
  */
 import type {
+  BodySide,
+  BreathworkBlock,
   EnergySystem,
   LiftingBlock,
   GeoPoint,
   Modality,
   MovementPattern,
   ObservationOf,
+  PracticeBlock,
+  PracticeContextTag,
   SessionPayload,
   SwimmingBlock,
   SwimStroke,
@@ -71,6 +75,32 @@ export type SendDraft = {
   sent: boolean;
 };
 
+// A body area worked in a practice session (mobility). Tightness is an optional
+// 1–5 rating as a raw string; empty = not rated (absent, never a middle default).
+export type BodyAreaDraft = {
+  id: string;
+  zoneId: string; // '' until picked
+  side?: BodySide;
+  tightness: string;
+};
+
+// A pain reading attached to the session being logged — any surface. `pain` is
+// the raw 0–10 string; '0' is a deliberate pain-free reading, '' is unfilled.
+export type PainAreaDraft = {
+  id: string;
+  zoneId: string; // '' until picked
+  side?: BodySide;
+  pain: string;
+};
+
+// One breathwork round. `retentionSec` holds whole seconds as a string (the
+// m:ss capture UI converts before writing here); '' = round not captured.
+export type BreathworkRoundDraft = {
+  id: string;
+  retentionSec: string;
+  breaths: string;
+};
+
 export type SessionForm = {
   // The chosen identity (registry id, e.g. 'calisthenics'). Resolves the logging
   // surface and the engine modality. Optional: the Today quick-log picker can set
@@ -107,7 +137,24 @@ export type SessionForm = {
     stroke: SwimStroke;
     energySystem: EnergySystem;
   };
-  practice: { style: string }; // optional free style tag for yoga/pilates/mobility
+  practice: {
+    style: string; // optional free style tag for yoga/pilates/mobility — stays the stored fact
+    styleId: string; // taxonomy id when picked from the bundled list; '' = none
+    contextTag: PracticeContextTag | null; // dance: class/social/practice/rehearsal/performance
+    bodyAreas: BodyAreaDraft[]; // mobility: areas worked (+ optional tightness)
+  };
+  // Breathwork fields — read by build() only when the chosen activity is
+  // 'breathwork' (it logs through this form on the practice surface, not a
+  // bypass screen, so the edit path stays unified).
+  breathwork: {
+    patternId: string; // bundled-pattern id; '' = freeform breathwork
+    cycles: string; // timed patterns: cycles completed
+    capture: 'stopwatch' | 'manual' | null; // provenance, set by the capture UI — never defaulted here
+    rounds: BreathworkRoundDraft[];
+  };
+  // Pain the user attaches to THIS session — any surface (pt-model: a knee can
+  // hurt on a run or under a bar).
+  painAreas: PainAreaDraft[];
 };
 
 export function emptySetDraft(id: string): SetDraft {
@@ -135,7 +182,9 @@ export function emptySessionForm(): SessionForm {
       stroke: 'freestyle',
       energySystem: 'aerobic',
     },
-    practice: { style: '' },
+    practice: { style: '', styleId: '', contextTag: null, bodyAreas: [] },
+    breathwork: { patternId: '', cycles: '', capture: null, rounds: [] },
+    painAreas: [],
   };
 }
 
@@ -225,6 +274,23 @@ function sendFilled(s: SendDraft): boolean {
   return s.grade.trim() !== '';
 }
 
+/** A captured breathwork round: a positive retention time. An aborted round is
+ *  simply never recorded (null ≠ 0). */
+export function isRoundFilled(r: BreathworkRoundDraft): boolean {
+  const sec = num(r.retentionSec);
+  return sec !== null && sec > 0;
+}
+
+function bodyAreaFilled(a: BodyAreaDraft): boolean {
+  return a.zoneId.trim() !== '';
+}
+
+/** A pain entry the user actually made: a zone AND a score. '0' counts — it is
+ *  a deliberate pain-free reading, distinct from an untouched draft. */
+function painAreaFilled(a: PainAreaDraft): boolean {
+  return a.zoneId.trim() !== '' && a.pain.trim() !== '';
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 /**
@@ -238,10 +304,37 @@ export function validateSessionForm(form: SessionForm): string | null {
   const surface = resolveSurface(form);
 
   // Gym duration is derived from the set-timestamp spread, not entered, so it
-  // isn't required. Every other surface still needs a manual duration.
+  // isn't required. Every other surface still needs a manual duration — except a
+  // breathwork log carrying at least one captured round: rounds-present is its
+  // filled criterion (mirroring gym's derived-duration exemption), and forcing a
+  // duration there would fabricate one. Only an EMPTY field is exempt; a typed
+  // duration must still parse > 0 (typed garbage errors, it is never dropped).
   if (surface !== 'gym') {
     const duration = num(form.durationMin);
-    if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+    const roundsPresent =
+      form.activity === 'breathwork' && form.breathwork.rounds.some(isRoundFilled);
+    if (duration === null || duration <= 0) {
+      if (!(roundsPresent && form.durationMin.trim() === '')) {
+        return 'Enter a duration in minutes.';
+      }
+    }
+  }
+
+  // Out-of-range entries block the save instead of being clamped or silently
+  // dropped — never rewrite what the user typed.
+  for (const a of form.painAreas) {
+    if (!painAreaFilled(a)) continue;
+    const v = num(a.pain);
+    if (v === null || !Number.isInteger(v) || v < 0 || v > 10) {
+      return 'Pain is a whole number from 0 to 10.';
+    }
+  }
+  for (const a of form.practice.bodyAreas) {
+    if (!bodyAreaFilled(a) || a.tightness.trim() === '') continue;
+    const v = num(a.tightness);
+    if (v === null || !Number.isInteger(v) || v < 1 || v > 5) {
+      return 'Tightness is a whole number from 1 to 5.';
+    }
   }
 
   if (surface === 'gym') {
@@ -349,9 +442,11 @@ export function buildSessionObservation(
   // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
   // duration is derived from the set-timestamp spread below; when that spread is
   // unknowable (batch/clustered entry) the field stays absent — honest, never a
-  // fabricated 0 (constitution: null ≠ 0).
+  // fabricated 0 (constitution: null ≠ 0). A rounds-carrying breathwork log may
+  // leave the field empty (validated above); it then stays absent here too.
   if (surface !== 'gym') {
-    payload.durationMin = Number(form.durationMin);
+    const duration = num(form.durationMin);
+    if (duration !== null && duration > 0) payload.durationMin = duration;
   }
 
   if (surface === 'gym') {
@@ -399,12 +494,64 @@ export function buildSessionObservation(
     fidelity =
       payload.swimming.poolLengthM != null && payload.swimming.laps != null ? 0.85 : 0.5;
   } else if (surface === 'practice') {
-    // Session-level only; the optional style tag is the sole structured field. A
-    // styleless practice carries no block — the activity identity + duration says it.
+    // Session-level only. Every field is optional; a practice with none of them
+    // carries no block at all — the activity identity + duration says it.
     const style = form.practice.style.trim();
-    if (style) payload.practice = { style };
+    const styleId = form.practice.styleId.trim();
+    const bodyAreas = form.practice.bodyAreas.filter(bodyAreaFilled).map((a) => {
+      const tightness = num(a.tightness);
+      return {
+        zoneId: a.zoneId.trim(),
+        ...(a.side ? { side: a.side } : {}),
+        // Validated 1–5 above; an empty rating stays absent (not rated ≠ rated low).
+        ...(tightness !== null
+          ? { tightness: Math.round(tightness) as 1 | 2 | 3 | 4 | 5 }
+          : {}),
+      };
+    });
+    const practice: PracticeBlock = {
+      ...(style ? { style } : {}),
+      ...(styleId ? { styleId } : {}),
+      ...(form.practice.contextTag ? { contextTag: form.practice.contextTag } : {}),
+      ...(bodyAreas.length > 0 ? { bodyAreas } : {}),
+    };
+    if (Object.keys(practice).length > 0) payload.practice = practice;
+
+    // Breathwork rides the practice surface, keyed on the activity identity —
+    // the block only exists for breathwork sessions, never other practices.
+    if (form.activity === 'breathwork') {
+      const rounds = form.breathwork.rounds.filter(isRoundFilled).map((r) => {
+        const breaths = num(r.breaths);
+        return {
+          retentionSeconds: Math.round(num(r.retentionSec) as number),
+          ...(breaths !== null && breaths > 0 ? { breathsCount: Math.round(breaths) } : {}),
+        };
+      });
+      const patternId = form.breathwork.patternId.trim();
+      const cycles = num(form.breathwork.cycles);
+      const breathwork: BreathworkBlock = {
+        ...(patternId ? { patternId } : {}),
+        ...(rounds.length > 0 ? { rounds } : {}),
+        // capture is provenance the capture UI sets ('stopwatch'/'manual'); when
+        // it never set one, the field stays honestly absent — never defaulted.
+        ...(rounds.length > 0 && form.breathwork.capture
+          ? { capture: form.breathwork.capture }
+          : {}),
+        ...(cycles !== null && cycles > 0 ? { cycles: Math.round(cycles) } : {}),
+      };
+      if (Object.keys(breathwork).length > 0) payload.breathwork = breathwork;
+    }
   }
   // 'other' → duration + effort + notes only (no block).
+
+  // Pain attaches to ANY surface (a knee can hurt on a run or under a bar).
+  // '0' persists as a recorded pain-free reading; untouched drafts drop.
+  const painAreas = form.painAreas.filter(painAreaFilled).map((a) => ({
+    zoneId: a.zoneId.trim(),
+    ...(a.side ? { side: a.side } : {}),
+    pain: Math.round(num(a.pain) as number),
+  }));
+  if (painAreas.length > 0) payload.painAreas = painAreas;
 
   // File-imported GPS sessions carry their provenance and happen when the file
   // says they happened; a live recording likewise happened when it started. Both
@@ -582,7 +729,39 @@ export function sessionFormFromObservation(
   }
 
   if (p.practice) {
-    form.practice = { style: p.practice.style ?? '' };
+    form.practice = {
+      style: p.practice.style ?? '',
+      styleId: p.practice.styleId ?? '',
+      contextTag: p.practice.contextTag ?? null,
+      bodyAreas: (p.practice.bodyAreas ?? []).map((a) => ({
+        id: idFactory(),
+        zoneId: a.zoneId,
+        ...(a.side ? { side: a.side } : {}),
+        tightness: a.tightness != null ? String(a.tightness) : '',
+      })),
+    };
+  }
+
+  if (p.breathwork) {
+    form.breathwork = {
+      patternId: p.breathwork.patternId ?? '',
+      cycles: p.breathwork.cycles != null ? String(p.breathwork.cycles) : '',
+      capture: p.breathwork.capture ?? null,
+      rounds: (p.breathwork.rounds ?? []).map((r) => ({
+        id: idFactory(),
+        retentionSec: String(r.retentionSeconds),
+        breaths: r.breathsCount != null ? String(r.breathsCount) : '',
+      })),
+    };
+  }
+
+  if (p.painAreas) {
+    form.painAreas = p.painAreas.map((a) => ({
+      id: idFactory(),
+      zoneId: a.zoneId,
+      ...(a.side ? { side: a.side } : {}),
+      pain: String(a.pain),
+    }));
   }
 
   return form;
