@@ -264,6 +264,11 @@ export type WhitewaterBlock = {
 export type WindBlock = {
   spotId?: string;
   spotName?: string; // denormalized snapshot of the name
+  // Downwind runs start and end at different spots (shuttle logistics, one-way
+  // GPS); back-and-forth rides one launch. Absent = unspecified (legacy logs).
+  sessionStyle?: 'downwind' | 'back-and-forth';
+  endSpotId?: string; // downwinders: the landing spot (named-run entity deferred ⚑)
+  endSpotName?: string;
   wind?: WindSnapshot; // IMMUTABLE once saved
   kitId?: string; // provenance if a kit was picked
   gearIds?: string[]; // resolved gear refs (kit expansion or loose picks)

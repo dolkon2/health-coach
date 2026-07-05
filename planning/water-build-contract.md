@@ -233,6 +233,9 @@ export interface WhitewaterBlock {
 export interface WindBlock {
   spotId?: string;
   spotName?: string;                 // denormalized snapshot of the name
+  sessionStyle?: 'downwind' | 'back-and-forth';  // Dylan 2026-07-05 (commit 4ce9898)
+  endSpotId?: string;                // downwinders: landing spot (named-run entity deferred ⚑)
+  endSpotName?: string;
   wind?: WindSnapshot;               // IMMUTABLE once saved
   kitId?: string;                    // provenance if a kit was picked
   gearIds?: string[];                // resolved gear refs (kit expansion or loose picks)
