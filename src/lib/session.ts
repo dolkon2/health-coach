@@ -35,6 +35,7 @@ import {
 } from './units';
 import { activityById, type Surface } from './activity';
 import { deriveSessionDuration } from '@core/sessionTiming';
+import type { GearCategory } from '@core/gear';
 
 // The legacy modality set the Today quick-log picker and older sessions use
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
@@ -78,6 +79,9 @@ export type SessionForm = {
   durationMin: string;
   perceivedEffort: number | null; // 1–10, optional
   notes: string;
+  // Gear tagged on this session (quiver, E1). Always an array in the form;
+  // written to the payload only when non-empty. Never gates saving.
+  gearIds: string[];
   gym: { exercises: ExerciseDraft[] };
   endurance: {
     distance: string;
@@ -122,6 +126,7 @@ export function emptySessionForm(): SessionForm {
     durationMin: '',
     perceivedEffort: null,
     notes: '',
+    gearIds: [],
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
     climb: { style: 'gym', sends: [] },
@@ -212,6 +217,26 @@ function isExerciseActive(ex: ExerciseDraft): boolean {
 
 function sendFilled(s: SendDraft): boolean {
   return s.grade.trim() !== '';
+}
+
+/**
+ * The gear tags that survive switching the form to an activity offering
+ * `allowedCategories`. The chip row only renders gear in those categories, so
+ * any other tag would be invisible on screen yet still written to the payload
+ * — the session would silently accrue distance/days to another sport's gear
+ * (E1, ⚑ E-4). Ids with no record in `gear` are dropped for the same reason:
+ * no chip, no way to untag. An activity with no categories keeps no tags.
+ */
+export function pruneGearIdsForCategories(
+  gearIds: string[],
+  gear: ReadonlyArray<{ id: string; category: GearCategory }>,
+  allowedCategories: readonly GearCategory[] | undefined
+): string[] {
+  if (!allowedCategories || allowedCategories.length === 0) return [];
+  return gearIds.filter((id) => {
+    const g = gear.find((x) => x.id === id);
+    return g != null && allowedCategories.includes(g.category);
+  });
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
@@ -324,6 +349,9 @@ export function buildSessionObservation(
     modality,
     ...(form.activity ? { activity: form.activity } : {}),
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
+    // Written only when the user tagged gear — an untagged session carries no
+    // gearIds key at all (absent, not []), matching the other optional fields.
+    ...(form.gearIds.length > 0 ? { gearIds: [...form.gearIds] } : {}),
   };
 
   // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
@@ -464,6 +492,7 @@ export function sessionFormFromObservation(
     durationMin: numStr(p.durationMin, 1),
     perceivedEffort: p.perceivedEffort ?? null,
     notes: obs.notes ?? '',
+    gearIds: p.gearIds ?? [], // absent on the payload hydrates to the form's empty default
   };
 
   // Rebuild from whichever block is populated (not the coarse modality) so an

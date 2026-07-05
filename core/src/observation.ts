@@ -239,6 +239,7 @@ export type SessionPayload = {
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward
+  gearIds?: string[]; // gear used (core/gear.ts quiver) — accrual derives from these tags on read, never a stored odometer
 };
 
 export type FoodEntryPayload = {

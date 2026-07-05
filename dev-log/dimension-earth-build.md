@@ -48,3 +48,20 @@ Scope (Dylan, 2026-07-05): tech integrations + API connections, not UI (redesign
 ## Pass log
 
 (appended per pass)
+
+### E1 — Gear/quiver entity (2026-07-05)
+
+Built end to end, uncommitted (left dirty for review). 507 jest / 51 suites green (was 485/48), tsc clean.
+
+- `core/src/gear.ts` — GearCategory (Earth arms; other dimensions extend on their branches), Gear = base ∩ per-category spec arm (Shoe/Boot/Bike/BikeComponent/Ski), `deriveGearTotals` (derived-on-read ⚑ E-4; component inherits parent-bike sessions gated by acquiredAt; distinct-civil-day counting in the SESSION'S OWN tz via `localDayOf` — GearSessionLike carries `tz`, and the acquiredAt gate compares local days, not UTC slices (review fix 2026-07-05; the first cut sliced UTC); distance/duration undefined-not-0), `gearStatusLine` (descriptive marks only). Re-exported from core index.
+- Migration `010_gear` (⚑ E-11 numbering) + `src/storage/gear.ts` CRUD (retire ≠ delete; corrupt spec JSON → absent spec, never a throw).
+- `SessionPayload.gearIds?` + SessionForm plumbing (written only when non-empty; absent hydrates to []). Activity registry: gearCategories on run/trail-run (shoes), hike/walk/ruck/snowshoe (boots+shoes), ride/mtb (bike), ski/snowboard/ski-touring/xc-ski (skis).
+- `app/gear.tsx` spartan modal (list grouped by category + status lines, add form, Retire) off Settings; log-session footer gains a multi-select gear chip row, rendered only when the activity declares categories AND matching active gear exists.
+- Note: the add form omits an acquiredAt field this pass (core supports it; a component added mid-life inherits all parent history until an install date can be entered — surface it with the UI redesign).
+
+#### E1 review fixes (2026-07-05, pre-commit)
+
+- `deriveGearTotals` counted days and gated acquiredAt by UTC slice — now tz-aware (`localDayOf`, `tz` on GearSessionLike); tests cover the PST evening-session cases both directions.
+- `pickActivity` kept stale gearIds across an activity switch while the chip row filtered them invisible — now pruned via `pruneGearIdsForCategories` (lib/session.ts, tested).
+- Quiver retire stamped the UTC calendar date into a LocalDate field — now `todayLocalDate()`.
+- Quiver screen rendered "0 sessions" off a failed/unfinished observation read — now: no status line until the read lands, and a failed read surfaces "Could not read session history — totals unavailable." (a failed read is not an empty record).

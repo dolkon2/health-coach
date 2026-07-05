@@ -87,6 +87,15 @@ export default function SettingsScreen() {
       </Card>
 
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Gear</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          The quiver — shoes, bikes, skis. Sessions tag gear; mileage and days
+          are read from those tags, never stored.
+        </Text>
+        <Button label="Gear" variant="outline" onPress={() => router.push('/gear')} />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Units</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           How weights and distances read. Storage stays kg and metres — this

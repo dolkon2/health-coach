@@ -20,6 +20,7 @@
  * passes.
  */
 import type { EnergySystem, Modality } from '@core/observation';
+import type { GearCategory } from '@core/gear';
 
 /** The five logging surfaces (form shapes). Many activities map to each. */
 export type Surface = 'gym' | 'gps' | 'swim' | 'practice' | 'climbing';
@@ -32,6 +33,7 @@ export type Activity = {
   icon: string; // lucide icon name; the UI resolves it to a component
   defaultEnergySystem?: EnergySystem; // GPS / swim default (consumed Pass 2+)
   defaultIdentityTags?: string[]; // seeds identity tags (consumed Pass 8)
+  gearCategories?: GearCategory[]; // which quiver categories this activity's logger offers (E1)
 };
 
 export const ACTIVITIES: Activity[] = [
@@ -41,18 +43,18 @@ export const ACTIVITIES: Activity[] = [
   { id: 'calisthenics', label: 'Calisthenics', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['calisthenics'] },
   { id: 'crossfit', label: 'CrossFit', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['functional'] },
   // ── gps surface (Run/Ride/Hike/Paddle render today; Surf/Wingfoil/Ski land with the GPS surface, Pass 2) ──
-  { id: 'run', label: 'Run', surface: 'gps', modality: 'run', icon: 'footprints', defaultEnergySystem: 'aerobic' },
-  { id: 'ride', label: 'Ride', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'aerobic' },
-  { id: 'hike', label: 'Hike', surface: 'gps', modality: 'hike', icon: 'mountain', defaultEnergySystem: 'aerobic' },
+  { id: 'run', label: 'Run', surface: 'gps', modality: 'run', icon: 'footprints', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
+  { id: 'ride', label: 'Ride', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'aerobic', gearCategories: ['bike'] },
+  { id: 'hike', label: 'Hike', surface: 'gps', modality: 'hike', icon: 'mountain', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
   { id: 'paddle', label: 'Paddle', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
   { id: 'surf', label: 'Surf', surface: 'gps', modality: 'surf', icon: 'waves', defaultEnergySystem: 'mixed' },
   { id: 'wingfoil', label: 'Wingfoil', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'ski', label: 'Ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed' },
+  { id: 'ski', label: 'Ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
   // ── gps surface, sport-expansion batch (outdoor-integrations.md v0.2 "add-now" triage) ──
-  { id: 'walk', label: 'Walk', surface: 'gps', modality: 'hike', icon: 'footprints', defaultEnergySystem: 'aerobic' },
-  { id: 'ruck', label: 'Ruck', surface: 'gps', modality: 'hike', icon: 'backpack', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['rucking'] },
-  { id: 'trail-run', label: 'Trail run', surface: 'gps', modality: 'run', icon: 'mountain', defaultEnergySystem: 'aerobic' },
-  { id: 'mtb', label: 'Mountain bike', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'mixed' },
+  { id: 'walk', label: 'Walk', surface: 'gps', modality: 'hike', icon: 'footprints', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
+  { id: 'ruck', label: 'Ruck', surface: 'gps', modality: 'hike', icon: 'backpack', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['rucking'], gearCategories: ['boots', 'shoes'] },
+  { id: 'trail-run', label: 'Trail run', surface: 'gps', modality: 'run', icon: 'mountain', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
+  { id: 'mtb', label: 'Mountain bike', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'mixed', gearCategories: ['bike'] },
   { id: 'kayak', label: 'Kayak', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
   { id: 'whitewater', label: 'Whitewater', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'mixed', defaultIdentityTags: ['whitewater'] },
   { id: 'sup', label: 'SUP', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
@@ -61,10 +63,10 @@ export const ACTIVITIES: Activity[] = [
   { id: 'sail', label: 'Sail', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'aerobic' },
   { id: 'windsurf', label: 'Windsurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
   { id: 'kitesurf', label: 'Kitesurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed' },
-  { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'] },
-  { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
-  { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
+  { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
+  { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'], gearCategories: ['skis'] },
+  { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic', gearCategories: ['skis'] },
+  { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
   { id: 'skate', label: 'Skate', surface: 'gps', modality: 'other', icon: 'footprints', defaultEnergySystem: 'mixed' },
   { id: 'paraglide', label: 'Paraglide', surface: 'gps', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
   // ── swim surface (form lands Pass 5) ──

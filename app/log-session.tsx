@@ -63,6 +63,7 @@ import {
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
+  pruneGearIdsForCategories,
   resolveSurface,
   type SessionForm,
   type ExerciseDraft,
@@ -71,6 +72,7 @@ import {
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
+import { listGear, type GearRecord } from '@/storage/gear';
 import type { MovementPattern, ObservationOf } from '@core/observation';
 
 /**
@@ -126,6 +128,22 @@ export default function LogSessionScreen() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+  // Active quiver for the gear chip row (E1). Empty until loaded — and when the
+  // user owns no gear the row never renders (zero-clutter default), so a load
+  // failure just means no chips, never an error state.
+  const [gearOptions, setGearOptions] = useState<GearRecord[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listGear()
+      .then((g) => {
+        if (!cancelled) setGearOptions(g);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -175,6 +193,11 @@ export default function LogSessionScreen() {
       ...f,
       activity: a.id,
       modality: null,
+      // A gear tag survives an activity switch only if the new activity's chip
+      // row can still show it — a tag outside a.gearCategories would be
+      // invisible yet still saved, silently accruing this session to another
+      // sport's gear (E1, ⚑ E-4).
+      gearIds: pruneGearIdsForCategories(f.gearIds, gearOptions, a.gearCategories),
       // Seed the gym logger with one empty exercise so there's something to fill.
       gym: a.surface === 'gym' && f.gym.exercises.length === 0
         ? { exercises: [emptyExerciseDraft(uuidv7(), uuidv7())] }
@@ -483,6 +506,12 @@ export default function LogSessionScreen() {
 
   const surface = resolveSurface(form);
   const label = form.activity ? activityById(form.activity)?.label ?? form.activity : form.modality ?? 'session';
+  // Gear chips (E1): only when the picked activity declares gear categories AND
+  // matching active gear exists — a gearless user never sees the row.
+  const gearCats = form.activity ? activityById(form.activity)?.gearCategories : undefined;
+  const gearChoices = gearCats
+    ? gearOptions.filter((g) => gearCats.includes(g.category))
+    : [];
   const poolTotalM =
     form.swim.mode === 'pool'
       ? (Number(form.swim.poolLengthM) || 0) * (Number(form.swim.laps) || 0)
@@ -780,6 +809,51 @@ export default function LogSessionScreen() {
             onChange={(perceivedEffort) => update({ perceivedEffort })}
           />
         </View>
+        {gearChoices.length > 0 ? (
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Gear (optional)</Text>
+            {/* Multi-select — ChipSelect is single-choice, so these are plain
+                pressables in the same chip clothes. Tapping toggles membership
+                in form.gearIds; mileage is derived from these tags on read. */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[2] }}>
+              {gearChoices.map((g) => {
+                const selected = form.gearIds.includes(g.id);
+                return (
+                  <Pressable
+                    key={g.id}
+                    onPress={() =>
+                      update({
+                        gearIds: selected
+                          ? form.gearIds.filter((id) => id !== g.id)
+                          : [...form.gearIds, g.id],
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    style={{
+                      paddingVertical: theme.spacing[2],
+                      paddingHorizontal: theme.spacing[3],
+                      borderRadius: theme.radius.full,
+                      backgroundColor: selected
+                        ? theme.colors.sandstone
+                        : theme.colors.surfaceRaised,
+                      borderWidth: 1,
+                      borderColor: selected ? theme.colors.sandstone : theme.colors.border,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      variant="label"
+                      color={selected ? theme.colors.bg : theme.colors.textSecondary}
+                    >
+                      {g.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <Field
           label="Notes (optional)"
           value={form.notes}
