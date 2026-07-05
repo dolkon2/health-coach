@@ -22,6 +22,7 @@ import {
   Snowflake,
   Flower2,
   Backpack,
+  HeartPulse,
   Activity as ActivityIcon,
 } from 'lucide-react-native';
 import { Screen, Text, Card, SessionCard, SwipeToDelete } from '@/components';
@@ -45,6 +46,7 @@ const ICONS: Record<string, IconCmp> = {
   snowflake: Snowflake,
   flower: Flower2,
   backpack: Backpack,
+  'heart-pulse': HeartPulse,
 };
 
 export default function TrainingScreen() {

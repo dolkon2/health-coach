@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import { reveal, computeWeeklyStimulus } from '@core/stimulus';
-import type { GeoPoint } from '@core/observation';
+import type { GeoPoint, ObservationOf } from '@core/observation';
 import {
   buildSessionObservation,
   emptySessionForm,
@@ -473,5 +473,46 @@ describe('Body P1a — hold (isometric) sets on the gym surface', () => {
     const [week] = computeWeeklyStimulus([obs]);
     expect(week.byPattern.core).toEqual({ sets: 2, volumeLoadKg: 0 });
     expect(week.holdSecByPattern.core).toBe(105); // warm-up hold excluded
+  });
+});
+describe('Body P1a — deprecated martial-arts sessions stay editable', () => {
+  it('an edited historic martial-arts session KEEPS its practice block', () => {
+    // The activity was deprecated (hidden from pickers), not removed: activityById
+    // must still resolve it, or resolveSurface would fall back to the modality
+    // ('other' → no sport block) and an edit would silently drop the block.
+    const historic: ObservationOf<'session'> = {
+      id: 'ma1',
+      kind: 'session',
+      occurredAt: '2026-05-01T18:00:00Z',
+      loggedAt: '2026-05-01T19:05:00Z',
+      tz: 'America/Los_Angeles',
+      tier: 1,
+      fidelity: 0.95,
+      source: { type: 'manual' },
+      payload: {
+        kind: 'session',
+        modality: 'other',
+        activity: 'martial-arts',
+        durationMin: 60,
+        practice: { style: 'bjj' },
+      },
+      notes: 'open mat',
+    };
+
+    let n = 0;
+    const form = sessionFormFromObservation(
+      historic,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(form.activity).toBe('martial-arts');
+    expect(form.practice.style).toBe('bjj');
+    expect(resolveSurface(form)).toBe('practice'); // NOT the modality fallback to 'other'
+
+    const rebuilt = buildSessionObservation(form, { ...CTX, id: 'ma2' });
+    expect(rebuilt.payload.practice).toEqual({ style: 'bjj' }); // the block survives the edit
+    expect(rebuilt.payload.activity).toBe('martial-arts');
+    expect(rebuilt.payload.modality).toBe('other'); // unchanged nearest modality
+    expect(rebuilt.payload.durationMin).toBe(60);
   });
 });

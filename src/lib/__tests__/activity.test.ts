@@ -52,12 +52,40 @@ describe('activity registry', () => {
     expect(headlineActivities().map((a) => a.id)).toEqual([...HEADLINE_DEFAULT_IDS]);
   });
 
-  it('headline and More partition the registry exactly once', () => {
+  it('headline and More partition the non-deprecated registry exactly once', () => {
     const headlineIds = new Set(headlineActivities().map((a) => a.id));
     for (const m of moreActivities()) expect(headlineIds.has(m.id)).toBe(false);
 
     const combined = [...headlineActivities(), ...moreActivities()].map((a) => a.id).sort();
-    expect(combined).toEqual(ACTIVITIES.map((a) => a.id).sort());
+    expect(combined).toEqual(
+      ACTIVITIES.filter((a) => a.deprecated !== true)
+        .map((a) => a.id)
+        .sort()
+    );
+  });
+
+  it('deprecated activities stay resolvable by id but never surface in a picker', () => {
+    // Martial arts was dropped from the Body sports (2026-07-05) — deprecated, not
+    // removed: historic sessions must keep resolving their surface for display/edit.
+    const ma = activityById('martial-arts');
+    expect(ma?.deprecated).toBe(true);
+    expect(ma?.surface).toBe('practice');
+    const pickerIds = [...headlineActivities(), ...moreActivities()].map((a) => a.id);
+    expect(pickerIds).not.toContain('martial-arts');
+    // Even a stored headline preference that still lists it can't resurface it.
+    expect(headlineActivities(['gym', 'martial-arts']).map((a) => a.id)).toEqual(['gym']);
+  });
+
+  it('Body practice batch: breathwork and pt are present, mobility-modality, pickable', () => {
+    for (const id of ['breathwork', 'pt']) {
+      const a = activityById(id);
+      expect(a?.surface).toBe('practice');
+      expect(a?.modality).toBe('mobility');
+      expect(a?.deprecated).toBeUndefined();
+    }
+    const moreIds = moreActivities().map((a) => a.id);
+    expect(moreIds).toContain('breathwork');
+    expect(moreIds).toContain('pt');
   });
 
   it('activityById round-trips and misses cleanly', () => {
