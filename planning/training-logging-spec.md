@@ -126,7 +126,9 @@ The logging surface is thin by design because the rich data comes from wearable 
 - Sub-type tag (road bike vs. mountain bike, kayak vs. whitewater, etc.)  
 - Identity tag for filtering
 
-**Key principle:** The app is not building a GPS tracker. It's ingesting from one. Strava is the right reference for how *display* of imported GPS data should feel, not for how logging works. Elevation data, HR data, and route data come from what the user logged on their wearable. If they don't have a wearable, the manual fallback is sparse but honest.
+**Key principle (rewritten 2026-07-02 — direction change blessed):** The app records its own routes. Native GPS capture (`gps-mapping-spec.md`, rung 2) is the primary route source: an activity recorded in the app gets a first-party trace — pull-based, started and stopped only by the user, descriptive. Wearable import is *enrichment* for activities recorded elsewhere; if the user has a watch, prefer its recording and never re-record on the phone (the dedup logic is already specced). Strava remains the right reference for how *display* of GPS data should feel, not for how logging works. The manual no-GPS fallback stays sparse but honest.
+
+> Blessed by Dylan 2026-07-02, reversing v0.1's "the app is not building a GPS tracker, it's ingesting from one." Driver: the Garmin direct API is blocked (program suspended + legal-entity requirement) and Garmin omits the route via both Apple Health and Health Connect, so ingestion alone can't guarantee a route. Own-run recording stays descriptive + pull-based, so the north star holds. History: `wearable-ingestion-spec.md` § Addendum, Layer 1. Placement decided the same day: Phase 3 fast-follow.
 
 ### Swimming
 
@@ -207,6 +209,8 @@ Identity tags serve the belonging function — making the user feel seen without
 
 Tags are the answer to "I'm a calisthenics athlete and this app doesn't have a place for me." The place is everywhere — your exercises are tagged, your sessions are tagged, your history filters by it. The gym logging surface handles your movements natively because handstand push-ups and barbell bench use the same set/rep/weight fields. The tag is what makes it *yours.*
 
+One identity tag is elevated to a constitution-level lens rather than a free-form one: every session also carries a **dimension** (Earth/Sky/Water/Body — see `claude-md.md` § The four dimensions and `four-dimensions-framework.md`). It works the same as any other identity tag (carried, filterable, inherited from the sport); what's different is that it's the one every session gets, not an optional affinity tag like "calisthenics."
+
 ---
 
 ## Data model summary (key entities)
@@ -265,7 +269,7 @@ Session
 
 │   ├── source: garmin | apple\_health | manual
 
-│   ├── route: GeoJSON (optional)
+│   ├── gpsPath: GeoPoint\[\] (optional) — `{ lat, lng, tsSec, eleM? }`, the canonical geometry (matches `data-model.md` and `core/src/observation.ts`). GeoJSON is a render-boundary projection only, never the stored shape — a `LineString` throws away the per-point timestamps that make splits and the elevation profile derivable.
 
 │   ├── distance: number
 
@@ -312,5 +316,6 @@ Session
 - **Stimulus ledger mapping rules** — How specific exercises map to movement patterns and energy systems. Already exists in `core/stimulus.ts`; the exercise library tags need to align with that taxonomy.  
 - **Reflect tab integration** — How logged sessions surface in the Reflect view. Phase 5\.  
 - **Climbing app research** — Kaya, Crux, Toplogger, Mountain Project deep dive. Needed before finalizing climbing logging detail.  
-- **Exercise library API selection** — wger vs. ExerciseDB vs. curated static dataset. Implementation decision for the build phase.
+- **Exercise library API selection** — wger vs. ExerciseDB vs. curated static dataset. Implementation decision for the build phase.  
+- **Outdoor-sport integrations** — paragliding (IGC), whitewater (water levels), wing foiling (live wind gauges), MTB/GPS. Feasibility researched in `outdoor-integrations.md`. Outdoor is an identity grouping (logbook-first), not a new engine.
 

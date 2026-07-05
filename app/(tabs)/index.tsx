@@ -63,6 +63,13 @@ export default function TodayScreen() {
   // one weigh-in query serves both the weigh-in card and the outcome faces.
   const { entries: benchmarkEntries, reload: reloadBenchmarks } =
     useBenchmarkStatuses(trendPoints, measured);
+  // Depend on the stable `syncNow` callback, NOT the whole `wearable` object.
+  // useWearableSync returns a fresh object literal every render, so depending on
+  // `wearable` would give the focus effect a new callback identity each render,
+  // re-running it on every render and looping (setLoading/setObservations →
+  // re-render → new callback → …). syncNow is a useCallback that only changes
+  // when `connected` flips, so the callback stays stable across renders.
+  const { syncNow } = wearable;
 
   // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
   // Also polls HealthKit (throttled, no-op until the user has connected).
@@ -76,8 +83,8 @@ export default function TodayScreen() {
       reloadTrend();
       reloadBenchmarks();
       reloadExpenditure();
-      wearable.syncNow();
-    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, wearable.syncNow])
+      syncNow();
+    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, syncNow])
   );
 
   const removeAndReload = useCallback(

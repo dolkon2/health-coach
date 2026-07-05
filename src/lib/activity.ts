@@ -48,6 +48,25 @@ export const ACTIVITIES: Activity[] = [
   { id: 'surf', label: 'Surf', surface: 'gps', modality: 'surf', icon: 'waves', defaultEnergySystem: 'mixed' },
   { id: 'wingfoil', label: 'Wingfoil', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
   { id: 'ski', label: 'Ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed' },
+  // ── gps surface, sport-expansion batch (outdoor-integrations.md v0.2 "add-now" triage) ──
+  { id: 'walk', label: 'Walk', surface: 'gps', modality: 'hike', icon: 'footprints', defaultEnergySystem: 'aerobic' },
+  { id: 'ruck', label: 'Ruck', surface: 'gps', modality: 'hike', icon: 'backpack', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['rucking'] },
+  { id: 'trail-run', label: 'Trail run', surface: 'gps', modality: 'run', icon: 'mountain', defaultEnergySystem: 'aerobic' },
+  { id: 'mtb', label: 'Mountain bike', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'mixed' },
+  { id: 'kayak', label: 'Kayak', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
+  { id: 'whitewater', label: 'Whitewater', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'mixed', defaultIdentityTags: ['whitewater'] },
+  { id: 'sup', label: 'SUP', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
+  { id: 'canoe', label: 'Canoe', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
+  { id: 'row', label: 'Row', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
+  { id: 'sail', label: 'Sail', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'aerobic' },
+  { id: 'windsurf', label: 'Windsurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
+  { id: 'kitesurf', label: 'Kitesurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
+  { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed' },
+  { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'] },
+  { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
+  { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
+  { id: 'skate', label: 'Skate', surface: 'gps', modality: 'other', icon: 'footprints', defaultEnergySystem: 'mixed' },
+  { id: 'paraglide', label: 'Paraglide', surface: 'gps', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
   // ── swim surface (form lands Pass 5) ──
   { id: 'swim', label: 'Swim', surface: 'swim', modality: 'swim', icon: 'waves', defaultEnergySystem: 'aerobic' },
   // ── climbing surface ──
@@ -57,6 +76,8 @@ export const ACTIVITIES: Activity[] = [
   { id: 'pilates', label: 'Pilates', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
   { id: 'mobility', label: 'Mobility', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
   { id: 'meditation', label: 'Meditation', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mindfulness'] },
+  { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['martial-arts'] },
+  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['dance'] },
 ];
 
 /**

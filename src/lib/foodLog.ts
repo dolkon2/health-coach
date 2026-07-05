@@ -22,6 +22,7 @@ import type {
 } from '@core/observation';
 import {
   blendComposite,
+  defaultFidelity,
   fidelityCeiling,
   tierOf,
   type Extraction,
@@ -208,12 +209,16 @@ export function canSaveFoodLog(input: FoodLogInput): boolean {
 
 /** Provenance for the meal Observation. Per-item provenance lives on items[];
  *  the envelope carries the representative first item's source. A meal holding
- *  any keyless (LLM-estimated) item can't claim a food-database lineage, so its
- *  provenance honestly reads `estimate` (food-logging-spec § direct estimation). */
-function mealSource(items: FoodItem[], estimateModel?: string): ObservationSource {
+ *  any keyless item can't claim a food-database lineage, so its provenance
+ *  honestly reads by how the model produced the numbers: `photoestimate` for a
+ *  plate photo, `labelscan` for a transcribed Nutrition Facts panel (declared
+ *  values, not an estimate), else `estimate` for a text estimate
+ *  (food-logging-spec § direct estimation). */
+function mealSource(items: FoodItem[], inputMethod: InputMethod, estimateModel?: string): ObservationSource {
   const first = items[0];
   if (items.some((it) => it.foodId == null) || first?.sourceDb == null || first?.foodId == null) {
-    return { type: 'estimate', modelVersion: estimateModel ?? 'unknown' };
+    const type = inputMethod === 'photo' ? 'photoestimate' : inputMethod === 'label' ? 'labelscan' : 'estimate';
+    return { type, modelVersion: estimateModel ?? 'unknown' };
   }
   return { type: 'foodapi', provider: first.sourceDb, itemId: first.foodId };
 }
@@ -247,7 +252,7 @@ export function buildMealLog(input: FoodLogInput, ctx: FoodBuildContext): Observ
     tz: ctx.tz,
     tier: 1,
     fidelity: blendComposite(input.items), // composite — never displayed as a number
-    source: mealSource(input.items, input.estimateModel),
+    source: mealSource(input.items, input.inputMethod, input.estimateModel),
     payload,
   };
 }
@@ -280,6 +285,27 @@ export function removeItemFromMeal(
     ...(roll.fiberG != null ? { fiberG: roll.fiberG } : {}),
     ...(roll.alcoholG != null ? { alcoholG: roll.alcoholG } : {}),
   };
+}
+
+/**
+ * Apply a hand-edit (from the item editor) to one item, honestly.
+ *
+ * The committed values are now the user's assertion. Two cases:
+ *   - A KEYLESS estimate (photo / label / described — no foodId) already carries
+ *     an honest estimate-tier fidelity, so it's just merged: the correction to a
+ *     transcription or estimate doesn't change what kind of capture it was.
+ *   - A KEYED item (barcode / weighed — has a foodId) had DB-sourced numbers.
+ *     Once hand-edited they're no longer purely the database's, so confidence
+ *     drops to the hand-entered estimate band (described + macrosEstimated).
+ *     Fidelity is only ever LOWERED, never raised (Math.min). Identity
+ *     (foodId/sourceDb) is KEPT so the meal's provenance and input method stay
+ *     truthful — you still scanned that product, you just adjusted the amounts.
+ */
+export function applyItemEdit(item: FoodItem, patch: Partial<FoodItem>): FoodItem {
+  const merged = { ...item, ...patch };
+  if (item.foodId == null) return merged;
+  const edited = defaultFidelity('described', { macrosEstimated: true, quantity: !!merged.portionText });
+  return { ...merged, fidelity: Math.min(item.fidelity, edited) };
 }
 
 /**

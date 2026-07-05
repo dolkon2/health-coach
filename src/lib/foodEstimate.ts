@@ -18,14 +18,16 @@
  * malformed output, model refusal). The caller (`useFoodLog.addDescribed`) falls
  * back to `parseDescribed` so the logger keeps working without a key or network.
  */
-import type { FoodItem } from '@core/observation';
+import type { FoodItem, InputMethod } from '@core/observation';
 import { defaultFidelity, fidelityCeiling, type Extraction } from '@core/nutrition/fidelity';
 import { callClaude } from './anthropicClient';
 import { DEFAULT_PORTION_G, parseDescribed } from './foodLog';
 
-/** Estimation quality matters more here than for extraction; this constant is the
- *  single swap point for the Haiku-vs-Sonnet benchmark (plan § Decision F). */
-export const ESTIMATOR_MODEL = 'claude-haiku-4-5';
+/** Estimation quality matters more here than for extraction, so the estimator runs
+ *  on Sonnet 4.6 (Decision F). Single swap point — flip to 'claude-haiku-4-5' to
+ *  benchmark cost/latency vs quality on real meals (Sonnet ~3x cost, still ~$1/mo
+ *  at single-user volume). */
+export const ESTIMATOR_MODEL = 'claude-sonnet-4-6';
 
 /** Estimation reasons more than extraction, so it gets a longer default timeout. */
 const ESTIMATE_TIMEOUT_MS = 8000;
@@ -45,7 +47,10 @@ Rules:
 - Honor a stated portion; otherwise estimate a typical single serving.
 - If no foods are mentioned, return an empty list.`;
 
-const SCHEMA = {
+/** The estimation schema — one entry per distinct food, every macro `number | null`
+ *  (honesty: null ≠ 0). Shared by the text estimator here and the photo estimator
+ *  (`foodVision.ts`); the two paths differ only in input (text vs image) + prompt. */
+export const ESTIMATE_SCHEMA = {
   type: 'object',
   properties: {
     items: {
@@ -87,7 +92,7 @@ export interface EstimatedFoodItem {
   basis: string; // how the estimate was reached — transparency; not persisted on the FoodItem
 }
 
-interface EstimationResponse {
+export interface EstimationResponse {
   items: EstimatedFoodItem[];
 }
 
@@ -114,7 +119,7 @@ export async function estimateMeal(
     model: ESTIMATOR_MODEL,
     systemPrompt: SYSTEM_PROMPT,
     userMessage: trimmed,
-    schema: SCHEMA as unknown as Record<string, unknown>,
+    schema: ESTIMATE_SCHEMA as unknown as Record<string, unknown>,
     maxTokens: 1024, // multi-item meals, each with a basis phrase, need headroom
     apiKey: opts.apiKey,
     fetchImpl: opts.fetchImpl,
@@ -132,12 +137,18 @@ export async function estimateMeal(
 /**
  * Turn an estimate into a KEYLESS FoodItem ready for the meal builder. No
  * sourceDb/foodId (it has no database lineage); quantityMethod 'estimated';
- * fidelity capped in the LOW–MID band via the macrosEstimated extraction signal
- * (stated portion → low-MID, vague → LOW), so it never reads as measured. The
- * macros are absolute estimates for the portion, NOT per-gram — `quantity` is the
- * approximate mass for display, not a scaling basis.
+ * fidelity capped so it never reads as measured. The macros are absolute
+ * estimates for the portion, NOT per-gram — `quantity` is the approximate mass
+ * for display, not a scaling basis.
+ *
+ * `method` selects the fidelity band and ceiling (both from the shared fidelity
+ * module, authored nowhere here):
+ *   - 'described' (default, text estimator): LOW–MID via the macrosEstimated
+ *     signal — stated portion → low-MID, vague → LOW.
+ *   - 'photo' (vision estimator, Pass 2.8a): ~0.35, always LOW, ceiling 0.55 —
+ *     2D portion estimation is limited by nature, so a photo row stays dashed.
  */
-export function estimatedItemToFoodItem(est: EstimatedFoodItem): FoodItem {
+export function estimatedItemToFoodItem(est: EstimatedFoodItem, method: InputMethod = 'described'): FoodItem {
   const extraction: Extraction = { macrosEstimated: true, quantity: est.portionStated };
   return {
     description: est.name,
@@ -148,8 +159,8 @@ export function estimatedItemToFoodItem(est: EstimatedFoodItem): FoodItem {
     proteinG: est.proteinG,
     carbsG: est.carbsG,
     fatG: est.fatG,
-    fidelity: defaultFidelity('described', extraction),
-    fidelityCeiling: fidelityCeiling('described'),
+    fidelity: defaultFidelity(method, extraction),
+    fidelityCeiling: fidelityCeiling(method),
   };
 }
 
@@ -162,7 +173,9 @@ export function estimatedItemToFoodItem(est: EstimatedFoodItem): FoodItem {
  * when there is genuinely no food text to log.
  */
 export function describedToItems(estimates: EstimatedFoodItem[], rawText: string): FoodItem[] {
-  if (estimates.length > 0) return estimates.map(estimatedItemToFoodItem);
+  // Wrap the mapper: passing it bare would leak Array#map's index into the new
+  // `method` param — the text path always builds `described` items.
+  if (estimates.length > 0) return estimates.map((e) => estimatedItemToFoodItem(e));
 
   const parsed = parseDescribed(rawText);
   if (!parsed.foodText.trim()) return [];

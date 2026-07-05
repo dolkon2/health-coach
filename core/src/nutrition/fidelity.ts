@@ -54,6 +54,7 @@ const CEILINGS: Record<InputMethod, number> = {
   barcode: 0.85, // item identity strong; portion is package-vs-eyeball
   described: 0.7, // text/voice parse; portion language is loose
   photo: 0.55, // 2D portion estimation is fundamentally limited
+  label: 0.85, // label-declared data like barcode; portion is package-vs-eyeball, transcription risk replaces OFF's crowd-sourcing risk
 };
 
 /** The fidelity ceiling for an input method. Never exceeded by any log. */
@@ -75,7 +76,8 @@ export interface Extraction {
   quantity?: boolean;
   /** `described`: a unit accompanied the quantity (e.g. 'oz', 'g'). */
   unit?: boolean;
-  /** `barcode`/OFF: 0..1 fraction of the required macros the record provides. */
+  /** `barcode`/OFF or `label` transcription: 0..1 fraction of the required
+   *  macros the record/read provides. */
   completeness?: number;
   /** `weighed`/USDA: Branded (label-declared) vs Foundation/SR Legacy (lab). */
   branded?: boolean;
@@ -97,6 +99,7 @@ function clamp01(x: number): number {
  *   barcode:   complete ~0.80 → sparse ~0.55, scaled by record completeness  HIGH/MID
  *   described: food+qty+unit ~0.60 · food only ~0.30 · no food resolved ~0.15 MID/LOW
  *   photo:     ~0.35 (2D portion ceiling, by nature)                         LOW
+ *   label:     full read ~0.80 → partial ~0.55, scaled by read completeness  HIGH/MID
  */
 export function defaultFidelity(method: InputMethod, extraction: Extraction = {}): number {
   const ceiling = fidelityCeiling(method);
@@ -127,6 +130,13 @@ export function defaultFidelity(method: InputMethod, extraction: Extraction = {}
       break;
     case 'photo':
       f = 0.35;
+      break;
+    case 'label':
+      // Same band as barcode: the values are label-declared, and a partial read
+      // (glare, crop, a macro the panel doesn't print) pulls confidence the same
+      // way a sparse OFF record does. The user confirms the read on screen with
+      // the physical label in hand, which is what keeps a full read at ~0.80.
+      f = 0.55 + 0.25 * clamp01(extraction.completeness ?? 1); // 0.55 → 0.80
       break;
   }
 

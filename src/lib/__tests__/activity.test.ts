@@ -63,4 +63,10 @@ describe('activity registry', () => {
     for (const a of ACTIVITIES) expect(activityById(a.id)).toBe(a);
     expect(activityById('not-an-activity')).toBeUndefined();
   });
+
+  it('sport-expansion batch (outdoor-integrations v0.2 add-now) is present on the right surfaces', () => {
+    const gps = ['walk', 'ruck', 'trail-run', 'mtb', 'kayak', 'whitewater', 'sup', 'canoe', 'row', 'sail', 'windsurf', 'kitesurf', 'snowboard', 'ski-touring', 'xc-ski', 'snowshoe', 'skate', 'paraglide'];
+    for (const id of gps) expect(activityById(id)?.surface).toBe('gps');
+    for (const id of ['martial-arts', 'dance']) expect(activityById(id)?.surface).toBe('practice');
+  });
 });

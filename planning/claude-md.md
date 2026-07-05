@@ -4,9 +4,9 @@ A personal health \+ training hub. One timeline for training, food, recovery, an
 
 ## North star (non-negotiable)
 
-This product is a **mirror, not a coach that leads.** Every feature is judged against these. If a proposed feature violates any of them, stop and flag it before building — don't quietly reinterpret it into something "safer."
+This product is a **mirror, not a coach that leads.** Every feature is judged against these. If a proposed feature violates any of them, stop and flag it before building — don't quietly reinterpret it into something "safer." Flag it once, plainly, with the reasoning. If the user considers it and overrides anyway, that stands — the rule exists to prevent silent reinterpretation, not to relitigate a decision the user has already made deliberately.
 
-1. **Descriptive, not prescriptive.** Measure what actually happened. Never generate AI plans, targets, or recommended programs.  
+1. **Descriptive by default, prescriptive only on request.** Measure what actually happened. The app never *volunteers* a plan, target, or program — but when the user explicitly asks for one ("here are my goals, give me a plan"), the summoned coach answers fully and honestly (see § The summoned coach). Every unrequested surface stays purely descriptive.  
 2. **Outcome-measured, not predicted.** Derive things like TDEE from real weight trends, not forecasts. Show the user what their body did, not what a model guessed it would do.  
 3. **The AI reveals, not invents.** It surfaces what the data shows that the user couldn't easily see themselves. It never predicts the user's future, or tell them what to do. It assumes a competent user and earns its keep by surfacing things they couldn't easily see for themselves.  
 4. **The felt sense outranks the model.** When a wearable score conflicts with what you actually did, what you actually did wins. Tier-1 facts \> Tier-2 accumulated \> Tier-3 modeled. A "recovery score" may never gate, override, or contradict a logged session.  
@@ -19,7 +19,7 @@ Most products in this space assume the user doesn't know what to do, and sell **
 
 Before building any feature, check it against these:
 
-- Would a user see this and think "the app is telling me what to do"? → reject.  
+- Would a user see this and think "the app is telling me what to do" *without having asked*? → reject. (A summoned-coach answer to an explicit request is the one sanctioned exception — see § The summoned coach.)  
 - Does this use a population-level equation to generate a personal number? → reject.  
 - Does this reward the user with anything that doesn't already exist in the world? (e.g. a badge, a streak count, confetti) → reject.  
 - Does this fire without the user asking? Is the trigger "it's been a while" rather than "the data just said something"? → reject.  
@@ -33,6 +33,43 @@ Before building any feature, check it against these:
 - The user sees their own stats and what changed. The intelligence leaves no fingerprints.  
 - When AI speaks (plateau forensics, pattern detection), it surfaces suspects ranked by how much each moved, with uncertainty shown. It never delivers a verdict the data can't support.  
 - Detection thresholds use z-scores against the user's own personal baseline, not population constants. The threshold is visible and user-owned.
+
+## The summoned coach (Ring 3b) — the one sanctioned exception
+
+*Amended 2026-07-02.* This app is built for users who don't need prescriptive planning — but for those who ask, it's there. If someone says "give me a plan, here are my goals," give them the plan. The exception stays an exception through architecture, not labeling:
+
+- **Summoned only.** It exists when the user opens it and asks. It never initiates, never follows up unprompted, never appears because "it's been a while."  
+- **A separate room, not the mirror.** The coach lives in its own explicit mode. Ambient surfaces (Today, Reflect, the ledger) never show AI-authored programming.  
+- **Output is a draft.** A generated plan enters exactly like a PT-prescribed one: source-tagged, browsable, edited or discarded by the user, logged only when they actually do it. It never writes to the ledger on its own and never overrides a logged fact.  
+- **Grounded, not generic.** It reasons from the user's own data — restrictions, medications, history, benchmarks, forensics. Where the data can't support a claim, it says so.  
+- **Not medical advice.** Programming suggestions, never diagnosis or treatment.
+
+## The four dimensions — Earth, Sky, Water, Body
+
+*Amended 2026-07-04.* The organizing question underneath every session: **what dimension are you training?**
+
+- **Earth** — traversing ground. Hiking, trail/road running, MTB, cycling, climbing.
+- **Sky** — traversing air. Paragliding, wingfoiling, skydiving.
+- **Water** — traversing water. Kayaking, surfing, swimming, SUP.
+- **Body** — building/maintaining the instrument itself, independent of location or terrain. Gym, yoga, PT, breathwork, mobility, calisthenics.
+
+The generative rule: Earth/Sky/Water are the domain you move *through*; Body is anything where the point is the instrument, not the terrain. Body is not "ground-based" by default just because it usually happens indoors — it's a fourth, non-geographic dimension, not a subset of Earth.
+
+This is also the product's positioning wedge, not just a data lens: Strava and single-sport apps are built to serve one sport at a time and structurally can't follow a user across paragliding, whitewater, skiing, and the gym in one coherent view — a shape only a life-mirror product occupies (see `four-dimensions-framework.md` for the full research this came out of).
+
+**A mirror, not a mechanic.** A session is *tagged* with a dimension, and Reflect can show the honest mix — "you trained Water three times this week" is a true sentence about what happened. That's descriptive, and it's as far as this goes. None of the following may ever exist, here or anywhere downstream of this framing:
+
+- Mastery levels or percentage-complete per dimension.
+- Unlockable content gated behind mastery of a dimension.
+- Any language that defines what "success" in a dimension looks like.
+
+This is the same two reject-tests from § The line you do not cross, applied to a new surface — "does this reward the user with anything that doesn't already exist in the world" and "does this define what success means for the user." A mastery/unlock system fails both; a descriptive dimension mix fails neither.
+
+**Archetype per dimension is a voice choice, not a data restriction.** The data bucket for each dimension stays fully inclusive (a road run is Earth, same as a trail run). Brand voice and onboarding language can anchor to one vivid, archetypal sport per dimension (trail running/MTB for Earth, paragliding/wingfoiling for Sky, kayaking/surfing for Water, the gym/practice room for Body) without fragmenting the underlying data — no "road running doesn't count" logic anywhere.
+
+**Body is infrastructure, not geography.** It never competes with Earth/Sky/Water for map space and is never gated behind mastery of the other three — it supports them (a stronger body is what lets you go further into all three) rather than sitting alongside them as a fourth place you travel to. This isn't just descriptive convenience: it's a direct application of the privacy line already drawn for GPS data (`gps-mapping-spec.md` § Privacy — the hardest line in the app) — Body sessions mostly happen at a small number of fixed indoor locations, so treating Body like the other three on a shared map would leak exactly the kind of location data the privacy rules exist to prevent.
+
+Full framework: `four-dimensions-framework.md`. The Ring-4 world-map/cohort application extends `gps-mapping-spec.md`'s existing cohort-map section — not built or scoped by this document.
 
 ## Evidence hierarchy (encoded in types)
 
@@ -100,6 +137,7 @@ See `planning/` for the full product context:
 - `data-model.md` — the Observation schema (the data contract)  
 - `correlation-engine-spec.md` — expenditure, plateau forensics, thresholds  
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)  
+- `four-dimensions-framework.md` — Earth/Sky/Water/Body, the organizing lens behind § The four dimensions  
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key  
 - `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)  
 - `ai-consultant-prompt.md` — Ring 3 / Phase 7 AI consultant  

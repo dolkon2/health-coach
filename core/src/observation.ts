@@ -75,9 +75,11 @@ export type FoodSourceDb = 'usda' | 'openfoodfacts';
  * How a meal entered the timeline. Fidelity keys off what this method actually
  * extracted, never off the device/screen ("channel"). Phase 2 ships `weighed`
  * + `described`; `barcode` is the 2.7 fast-follow; `photo` is a schema-reserved
- * member with no Phase-2 build surface (see food-logging-spec.md).
+ * member with no Phase-2 build surface (see food-logging-spec.md). `label` is a
+ * photographed Nutrition Facts panel TRANSCRIBED by the vision model — the data
+ * is label-declared (like `barcode`), the extraction is a machine read of it.
  */
-export type InputMethod = 'weighed' | 'barcode' | 'photo' | 'described';
+export type InputMethod = 'weighed' | 'barcode' | 'photo' | 'described' | 'label';
 
 /** How a FoodItem's portion quantity was determined. */
 export type QuantityMethod = 'measured' | 'package' | 'estimated';
@@ -137,9 +139,11 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
+  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
+  | { type: 'labelscan'; modelVersion: string } // vision-TRANSCRIBED Nutrition Facts panel — declared values, not an estimate; keyless (no food-db lineage)
   | { type: 'derived'; from: ObservationId[]; engine: string }; // computed by an engine
 
 // ─── Payloads by kind ───────────────────────────────────────────────────────

@@ -17,7 +17,7 @@
  */
 import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
   Screen,
   Text,
@@ -29,6 +29,11 @@ import {
   GymExerciseEditor,
   RemoveButton,
   Checkbox,
+  RoutePreview,
+  RouteMap,
+  ElevationProfile,
+  Splits,
+  GpsRecorderPanel,
 } from '@/components';
 import {
   ENERGY_SYSTEMS,
@@ -48,6 +53,9 @@ import {
 } from '@/storage/observations';
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
+import { parseGpx } from '@/lib/gpxImport';
+import type { TrackSummary } from '@/lib/gpsTrack';
+import { metersToDisplay } from '@/lib/units';
 import {
   emptySessionForm,
   emptyExerciseDraft,
@@ -115,8 +123,17 @@ export default function LogSessionScreen() {
   );
   const [original, setOriginal] = useState<ObservationOf<'session'> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+
+  // Dismissal that survives a missing back-stack (e.g. when the screen was
+  // deep-linked or opened with no parent route) — fall back to the Today tab
+  // instead of dispatching a GO_BACK action no navigator can handle.
+  const dismiss = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
 
   // Prefill from the existing session when editing.
   useEffect(() => {
@@ -265,6 +282,90 @@ export default function LogSessionScreen() {
     }));
   }
 
+  // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
+  // Pick a .gpx exported from Garmin Connect / Slopes / Gaia / AllTrails, parse
+  // it client-side, and prefill the form: distance/duration/elevation land in
+  // the same editable fields (the user can still correct them); the geometry +
+  // provenance ride on the form and are written by buildSessionObservation.
+
+  async function importGpxFile() {
+    if (importing) return;
+    setImporting(true);
+    setError(null);
+    // Lazy-load the picker: dev clients built before this pass don't carry the
+    // ExpoDocumentPicker native module, and a static import would break this
+    // whole route on them. Loaded here, an old build degrades to a message
+    // instead (same app, honest capability line).
+    let DocumentPicker: typeof import('expo-document-picker');
+    let FileSystem: typeof import('expo-file-system');
+    try {
+      DocumentPicker = await import('expo-document-picker');
+      FileSystem = await import('expo-file-system');
+    } catch {
+      setImporting(false);
+      setError('File import needs an updated dev build of the app — rebuild to enable it.');
+      return;
+    }
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (res.canceled || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      const xml = await FileSystem.readAsStringAsync(asset.uri);
+      const gpx = parseGpx(xml);
+      setForm((f) => ({
+        ...f,
+        durationMin:
+          gpx.durationMin != null ? String(Math.max(1, Math.round(gpx.durationMin))) : f.durationMin,
+        endurance: {
+          ...f.endurance,
+          distance:
+            gpx.distanceM > 0
+              ? String(Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100)
+              : f.endurance.distance,
+          gpsPath: gpx.points,
+          ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
+          importMeta: {
+            format: 'gpx' as const,
+            ...(asset.name ? { filename: asset.name } : {}),
+            ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+          },
+        },
+        ...(gpx.name && f.notes.trim() === '' ? { notes: gpx.name } : {}),
+      }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that file as GPX.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  // ─── Live GPS capture (Layer 1 / rung 2: in-app phone tracking) ────────────
+  // The recorder hands back the same GeoPoint[] a GPX import does; we prefill the
+  // editable distance/duration and attach the geometry + capture provenance, so
+  // buildSessionObservation writes a manual-source session at live-phone fidelity
+  // (0.7), dated to the recording's start. Rebuilt (not spread) so a prior file
+  // import's provenance can't linger on a freshly recorded route.
+  function applyCapturedRoute(summary: TrackSummary) {
+    setForm((f) => ({
+      ...f,
+      durationMin:
+        summary.durationSec >= 60
+          ? String(Math.max(1, Math.round(summary.durationSec / 60)))
+          : f.durationMin,
+      endurance: {
+        distance:
+          summary.distanceM > 0
+            ? String(Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100)
+            : f.endurance.distance,
+        avgHr: f.endurance.avgHr,
+        energySystem: f.endurance.energySystem,
+        gpsPath: summary.points,
+        ...(summary.elevationGainM != null ? { elevationGainM: summary.elevationGainM } : {}),
+        captureMeta: { startTime: summary.startTime ?? new Date().toISOString() },
+      },
+    }));
+  }
+
   // ─── Save ──────────────────────────────────────────────────────────────────
 
   const validationError = validateSessionForm(form);
@@ -301,7 +402,7 @@ export default function LogSessionScreen() {
         });
         await createObservation(obs);
       }
-      router.back();
+      dismiss();
     } catch {
       setError('Could not save. Try again.');
       setSaving(false);
@@ -310,11 +411,28 @@ export default function LogSessionScreen() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
+  // Explicit dismiss affordance in the header — the modal swipe-down can be
+  // missed, and the in-form "‹ activity" link only steps back to the picker,
+  // not out of the modal.
+  const headerScreen = (
+    <Stack.Screen
+      options={{
+        title: isEdit ? 'Edit session' : 'Log session',
+        headerLeft: () => (
+          <Pressable onPress={dismiss} accessibilityRole="button" hitSlop={12}>
+            <Text variant="body" color={theme.colors.sandstone}>Cancel</Text>
+          </Pressable>
+        ),
+      }}
+    />
+  );
+
   if (step === 'activity') {
     const headline = headlineActivities();
     const more = moreActivities();
     return (
       <Screen scroll>
+        {headerScreen}
         <Text variant="label" color={theme.colors.sandstone}>
           Log session
         </Text>
@@ -358,7 +476,7 @@ export default function LogSessionScreen() {
           </View>
         ) : null}
         <View style={{ height: theme.spacing[8] }} />
-        <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
+        <Button label="Cancel" variant="ghost" onPress={dismiss} />
       </Screen>
     );
   }
@@ -372,11 +490,38 @@ export default function LogSessionScreen() {
 
   return (
     <Screen scroll>
-      <Pressable onPress={() => setStep('activity')} accessibilityRole="button">
+      {headerScreen}
+      {/* Change-activity control — only for a new log; editing is bound to one
+          session, so switching activity there would be meaningless. Styled as an
+          obvious pill so it doesn't read as a title (the old "‹ Gym" label did). */}
+      {!isEdit ? (
+        <Pressable
+          onPress={() => setStep('activity')}
+          accessibilityRole="button"
+          accessibilityLabel="Change activity"
+          hitSlop={8}
+          style={{
+            alignSelf: 'flex-start',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: theme.spacing[1],
+            paddingVertical: theme.spacing[2],
+            paddingHorizontal: theme.spacing[3],
+            borderRadius: theme.radius.full,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+            backgroundColor: theme.colors.surface,
+          }}
+        >
+          <Text variant="label" color={theme.colors.sandstone}>
+            ‹ Change activity
+          </Text>
+        </Pressable>
+      ) : (
         <Text variant="label" color={theme.colors.sandstone}>
-          ‹ {label}
+          {label}
         </Text>
-      </Pressable>
+      )}
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
         {isEdit ? `Edit ${label}` : `Log ${label}`}
       </Text>
@@ -433,6 +578,60 @@ export default function LogSessionScreen() {
               }
             />
           </View>
+          {form.endurance.gpsPath && form.endurance.gpsPath.length >= 2 ? (
+            <View style={{ gap: theme.spacing[2] }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Text variant="label">Route attached</Text>
+                <RemoveButton
+                  label="Remove route"
+                  onPress={() =>
+                    update({
+                      endurance: {
+                        distance: form.endurance.distance,
+                        avgHr: form.endurance.avgHr,
+                        energySystem: form.endurance.energySystem,
+                      },
+                    })
+                  }
+                />
+              </View>
+              <RoutePreview path={form.endurance.gpsPath} />
+              <Text variant="dataSm" color={theme.colors.textSecondary}>
+                {[
+                  form.endurance.importMeta?.filename,
+                  `${form.endurance.gpsPath.length} points`,
+                  form.endurance.elevationGainM != null
+                    ? `${form.endurance.elevationGainM} m gain`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </Text>
+              {/* Full display stack — map over tiles, then the derived charts.
+                  Each is self-absenting: RouteMap degrades to the SVG trace with
+                  no MapTiler key, ElevationProfile hides with no altitude, Splits
+                  hide when the track is untimed (gps-mapping-spec.md). */}
+              <RouteMap path={form.endurance.gpsPath} />
+              <ElevationProfile points={form.endurance.gpsPath} />
+              <Splits points={form.endurance.gpsPath} unit={distanceUnit} />
+            </View>
+          ) : (
+            <View style={{ gap: theme.spacing[3] }}>
+              <GpsRecorderPanel onCapture={applyCapturedRoute} />
+              <Button
+                label={importing ? 'Reading file…' : 'Import GPX file'}
+                variant="ghost"
+                onPress={importGpxFile}
+                disabled={importing}
+              />
+            </View>
+          )}
         </Card>
       ) : null}
 
@@ -618,7 +817,7 @@ export default function LogSessionScreen() {
         loading={saving}
       />
       <View style={{ height: theme.spacing[3] }} />
-      <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
+      <Button label="Cancel" variant="ghost" onPress={dismiss} />
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
   );
