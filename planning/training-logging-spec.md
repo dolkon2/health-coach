@@ -267,7 +267,7 @@ Session
 
 │   ├── source: garmin | apple\_health | manual
 
-│   ├── route: GeoJSON (optional)
+│   ├── gpsPath: GeoPoint\[\] (optional) — `{ lat, lng, tsSec, eleM? }`, the canonical geometry (matches `data-model.md` and `core/src/observation.ts`). GeoJSON is a render-boundary projection only, never the stored shape — a `LineString` throws away the per-point timestamps that make splits and the elevation profile derivable.
 
 │   ├── distance: number
 
