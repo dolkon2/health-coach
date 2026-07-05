@@ -1,9 +1,9 @@
 # The Four Dimensions — Earth, Sky, Water, Body
 
 *Captured 2026-07-04, from a live design conversation (map-color mockup → element taxonomy →
-positioning strategy → world map → privacy). Not yet part of the constitution. A dedicated
-local session should integrate this carefully into `CLAUDE.md` / `planning/claude-md.md` —
-see `dev-log/four-dimensions-constitution-session-prompt.md`.*
+positioning strategy → world map → privacy). Integrated into the constitution 2026-07-04 —
+see `claude-md.md` § The four dimensions and `dev-log/four-dimensions-pass-1.md`. This
+document remains the full "why" behind that section.*
 
 ---
 

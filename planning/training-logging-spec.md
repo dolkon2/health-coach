@@ -207,6 +207,8 @@ Identity tags serve the belonging function — making the user feel seen without
 
 Tags are the answer to "I'm a calisthenics athlete and this app doesn't have a place for me." The place is everywhere — your exercises are tagged, your sessions are tagged, your history filters by it. The gym logging surface handles your movements natively because handstand push-ups and barbell bench use the same set/rep/weight fields. The tag is what makes it *yours.*
 
+One identity tag is elevated to a constitution-level lens rather than a free-form one: every session also carries a **dimension** (Earth/Sky/Water/Body — see `claude-md.md` § The four dimensions and `four-dimensions-framework.md`). It works the same as any other identity tag (carried, filterable, inherited from the sport); what's different is that it's the one every session gets, not an optional affinity tag like "calisthenics."
+
 ---
 
 ## Data model summary (key entities)

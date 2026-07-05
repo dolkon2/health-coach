@@ -109,6 +109,8 @@ No shareable body-change content. No "Moments" celebrating streaks or perfect ha
 
 **Architecturally foundational, not a late-stage addition.** Cross-user accountability is likely the primary driver of daily opens and long-term retention. It ships last, but it shapes what comes before: session and observation data models in Rings 1–3 must be privacy-aware and sharing-ready from the start so that toggling visibility is a permission change, not a migration. Full spec: `cohorts-spec.md` (events, challenges, profile, friend mechanic).
 
+A later, still-unscoped extension of the cohort hub: a world map of friends' activity, filterable by the four dimensions (`four-dimensions-framework.md`) and governed by the same privacy rules as any other route (`gps-mapping-spec.md` § Privacy). Not built or specced in detail yet — noted here so it isn't discovered as a surprise.
+
 ---
 
 ## Build order
