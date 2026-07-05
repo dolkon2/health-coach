@@ -19,6 +19,7 @@ import type {
   TemplateShape,
   TemplateSurface,
 } from '@core/sessionTemplate';
+import type { GearItem, GearSpec } from '@core/gear';
 
 // ─── Observation ────────────────────────────────────────────────────────────
 
@@ -162,5 +163,48 @@ export function rowToSessionTemplate(r: SessionTemplateRow): SessionTemplate {
     isActive: r.isActive === 1,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+  };
+}
+
+// ─── GearItem ───────────────────────────────────────────────────────────────
+
+export type GearRow = {
+  id: string;
+  category: string; // queryable copy of spec.category (the discriminator)
+  name: string;
+  spec: string; // JSON
+  acquiredAt: string | null;
+  retiredAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * createdAt/updatedAt are storage bookkeeping, not entity fields — GearItem
+ * carries no timestamps — so the storage layer passes them in alongside.
+ */
+export function gearToRow(g: GearItem, createdAt: string, updatedAt: string): GearRow {
+  return {
+    id: g.id,
+    category: g.spec.category,
+    name: g.name,
+    spec: JSON.stringify(g.spec),
+    acquiredAt: g.acquiredAt ?? null,
+    retiredAt: g.retiredAt ?? null,
+    notes: g.notes ?? null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function rowToGear(r: GearRow): GearItem {
+  return {
+    id: r.id,
+    name: r.name,
+    ...(r.acquiredAt != null ? { acquiredAt: r.acquiredAt } : {}),
+    ...(r.retiredAt != null ? { retiredAt: r.retiredAt } : {}),
+    ...(r.notes != null ? { notes: r.notes } : {}),
+    spec: JSON.parse(r.spec) as GearSpec,
   };
 }
