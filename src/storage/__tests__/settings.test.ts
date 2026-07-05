@@ -17,7 +17,10 @@ import {
   setBodyProfile,
   getAppSettings,
   setAppSettings,
+  getUserProtocols,
+  setUserProtocols,
 } from '../settings';
+import { activeProtocols, type UserProtocol } from '@/lib/protocols';
 import type { BodyProfile } from '@/lib/bodyProfile';
 import { DEFAULT_SETTINGS } from '@/lib/appSettings';
 
@@ -87,5 +90,38 @@ describe('app settings tenant', () => {
       JSON.stringify({ weightUnit: 'kg' }),
     ]);
     expect(await getAppSettings(db)).toEqual({ weightUnit: 'kg' });
+  });
+});
+
+describe('user protocols tenant (Body P1b)', () => {
+  const PROTO: UserProtocol = {
+    id: 'proto-1',
+    name: 'Knee routine from Sarah',
+    createdAt: '2026-07-05T16:00:00Z',
+    exercises: [
+      { id: 'ex-1', name: 'clamshells 3x15 each side', targetPerWeek: 4 },
+      { id: 'ex-2', name: 'step-downs 3x10', targetPerWeek: 3 },
+    ],
+  };
+
+  it('reads [] when nothing is stored — zero protocols is a fact, not null', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    expect(await getUserProtocols(db)).toEqual([]);
+  });
+
+  it('round-trips protocols and keeps archived ones (archived, never deleted)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await setUserProtocols([PROTO], db);
+    expect(await getUserProtocols(db)).toEqual([PROTO]);
+
+    const archived: UserProtocol = { ...PROTO, archivedAt: '2026-08-01T00:00:00Z' };
+    await setUserProtocols([archived], db);
+    const back = await getUserProtocols(db);
+    expect(back).toHaveLength(1); // still stored
+    expect(back[0].archivedAt).toBe('2026-08-01T00:00:00Z');
+    expect(activeProtocols(back)).toEqual([]); // but out of the daily list
   });
 });

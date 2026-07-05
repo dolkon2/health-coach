@@ -11,9 +11,11 @@
 import { getDb, type SqlDatabase } from './db';
 import type { BodyProfile } from '@/lib/bodyProfile';
 import type { Settings } from '@/lib/appSettings';
+import type { UserProtocol, UserProtocolsBlob } from '@/lib/protocols';
 
 const K_BODY_PROFILE = 'bodyProfile';
 const K_APP_SETTINGS = 'appSettings';
+const K_USER_PROTOCOLS = 'userProtocols';
 
 export async function getSettingJson<T>(key: string, db?: SqlDatabase): Promise<T | null> {
   const d = db ?? (await getDb());
@@ -57,4 +59,20 @@ export async function getAppSettings(db?: SqlDatabase): Promise<Partial<Settings
 
 export async function setAppSettings(settings: Settings, db?: SqlDatabase): Promise<void> {
   await setSettingJson(K_APP_SETTINGS, settings, db);
+}
+
+/** The user's own recorded plans ("My plan" — lib/protocols.ts). Returns [] when
+ *  none exist: having zero protocols is a fact, not a fabricated default, so
+ *  this tenant honestly reads as an empty list rather than null. Archived
+ *  protocols stay in the blob (archivedAt) — never deleted. */
+export async function getUserProtocols(db?: SqlDatabase): Promise<UserProtocol[]> {
+  const blob = await getSettingJson<UserProtocolsBlob>(K_USER_PROTOCOLS, db);
+  return blob?.protocols ?? [];
+}
+
+export async function setUserProtocols(
+  protocols: UserProtocol[],
+  db?: SqlDatabase
+): Promise<void> {
+  await setSettingJson(K_USER_PROTOCOLS, { protocols }, db);
 }
