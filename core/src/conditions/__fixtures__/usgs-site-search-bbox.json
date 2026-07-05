@@ -1,0 +1,206 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "OR004-14113210",
+        "agency_code": "OR004",
+        "monitoring_location_number": "14113210",
+        "monitoring_location_name": "MOSIER CREEK ABOVE DRY CREEK, NEAR MOSIER, OR",
+        "state_code": "41",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701051103",
+        "altitude": 327.0,
+        "drainage_area": null
+      },
+      "id": "OR004-14113210",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.380583333333,
+          45.6633055555556
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14105700",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14105700",
+        "monitoring_location_name": "COLUMBIA RIVER AT THE DALLES, OR",
+        "state_code": "41",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050406",
+        "altitude": 0.0,
+        "drainage_area": 237000.0
+      },
+      "id": "USGS-14105700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.189916666667,
+          45.6082777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110000",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110000",
+        "monitoring_location_name": "KLICKITAT RIVER NEAR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060210",
+        "altitude": 1703.0,
+        "drainage_area": 360.0
+      },
+      "id": "USGS-14110000",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.259520687207,
+          46.0887334840788
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110480",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110480",
+        "monitoring_location_name": "TROUT CREEK NEAR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060201",
+        "altitude": null,
+        "drainage_area": null
+      },
+      "id": "USGS-14110480",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.21479772705,
+          46.0634558922156
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110490",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110490",
+        "monitoring_location_name": "ELK CREEK NEAR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060210",
+        "altitude": null,
+        "drainage_area": null
+      },
+      "id": "USGS-14110490",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.198964118849,
+          46.0559559354071
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110600",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110600",
+        "monitoring_location_name": "KLICKITAT RIVER AT FISH HATCHERY NR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060210",
+        "altitude": 1236.0,
+        "drainage_area": null
+      },
+      "id": "USGS-14110600",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.18306666666668,
+          46.04277777777778
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110700",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110700",
+        "monitoring_location_name": "MEDLEY CANYON CREEK NEAR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060205",
+        "altitude": null,
+        "drainage_area": 1.26
+      },
+      "id": "USGS-14110700",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.304798757193,
+          45.946233318834
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14110720",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14110720",
+        "monitoring_location_name": "OUTLET CREEK NEAR GLENWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701060205",
+        "altitude": null,
+        "drainage_area": 124.0
+      },
+      "id": "USGS-14110720",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.208964541122,
+          46.0167894031348
+        ]
+      }
+    }
+  ],
+  "numberReturned": 8,
+  "links": [
+    {
+      "rel": "next",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?cursor=VVNHUy0xNDExMDcyMA&bbox=-121.9,45.6,-121.1,46.1&site_type_code=ST&limit=8&f=json",
+      "type": "application/geo+json",
+      "title": "Items (next)"
+    },
+    {
+      "type": "application/geo+json",
+      "rel": "self",
+      "title": "This document as GeoJSON",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?f=json&bbox=-121.9,45.6,-121.1,46.1&site_type_code=ST&limit=8"
+    }
+  ],
+  "timeStamp": "2026-07-05T22:43:37.185927Z",
+  "_fixture_note": "Properties trimmed to core adapter fields; cursor-based next link retained to show pagination shape."
+}

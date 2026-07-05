@@ -1,0 +1,246 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14121300",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14121300",
+        "monitoring_location_name": "WHITE SALMON R BL CASCADES CR NR TROUT LAKE, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050802",
+        "altitude": 3080.0,
+        "drainage_area": 32.4
+      },
+      "id": "USGS-14121300",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.608693782948,
+          46.1037298968568
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14121400",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14121400",
+        "monitoring_location_name": "WHITE SALMON R AB TROUT LAKE CK NR TROUT LAKE, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050803",
+        "altitude": 2050.0,
+        "drainage_area": 64.9
+      },
+      "id": "USGS-14121400",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.53174851944,
+          46.0303982143304
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14122000",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14122000",
+        "monitoring_location_name": "WHITE SALMON RIVER NEAR TROUT LAKE, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050807",
+        "altitude": 1780.0,
+        "drainage_area": 185.0
+      },
+      "id": "USGS-14122000",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.492858935547,
+          45.9915099867817
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14122500",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14122500",
+        "monitoring_location_name": "WHITE SALMON RIVER AT SPLASH DAM NR TROUT LAKE, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050807",
+        "altitude": 1640.0,
+        "drainage_area": 240.0
+      },
+      "id": "USGS-14122500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.473412737278,
+          45.9498432024438
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14122900",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14122900",
+        "monitoring_location_name": "WHITE SALMON RIVER AT B-Z CORNER, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050808",
+        "altitude": null,
+        "drainage_area": 269.0
+      },
+      "id": "USGS-14122900",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.505354607209,
+          45.8623423807316
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14123000",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14123000",
+        "monitoring_location_name": "WHITE SALMON RIVER AT HUSUM, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050808",
+        "altitude": 360.0,
+        "drainage_area": 294.0
+      },
+      "id": "USGS-14123000",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.486185573873,
+          45.7981755047484
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14123500",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14123500",
+        "monitoring_location_name": "WHITE SALMON RIVER NEAR UNDERWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050811",
+        "altitude": 112.96,
+        "drainage_area": 386.0
+      },
+      "id": "USGS-14123500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.527017643798,
+          45.752063720448
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14123600",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14123600",
+        "monitoring_location_name": "WHITE SALMON RIVER AT CONFLUENCE AT UNDERWOOD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050811",
+        "altitude": 79.0,
+        "drainage_area": null
+      },
+      "id": "USGS-14123600",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.52187777777777,
+          45.729375000000005
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14124000",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14124000",
+        "monitoring_location_name": "LITTLE WHITE SALMON RIVER NEAR WILLARD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050904",
+        "altitude": 1340.0,
+        "drainage_area": 39.2
+      },
+      "id": "USGS-14124000",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.642853428148,
+          45.7998404066873
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "USGS-14124500",
+        "agency_code": "USGS",
+        "monitoring_location_number": "14124500",
+        "monitoring_location_name": "LITTLE WHITE SALMON RIVER AT WILLARD, WA",
+        "state_code": "53",
+        "site_type_code": "ST",
+        "site_type": "Stream",
+        "hydrologic_unit_code": "170701050905",
+        "altitude": 1230.0,
+        "drainage_area": 114.0
+      },
+      "id": "USGS-14124500",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -121.626186062792,
+          45.7803961442759
+        ]
+      }
+    }
+  ],
+  "numberReturned": 10,
+  "links": [
+    {
+      "type": "application/geo+json",
+      "rel": "self",
+      "title": "This document as GeoJSON",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items?f=json&filter=monitoring_location_name%20LIKE%20%27%25WHITE%20SALMON%25%27&limit=10"
+    }
+  ],
+  "timeStamp": "2026-07-05T22:43:37.916531Z",
+  "_fixture_note": "CQL2 text filter: filter=monitoring_location_name LIKE '%WHITE SALMON%'. Properties trimmed."
+}

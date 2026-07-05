@@ -1,0 +1,23 @@
+{
+  "latitude": 45.70327,
+  "longitude": -121.49506,
+  "generationtime_ms": 0.07021427154541016,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 22.0,
+  "current_units": {
+    "time": "unixtime",
+    "interval": "seconds",
+    "wind_speed_10m": "kn",
+    "wind_gusts_10m": "kn",
+    "wind_direction_10m": "\u00b0"
+  },
+  "current": {
+    "time": 1783292400,
+    "interval": 900,
+    "wind_speed_10m": 10.3,
+    "wind_gusts_10m": 14.6,
+    "wind_direction_10m": 289
+  }
+}
