@@ -12,6 +12,7 @@ export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './Fidelity
 export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
 export { RoutePreview, routePathD } from './RoutePreview';
+export { ElevationProfile, elevationPaths } from './ElevationProfile';
 export { GpsRecorderPanel } from './GpsRecorderPanel';
 export { StimulusLedger } from './StimulusLedger';
 export { SwipeToDelete } from './SwipeToDelete';
