@@ -24,8 +24,14 @@ export interface CallClaudeOptions {
   model: string;
   /** Stable instructions for the model (the "what to do" part). */
   systemPrompt: string;
-  /** The variable per-call input (e.g. the user's described meal). */
+  /** The variable per-call input (e.g. the user's described meal). For an image
+   *  call this is the text that accompanies the photo (the "look at this" prompt). */
   userMessage: string;
+  /** Optional image to send alongside `userMessage` (Pass 2.8a, photo → macros).
+   *  `data` is raw base64 (no `data:` URI prefix); `mediaType` e.g. 'image/jpeg'.
+   *  When present the user turn becomes an [image, text] content array; otherwise
+   *  it stays a bare string (the text-only path). */
+  image?: { data: string; mediaType: string };
   /** JSON Schema the model's output is constrained to match. */
   schema: Record<string, unknown>;
   /** Hard ceiling on output tokens. Default 512 — schema-bounded JSON is small. */
@@ -78,7 +84,19 @@ export async function callClaude<T = unknown>(opts: CallClaudeOptions): Promise<
         model: opts.model,
         max_tokens: opts.maxTokens ?? 512,
         system: opts.systemPrompt,
-        messages: [{ role: 'user', content: opts.userMessage }],
+        // With an image, the user turn is an [image, text] content array so the
+        // model sees the photo; without one it stays a bare string (text path).
+        messages: [
+          {
+            role: 'user',
+            content: opts.image
+              ? [
+                  { type: 'image', source: { type: 'base64', media_type: opts.image.mediaType, data: opts.image.data } },
+                  { type: 'text', text: opts.userMessage },
+                ]
+              : opts.userMessage,
+          },
+        ],
         output_config: {
           format: { type: 'json_schema', schema: opts.schema },
         },
