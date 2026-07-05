@@ -34,6 +34,8 @@ import {
   ElevationProfile,
   Splits,
   GpsRecorderPanel,
+  WhitewaterSection,
+  WindSection,
 } from '@/components';
 import {
   ENERGY_SYSTEMS,
@@ -72,6 +74,12 @@ import {
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import type { MovementPattern, ObservationOf } from '@core/observation';
+
+// Water sections on the gps surface, keyed off the activity id (contract §8):
+// whitewater/kayak get the gauge + river section, the wind sub-sports get the
+// wind + kit section. The activity id IS the sub-sport — no subSport field.
+const WHITEWATER_ACTIVITIES = ['whitewater', 'kayak'];
+const WIND_ACTIVITIES = ['wingfoil', 'windsurf', 'kitesurf', 'parawing', 'sail'];
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -126,6 +134,12 @@ export default function LogSessionScreen() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+  // Freeze-at-save reference time for the Water condition fetches: an edit
+  // uses the ORIGINAL session moment (backdate-correct — the gauge/wind are
+  // fetched as they were THEN), a new log uses the moment the screen opened
+  // (stable across re-renders, unlike an inline new Date()).
+  const [openedAt] = useState(() => new Date().toISOString());
+  const sessionTimeUtc = original?.occurredAt ?? openedAt;
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -633,6 +647,26 @@ export default function LogSessionScreen() {
             </View>
           )}
         </Card>
+      ) : null}
+
+      {/* Water bespoke sections ride ALONGSIDE the gps envelope, keyed off the
+          activity id. Each edits its own form slice; the gauge/wind snapshots
+          they freeze are built into the payload by buildSessionObservation. */}
+      {surface === 'gps' && form.activity && WHITEWATER_ACTIVITIES.includes(form.activity) ? (
+        <WhitewaterSection
+          value={form.whitewater}
+          onChange={(patch) =>
+            setForm((f) => ({ ...f, whitewater: { ...f.whitewater, ...patch } }))
+          }
+          sessionTimeUtc={sessionTimeUtc}
+        />
+      ) : null}
+      {surface === 'gps' && form.activity && WIND_ACTIVITIES.includes(form.activity) ? (
+        <WindSection
+          value={form.wind}
+          onChange={(patch) => setForm((f) => ({ ...f, wind: { ...f.wind, ...patch } }))}
+          sessionTimeUtc={sessionTimeUtc}
+        />
       ) : null}
 
       {surface === 'climbing' ? (
