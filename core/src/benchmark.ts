@@ -67,6 +67,9 @@ export type ResolvedDimension =
 //   | { metric: 'exerciseLoad'; exercise: string }                     // strength outcome
 //   | { metric: 'steps' } | { metric: 'sleepDuration' }                // NOTE-ONLY (handoff): reserved, don't wire
 //   | { metric: 'subjective'; label: SubjectiveMetric } | { metric: 'climbGrade' }
+//   ─ USHPA ledger (ushpaLedger.ts) — reserved until flight logging wires in ─
+//   | { metric: 'flightCount'; activity?: string } | { metric: 'flightHours'; activity?: string }
+//   | { metric: 'flyingDays'; activity?: string } | { metric: 'uniqueSites'; activity?: string }
 
 /** The four daily macro totals a nutrition benchmark can target. */
 export type MacroKind = 'protein' | 'carbs' | 'fat' | 'fiber';

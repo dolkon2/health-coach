@@ -15,6 +15,7 @@ export * from './trend';
 export * from './expenditure';
 export * from './baselineTdee';
 export * from './stimulus';
+export * from './ushpaLedger';
 export * from './nutrition/fidelity';
 export * from './nutrition/captureTier';
 export * from './nutrition/days';
