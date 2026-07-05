@@ -32,6 +32,7 @@ export function captureTier(meal: MealCapture): CaptureTier {
   switch (meal.inputMethod) {
     case 'weighed':
     case 'barcode':
+    case 'label':
       return 'T3';
     case 'described':
     case 'photo':
@@ -50,6 +51,7 @@ const METHOD_WORD: Record<FoodEntryPayload['inputMethod'], string> = {
   barcode: 'scanned',
   described: 'described',
   photo: 'photo',
+  label: 'label',
 };
 
 /** The on-entry label: "T3 · weighed", "T2 · photo", "T1 · partial". */
