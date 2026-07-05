@@ -7,6 +7,9 @@
  * from the app.
  */
 export * from './observation';
+export * from './conditions/snapshot';
+export * from './gear';
+export * from './spot';
 export * from './benchmark';
 export * from './sessionTemplate';
 export * from './timeline';

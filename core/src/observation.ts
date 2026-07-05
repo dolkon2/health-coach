@@ -13,6 +13,8 @@
  *               guess ~0.4. Never absent.
  */
 
+import type { GaugeSnapshot, WindSnapshot } from './conditions/snapshot';
+
 // ─── Supporting scalar types ────────────────────────────────────────────────
 
 export type ObservationId = string; // uuid v7 (time-sortable)
@@ -136,7 +138,9 @@ export interface MealTemplate {
 
 export type ObservationSource =
   | { type: 'manual' }
-  | { type: 'healthkit'; rawType: string }
+  // workoutUuid: HK workout UUID — the dedup key for ingested sessions (two
+  // workouts in one civil day is normal; day-keyed dedup is for steps/sleep).
+  | { type: 'healthkit'; rawType: string; workoutUuid?: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
   | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
@@ -197,6 +201,23 @@ export type SwimStroke =
   | 'medley'
   | 'mixed';
 
+/**
+ * One pool length, from HealthKit per-length samples (stroke count + distance
+ * quantity samples joined with lap events). Times are offsets from session
+ * start — tz-free and compact. Facts in, derivations out: sets, SWOLF, and
+ * pace/100 are computed at read time (core/src/swim.ts), never stored.
+ */
+export type SwimLength = {
+  startSec: number; // offset from session start
+  durationS: number;
+  distanceM?: number;
+  strokes?: number;
+  // 'kickboard'/'unknown' exist only on ingested lengths — do NOT extend the
+  // SwimStroke union itself (it feeds the manual form's chip list).
+  stroke?: SwimStroke | 'kickboard' | 'unknown';
+  tag?: 'drill' | 'kick'; // manual annotation slot (watches can't detect kickboard work)
+};
+
 export type SwimmingBlock = {
   // Total distance. In a pool it's laps × poolLengthM — higher fidelity than a raw
   // guess; open-water is the swimmer's estimate. Optional: a timed swim with no
@@ -206,6 +227,47 @@ export type SwimmingBlock = {
   laps?: number;
   stroke?: SwimStroke;
   energySystem: EnergySystem; // lets the swim contribute energy-system minutes to the ledger
+  // Per-length rows from wearable ingestion. When present, distanceM is the
+  // MEASURED total (not recomputed laps × poolLengthM) and the block rides the
+  // form whole so the edit path round-trips it (importMeta pattern).
+  lengths?: SwimLength[];
+};
+
+/**
+ * Whitewater kayaking — the purest conditions-freeze sport. The gauge reading
+ * isn't context, it IS the log entry's meaning. Rides ALONGSIDE the endurance
+ * block (which stays the GPS envelope); the session remains on the gps surface.
+ * Private-first: hazards notes carry liability weight and never leave the device.
+ */
+export type WhitewaterBlock = {
+  riverName?: string;
+  sectionName?: string;
+  spotId?: string; // ref; names above are denormalized (spot may be deleted)
+  gauge?: GaugeSnapshot; // IMMUTABLE once saved — edit round-trips it untouched
+  // Free text. Soft validation hint /^(VI|IV|V|I{1,3})[+-]?$/ — never a gate:
+  // 'IV-V' and 'III(IV)' are legitimate notations.
+  sectionClass?: string;
+  boatGearId?: string; // the boat from the quiver (creek boat vs playboat changes the run)
+  waterTempC?: number;
+  hazards?: string; // wood/strainer notes — free text, private-first
+  swims?: number;
+  rolls?: number;
+  precip72hMm?: number; // 3 civil-day rain sum preceding the session date (rain-driven levels)
+};
+
+/**
+ * Wind sports (wingfoil | windsurf | kitesurf | parawing | sail — the activity
+ * id is the sub-sport discriminator and the future split point). Spot + wind +
+ * gear is the canonical log: the freeze + quiver join answers "what did I ride
+ * last time in these conditions?" — descriptively, never prescriptively.
+ */
+export type WindBlock = {
+  spotId?: string;
+  spotName?: string; // denormalized snapshot of the name
+  wind?: WindSnapshot; // IMMUTABLE once saved
+  kitId?: string; // provenance if a kit was picked
+  gearIds?: string[]; // resolved gear refs (kit expansion or loose picks)
+  note?: string; // subjective session note ("lit on the 9m")
 };
 
 export type PracticeBlock = {
@@ -236,6 +298,11 @@ export type SessionPayload = {
   paddling?: PaddlingBlock;
   swimming?: SwimmingBlock;
   practice?: PracticeBlock;
+  // Water bespoke blocks — ride ALONGSIDE endurance (the GPS envelope) on the
+  // gps surface. The one-block-per-surface invariant intentionally bends here:
+  // the envelope is how you moved, the bespoke block is what the water was.
+  whitewater?: WhitewaterBlock;
+  wind?: WindBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward
