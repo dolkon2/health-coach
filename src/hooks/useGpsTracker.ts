@@ -38,6 +38,30 @@ export type GpsTracker = {
   reset: () => void;
 };
 
+/** The slice of an expo-location fix the GeoPoint mapping reads. */
+export type LocationFix = {
+  coords: { latitude: number; longitude: number; altitude: number | null };
+  timestamp: number; // ms epoch
+};
+
+/**
+ * Maps one expo-location fix to a GeoPoint. Pure and exported so the mapping is
+ * unit-testable without the native module. Altitude present → eleM + an
+ * 'gps' eleSource label (⚑ E-9: phone fixes are GPS-derived); altitude absent →
+ * BOTH keys omitted — a source label without a reading would fabricate one,
+ * and 'none' is never written at capture time.
+ */
+export function locationToGeoPoint(loc: LocationFix): GeoPoint {
+  return {
+    lat: loc.coords.latitude,
+    lng: loc.coords.longitude,
+    tsSec: Math.floor(loc.timestamp / 1000),
+    ...(loc.coords.altitude != null
+      ? { eleM: loc.coords.altitude, eleSource: 'gps' as const }
+      : {}),
+  };
+}
+
 export function useGpsTracker(): GpsTracker {
   const [status, setStatus] = useState<TrackerStatus>('idle');
   const [points, setPoints] = useState<GeoPoint[]>([]);
@@ -101,13 +125,7 @@ export function useGpsTracker(): GpsTracker {
           distanceInterval: 5, // … or every 5 m, whichever comes first
         },
         (loc) => {
-          const p: GeoPoint = {
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-            tsSec: Math.floor(loc.timestamp / 1000),
-            ...(loc.coords.altitude != null ? { eleM: loc.coords.altitude } : {}),
-          };
-          pointsRef.current = [...pointsRef.current, p];
+          pointsRef.current = [...pointsRef.current, locationToGeoPoint(loc)];
           setPoints(pointsRef.current);
         }
       );

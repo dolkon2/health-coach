@@ -20,7 +20,24 @@ export type ISOInstant = string; // ISO 8601 UTC, e.g. '2026-06-25T14:32:00Z'
 export type IANATimezone = string; // e.g. 'America/Los_Angeles'
 export type LocalDate = string; // 'YYYY-MM-DD' in the user's local civil day
 
-export type GeoPoint = { lat: number; lng: number; tsSec: number; eleM?: number };
+/**
+ * Where a point's elevation reading came from. Precedence when merging:
+ * barometric > gps > dem — a dem correction never overwrites a barometric
+ * reading. Writers omit the field when eleM is absent (never 'none' on write);
+ * 'none' is reserved for a processing stage that explicitly declares no
+ * elevation was available.
+ */
+export type ElevationSource = 'barometric' | 'gps' | 'dem' | 'none';
+
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+  tsSec: number;
+  eleM?: number;
+  // Per-point elevation provenance (see ElevationSource). Absent when eleM is
+  // absent — a source label without a reading would be a fabricated value.
+  eleSource?: ElevationSource;
+};
 
 export type Tier = 1 | 2 | 3;
 
@@ -168,9 +185,19 @@ export type LiftingBlock = {
   }>;
 };
 
+/**
+ * Provenance of EnduranceBlock.elevationGainM. 'gps' = computed from a
+ * GPS-elevation track; 'manual' = typed by the user; 'barometric' is reserved
+ * for sources that declare it (e.g. HealthKit elevationAscended); 'dem' for a
+ * terrain-model correction. Written only alongside elevationGainM — never a
+ * label without a value.
+ */
+export type ElevationGainSource = 'barometric' | 'gps' | 'dem' | 'manual';
+
 export type EnduranceBlock = {
   distanceM?: number;
   elevationGainM?: number;
+  elevationGainSource?: ElevationGainSource; // absent when elevationGainM is absent
   avgHr?: number;
   energySystem: EnergySystem;
   gpsPath?: GeoPoint[]; // if synced from device

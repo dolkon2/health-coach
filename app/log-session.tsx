@@ -57,6 +57,8 @@ import { parseGpx } from '@/lib/gpxImport';
 import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
 import {
+  applyElevationGainEdit,
+  enduranceWithRoute,
   emptySessionForm,
   emptyExerciseDraft,
   emptySetDraft,
@@ -73,7 +75,16 @@ import {
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import { listGear, type GearRecord } from '@/storage/gear';
-import type { MovementPattern, ObservationOf } from '@core/observation';
+import type { ElevationGainSource, MovementPattern, ObservationOf } from '@core/observation';
+
+// Descriptive captions for elevation-gain provenance (E2). Rendered only when a
+// source is known — pre-E2 sessions carry none and show nothing.
+const ELEVATION_SOURCE_LABELS: Record<ElevationGainSource, string> = {
+  gps: 'GPS',
+  barometric: 'barometric',
+  dem: 'terrain model',
+  manual: 'entered by hand',
+};
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -339,20 +350,35 @@ export default function LogSessionScreen() {
         ...f,
         durationMin:
           gpx.durationMin != null ? String(Math.max(1, Math.round(gpx.durationMin))) : f.durationMin,
-        endurance: {
-          ...f.endurance,
-          distance:
-            gpx.distanceM > 0
-              ? String(Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100)
-              : f.endurance.distance,
-          gpsPath: gpx.points,
-          ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
-          importMeta: {
-            format: 'gpx' as const,
-            ...(asset.name ? { filename: asset.name } : {}),
-            ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+        // Rebuilt via enduranceWithRoute (never spread) so a prior route's
+        // gain/source/captureMeta can't linger on this file's geometry. The
+        // gain's label comes from the parser itself: 'gps' only for a recorded
+        // <trk>; a planned <rte>'s gain carries no source (⚑ E-9 — the device
+        // is unknowable from a file; understate, never overstate).
+        endurance: enduranceWithRoute(
+          f.endurance,
+          {
+            gpsPath: gpx.points,
+            ...(gpx.distanceM > 0
+              ? {
+                  distance: String(
+                    Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100
+                  ),
+                }
+              : {}),
+            ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
+            ...(gpx.elevationGainSource != null
+              ? { elevationGainSource: gpx.elevationGainSource }
+              : {}),
           },
-        },
+          {
+            importMeta: {
+              format: 'gpx' as const,
+              ...(asset.name ? { filename: asset.name } : {}),
+              ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+            },
+          }
+        ),
         ...(gpx.name && f.notes.trim() === '' ? { notes: gpx.name } : {}),
       }));
     } catch (e) {
@@ -366,8 +392,8 @@ export default function LogSessionScreen() {
   // The recorder hands back the same GeoPoint[] a GPX import does; we prefill the
   // editable distance/duration and attach the geometry + capture provenance, so
   // buildSessionObservation writes a manual-source session at live-phone fidelity
-  // (0.7), dated to the recording's start. Rebuilt (not spread) so a prior file
-  // import's provenance can't linger on a freshly recorded route.
+  // (0.7), dated to the recording's start. enduranceWithRoute rebuilds (never
+  // spreads) so a prior file import's provenance can't linger on a fresh recording.
   function applyCapturedRoute(summary: TrackSummary) {
     setForm((f) => ({
       ...f,
@@ -375,17 +401,24 @@ export default function LogSessionScreen() {
         summary.durationSec >= 60
           ? String(Math.max(1, Math.round(summary.durationSec / 60)))
           : f.durationMin,
-      endurance: {
-        distance:
-          summary.distanceM > 0
-            ? String(Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100)
-            : f.endurance.distance,
-        avgHr: f.endurance.avgHr,
-        energySystem: f.endurance.energySystem,
-        gpsPath: summary.points,
-        ...(summary.elevationGainM != null ? { elevationGainM: summary.elevationGainM } : {}),
-        captureMeta: { startTime: summary.startTime ?? new Date().toISOString() },
-      },
+      endurance: enduranceWithRoute(
+        f.endurance,
+        {
+          gpsPath: summary.points,
+          ...(summary.distanceM > 0
+            ? {
+                distance: String(
+                  Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100
+                ),
+              }
+            : {}),
+          // Gain computed from the phone's GPS-elevation fixes → 'gps' (⚑ E-9).
+          ...(summary.elevationGainM != null
+            ? { elevationGainM: summary.elevationGainM, elevationGainSource: 'gps' as const }
+            : {}),
+        },
+        { captureMeta: { startTime: summary.startTime ?? new Date().toISOString() } }
+      ),
     }));
   }
 
@@ -597,6 +630,22 @@ export default function LogSessionScreen() {
             suffix="bpm"
             keyboardType="number-pad"
           />
+          <Field
+            label="Elevation gain (m, optional)"
+            value={
+              form.endurance.elevationGainM != null
+                ? String(form.endurance.elevationGainM)
+                : ''
+            }
+            onChangeText={(text) =>
+              // Pure reducer (lib/session): a typed value is the user's number →
+              // source 'manual', even over a route prefill; cleared → both absent.
+              update({ endurance: applyElevationGainEdit(form.endurance, text) })
+            }
+            placeholder="—"
+            suffix="m"
+            keyboardType="number-pad"
+          />
           <View style={{ gap: theme.spacing[2] }}>
             <Text variant="label">Energy system</Text>
             <ChipSelect
@@ -637,6 +686,11 @@ export default function LogSessionScreen() {
                   `${form.endurance.gpsPath.length} points`,
                   form.endurance.elevationGainM != null
                     ? `${form.endurance.elevationGainM} m gain`
+                    : null,
+                  // Provenance caption (E2) — only when the source is known.
+                  form.endurance.elevationGainM != null &&
+                  form.endurance.elevationGainSource != null
+                    ? `elevation: ${ELEVATION_SOURCE_LABELS[form.endurance.elevationGainSource]}`
                     : null,
                 ]
                   .filter(Boolean)

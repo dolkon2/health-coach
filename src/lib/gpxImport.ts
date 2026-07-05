@@ -26,6 +26,11 @@ export type GpxImportResult = {
   pointCount: number; // original count, before downsampling
   distanceM: number; // haversine, summed per segment, full-resolution points
   elevationGainM?: number; // 3 m hysteresis accumulator; absent if no <ele>
+  // Present only when the gain came from a recorded <trk> (⚑ E-9: device
+  // unknowable from a file — 'gps' understates). A planned <rte>'s elevations
+  // are route-planner/terrain-model output no device ever measured, so its
+  // gain carries no label at all — 'gps' there would overstate.
+  elevationGainSource?: 'gps';
   durationMin?: number; // last valid <time> − first; absent if untimed
   startTime?: string; // ISO of the first timestamped point
 };
@@ -37,13 +42,27 @@ function asArray<T>(v: T | T[] | undefined): T[] {
   return Array.isArray(v) ? v : [v];
 }
 
-function parsePoint(pt: RawPt): GeoPoint | null {
+function parsePoint(pt: RawPt, kind: 'trkpt' | 'rtept'): GeoPoint | null {
   const lat = Number(pt.lat);
   const lng = Number(pt.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   const p: GeoPoint = { lat, lng, tsSec: 0 };
-  const ele = Number(pt.ele);
-  if (pt.ele != null && Number.isFinite(ele)) p.eleM = ele;
+  // Some exporters emit an empty <ele></ele> (or <ele/>) for fixes without
+  // altitude; the parser yields '' and Number('') is 0 — a fabricated
+  // sea-level reading that would also wreck the hysteresis gain. Only a
+  // non-empty numeric string is a reading (null ≠ 0).
+  const eleRaw = typeof pt.ele === 'string' ? pt.ele.trim() : '';
+  const ele = Number(eleRaw);
+  if (eleRaw !== '' && Number.isFinite(ele)) {
+    p.eleM = ele;
+    // A recorded track's <ele> is labeled 'gps': the recording device is
+    // unknowable from the file, so we understate rather than claim barometric
+    // (⚑ E-9). A planned route's <rtept> elevation is planner/terrain-model
+    // output no device ever measured — the reading is kept but NO source is
+    // stamped ('gps' would overstate). No <ele> → no eleSource at all — never
+    // a label without a reading.
+    if (kind === 'trkpt') p.eleSource = 'gps';
+  }
   if (typeof pt.time === 'string') {
     const ms = Date.parse(pt.time);
     if (Number.isFinite(ms)) p.tsSec = Math.floor(ms / 1000);
@@ -84,11 +103,15 @@ export function parseGpx(xml: string): GpxImportResult {
     }
     for (const seg of asArray(trk.trkseg as RawPt | RawPt[])) {
       const pts = asArray(seg.trkpt as RawPt | RawPt[])
-        .map(parsePoint)
+        .map((pt) => parsePoint(pt, 'trkpt'))
         .filter((p): p is GeoPoint => p !== null);
       if (pts.length > 0) segments.push(pts);
     }
   }
+
+  // Whether the geometry is a recorded track (<trk>) or the planned-route
+  // fallback (<rte>) decides the gain's provenance label below.
+  const recorded = segments.length > 0;
 
   if (segments.length === 0) {
     for (const rte of asArray(gpx.rte as RawPt | RawPt[])) {
@@ -96,7 +119,7 @@ export function parseGpx(xml: string): GpxImportResult {
         name = rte.name.trim();
       }
       const pts = asArray(rte.rtept as RawPt | RawPt[])
-        .map(parsePoint)
+        .map((pt) => parsePoint(pt, 'rtept'))
         .filter((p): p is GeoPoint => p !== null);
       if (pts.length > 0) segments.push(pts);
     }
@@ -130,7 +153,9 @@ export function parseGpx(xml: string): GpxImportResult {
     points: thinTrack(all),
     pointCount: all.length,
     distanceM: Math.round(distanceM),
-    ...(gain !== undefined ? { elevationGainM: gain } : {}),
+    ...(gain !== undefined
+      ? { elevationGainM: gain, ...(recorded ? { elevationGainSource: 'gps' as const } : {}) }
+      : {}),
     ...(durationMin !== undefined ? { durationMin } : {}),
     ...(startSec !== null ? { startTime: new Date(startSec * 1000).toISOString() } : {}),
   };

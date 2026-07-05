@@ -65,3 +65,22 @@ Built end to end, uncommitted (left dirty for review). 507 jest / 51 suites gree
 - `pickActivity` kept stale gearIds across an activity switch while the chip row filtered them invisible — now pruned via `pruneGearIdsForCategories` (lib/session.ts, tested).
 - Quiver retire stamped the UTC calendar date into a LocalDate field — now `todayLocalDate()`.
 - Quiver screen rendered "0 sessions" off a failed/unfinished observation read — now: no status line until the read lands, and a failed read surfaces "Could not read session history — totals unavailable." (a failed read is not an empty record).
+
+### E2 — elevation source labeling (2026-07-05)
+
+Built, uncommitted. 527 jest / 53 suites green (baseline 513/51), tsc clean.
+
+- `core/src/observation.ts`: `GeoPoint.eleSource?` + `EnduranceBlock.elevationGainSource?` with named exported unions (`ElevationSource` incl. reserved `'none'`, `ElevationGainSource` incl. `'manual'`); precedence + never-label-without-a-value rules in the doc comments. Types only — no runtime, no migration; pre-E2 rows hydrate with both keys absent (tested).
+- Writers (⚑ E-9): `useGpsTracker` fix→GeoPoint mapping extracted to exported pure `locationToGeoPoint` (altitude → `eleSource:'gps'`; no altitude → neither key, never `'none'` on write); `gpxImport.parsePoint` stamps `'gps'` on `<ele>` points only.
+- `lib/session.ts`: endurance slice threads `elevationGainSource`; build writes it only alongside a written `elevationGainM`; inverse restores it (absent → absent). New pure reducer `applyElevationGainEdit`: any direct edit → `'manual'` (even over a `'gps'` prefill); cleared/unparsable → both keys removed.
+- `app/log-session.tsx`: GPX import + live capture stamp `'gps'` with the prefilled gain; route-attached caption gains "elevation: GPS / barometric / terrain model / entered by hand" (muted dataSm line, shown only when known). **Deviation:** the form had NO elevation-gain input at all (`elevationGainM` was prefill-only), so the design's edit→manual path had nothing to hang on — added an "Elevation gain (m, optional)" Field to the GPS card wired through the reducer (existing Field component, no new components). Number-pad, whole metres.
+- `barometric`/`dem` have no writer yet by design — `barometric` arrives with HK `elevationAscended` in E6; `dem` with a future correction pass.
+
+#### E2 review fixes (2026-07-05, pre-commit)
+
+Four confirmed findings (all verified against the code; the empty-`<ele>` parser behavior reproduced live against fast-xml-parser before fixing). 538 jest / 53 suites green, tsc clean.
+
+- **Import carryover fabricated provenance** — `importGpxFile` spread `...f.endurance`, so importing a second, `<ele>`-less GPX kept the previous file's `elevationGainM` + `'gps'` label (and a stale `captureMeta`) attached to the NEW route. Extracted pure `enduranceWithRoute` (lib/session.ts) — rebuilds the slice, never spreads; both the import path and `applyCapturedRoute` now go through it, so gain/source/meta come exclusively from the incoming route while hand-entered avgHr/energySystem/distance survive. Tested (sessionGpxImport.test.ts).
+- **Empty `<ele></ele>` → fabricated sea-level point** — fast-xml-parser yields `''` for an empty tag and `Number('')` is 0, so `parsePoint` minted `eleM: 0, eleSource: 'gps'` and the phantom point exploded the hysteresis gain (repro: 1500→''→1510 gave +1510, not +10). Now a reading requires a non-empty numeric string (null ≠ 0). Tested.
+- **`<rtept>` elevations stamped `'gps'`** — a planned `<rte>`'s `<ele>` values are planner/terrain-model output no device ever measured; `'gps'` overstated (the direction ⚑ E-9 forbids). `parsePoint` now stamps `'gps'` for `<trkpt>` only; `GpxImportResult` carries `elevationGainSource: 'gps'` only when the gain came from a recorded `<trk>`, and the log-session prefill uses the parser's label instead of assuming — an `<rte>` gain saves and displays with no source caption. Tested.
+- **Explicit 0 silently erased at build (null ≠ 0)** — the `> 0` gate dropped a typed 0 (`'manual'`) and a measured flat-track 0 (`'gps'`) that the form caption was already displaying as fact, and the reducer accepted negatives that likewise vanished at save. Build now writes a 0 that carries a source (a sourceless 0 still never lands); `applyElevationGainEdit` treats negatives as cleared (gain is a non-negative accumulator) and keeps 0 as a declared flat session. Tested incl. round-trip.

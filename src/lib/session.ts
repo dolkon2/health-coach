@@ -15,6 +15,7 @@
  * reach storage (constitution: the engine's inputs stay honest).
  */
 import type {
+  ElevationGainSource,
   EnergySystem,
   LiftingBlock,
   GeoPoint,
@@ -92,7 +93,11 @@ export type SessionForm = {
     // fidelity to the device-recorded level, and dates the session at the
     // file's start time (occurredAt = when it happened, loggedAt = now).
     gpsPath?: GeoPoint[];
+    // Prefilled by a GPX import / live capture (source 'gps') or typed by the
+    // user (source 'manual', via applyElevationGainEdit). The two travel
+    // together: no gain, no source label.
     elevationGainM?: number;
+    elevationGainSource?: ElevationGainSource;
     importMeta?: { format: 'gpx'; filename?: string; startTime?: string };
     // Attached by an in-app live GPS recording (lib/gpsTrack). Present -> build()
     // writes the same gpsPath/elevation, keeps the source `manual` (a recording
@@ -239,6 +244,65 @@ export function pruneGearIdsForCategories(
   });
 }
 
+/**
+ * The endurance slice after the user types in the elevation-gain field — the
+ * pure reducer behind the input so the honesty rule is testable without React.
+ * Any direct edit is the user's number, so the source becomes 'manual' — even
+ * if a route prefilled the field first (they overrode the computed value).
+ * Cleared (or unparsable) → BOTH keys removed: no value, no source label.
+ */
+export function applyElevationGainEdit(
+  endurance: SessionForm['endurance'],
+  text: string
+): SessionForm['endurance'] {
+  const { elevationGainM: _gain, elevationGainSource: _source, ...rest } = endurance;
+  const n = num(text);
+  // A negative "gain" is meaningless (gain is a non-negative accumulator) —
+  // treated like an unparsable entry. 0 is a real declaration: a flat session
+  // (null ≠ 0; house precedent: weight 0 = bodyweight).
+  if (n === null || n < 0) return rest;
+  return { ...rest, elevationGainM: n, elevationGainSource: 'manual' };
+}
+
+/**
+ * The endurance slice after a route lands on the form — GPX file import or
+ * live capture. Rebuilt, never spread, so a prior route's provenance can't
+ * linger on new geometry: an earlier import's 'gps'-labeled gain surviving
+ * onto an <ele>-less planned route (or a stale captureMeta riding under a
+ * fresh importMeta) would be a fabricated provenance claim at save (⚑ E-9).
+ * Only the hand-entered fields (distance/avgHr/energySystem) carry over;
+ * elevation keys come exclusively from the incoming route, and the two still
+ * travel together — no gain, no source label.
+ */
+export function enduranceWithRoute(
+  prev: SessionForm['endurance'],
+  route: {
+    gpsPath: GeoPoint[];
+    distance?: string; // display-units string, converted by the caller; absent → keep the typed one
+    elevationGainM?: number;
+    elevationGainSource?: ElevationGainSource;
+  },
+  meta:
+    | { importMeta: NonNullable<SessionForm['endurance']['importMeta']> }
+    | { captureMeta: NonNullable<SessionForm['endurance']['captureMeta']> }
+): SessionForm['endurance'] {
+  return {
+    distance: route.distance ?? prev.distance,
+    avgHr: prev.avgHr,
+    energySystem: prev.energySystem,
+    gpsPath: route.gpsPath,
+    ...(route.elevationGainM != null
+      ? {
+          elevationGainM: route.elevationGainM,
+          ...(route.elevationGainSource != null
+            ? { elevationGainSource: route.elevationGainSource }
+            : {}),
+        }
+      : {}),
+    ...meta,
+  };
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 /**
@@ -374,15 +438,27 @@ export function buildSessionObservation(
     const avgHr = num(form.endurance.avgHr);
     const gpsPath = form.endurance.gpsPath;
     const hasRoute = gpsPath != null && gpsPath.length >= 2;
+    const gain = form.endurance.elevationGainM;
+    const gainSource = form.endurance.elevationGainSource;
+    // A positive gain always writes; an explicit 0 writes only when it carries
+    // a source — a measured flat track ('gps') or the user's typed zero
+    // ('manual') is a declared fact the form already displays, not absence
+    // (null ≠ 0). A sourceless 0, or anything negative, never lands.
+    const gainEntry =
+      gain != null && (gain > 0 || (gain === 0 && gainSource != null))
+        ? {
+            elevationGainM: Math.round(gain),
+            // Source rides only with a written gain — a label alone would fabricate.
+            ...(gainSource != null ? { elevationGainSource: gainSource } : {}),
+          }
+        : {};
     payload.endurance = {
       energySystem: form.endurance.energySystem,
       ...(distance !== null && distance > 0
         ? { distanceM: displayToMeters(distance, ctx.distanceUnit) }
         : {}),
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
-      ...(form.endurance.elevationGainM != null && form.endurance.elevationGainM > 0
-        ? { elevationGainM: Math.round(form.endurance.elevationGainM) }
-        : {}),
+      ...gainEntry,
       ...(hasRoute ? { gpsPath } : {}),
     };
     // A device-recorded trace imported from a file is measured, not guessed:
@@ -537,6 +613,10 @@ export function sessionFormFromObservation(
       energySystem: p.endurance.energySystem,
       ...(p.endurance.elevationGainM != null
         ? { elevationGainM: p.endurance.elevationGainM }
+        : {}),
+      // Pre-E2 rows carry no source — the key stays absent, never defaulted.
+      ...(p.endurance.elevationGainSource != null
+        ? { elevationGainSource: p.endurance.elevationGainSource }
         : {}),
       ...(p.endurance.gpsPath ? { gpsPath: p.endurance.gpsPath } : {}),
       // Restore import provenance so an edit round-trips it (the edit path also
