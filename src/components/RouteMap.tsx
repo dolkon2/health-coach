@@ -52,6 +52,8 @@ type MapLibreModule = {
       paddingLeft?: number;
       paddingRight?: number;
     };
+    centerCoordinate?: LngLat;
+    zoomLevel?: number;
     animationDuration?: number;
   }>;
   ShapeSource: ComponentType<{ id: string; shape: object; children?: ReactNode }>;
@@ -130,6 +132,26 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
     if (p.lng > maxLng) maxLng = p.lng;
   }
 
+  // A barely-moved route (a handful of near-identical fixes) has an almost-zero
+  // bounding box; fitting the camera to it over-zooms past where tiles exist and
+  // the map renders blank. Below ~65 m across, center on it at a sensible zoom.
+  const tiny = maxLat - minLat < 0.0006 && maxLng - minLng < 0.0006;
+  const cameraProps = tiny
+    ? {
+        centerCoordinate: [(minLng + maxLng) / 2, (minLat + maxLat) / 2] as LngLat,
+        zoomLevel: 15,
+      }
+    : {
+        bounds: {
+          ne: [maxLng, maxLat] as LngLat,
+          sw: [minLng, minLat] as LngLat,
+          paddingTop: 28,
+          paddingBottom: 28,
+          paddingLeft: 28,
+          paddingRight: 28,
+        },
+      };
+
   return (
     <View
       style={{
@@ -140,17 +162,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
       }}
     >
       <MapView mapStyle={styleUrl} style={{ flex: 1 }}>
-        <Camera
-          bounds={{
-            ne: [maxLng, maxLat],
-            sw: [minLng, minLat],
-            paddingTop: 28,
-            paddingBottom: 28,
-            paddingLeft: 28,
-            paddingRight: 28,
-          }}
-          animationDuration={0}
-        />
+        <Camera {...cameraProps} animationDuration={0} />
         <ShapeSource id={SOURCE_ID} shape={toLineString(path)}>
           <LineLayer
             id={LAYER_ID}
