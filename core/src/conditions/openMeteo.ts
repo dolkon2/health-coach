@@ -115,6 +115,10 @@ export function pickHourlyWind(json: unknown, targetEpochSec: number): ParsedWin
  * tolerant means null-HONEST: if any of those days is null/missing (ERA5
  * delay tail), the total is unknowable and we return null — a 72h rain sum
  * with a silently dropped day would understate a flooding river.
+ *
+ * NOT used by the freeze path (civil-day buckets shift with timezone and can
+ * count post-session rain — the freeze uses sumHourlyPrecip's exact window).
+ * Kept for future daily-granularity displays.
  */
 export function parsePrecipDaysSum(json: unknown, nDays: number): number | null {
   const body = asBody(json);
@@ -128,5 +132,41 @@ export function parsePrecipDaysSum(json: unknown, nDays: number): number | null 
     if (v === undefined) return null;
     total += v;
   }
+  return total;
+}
+
+/**
+ * Sum `hourly.precipitation` (mm) over epoch hours in `[fromEpochSec,
+ * toEpochSec)` from a response fetched with `timeformat=unixtime&timezone=UTC`.
+ * Pure integer epoch math — no civil-day buckets, no timezone shifts, no
+ * post-session rain (a 19:00 session sums exactly the 72 hours before 19:00,
+ * never that evening's storm). Null-HONEST: a missing or non-finite hour
+ * inside the window makes the total unknowable → null, never a partial sum.
+ */
+export function sumHourlyPrecip(
+  json: unknown,
+  fromEpochSec: number,
+  toEpochSec: number
+): number | null {
+  const body = asBody(json);
+  if (!body || !body.hourly) return null;
+  const times = body.hourly.time;
+  const precip = body.hourly.precipitation;
+  if (!Array.isArray(times) || !Array.isArray(precip)) return null;
+
+  let total = 0;
+  let hoursSeen = 0;
+  for (let i = 0; i < times.length; i++) {
+    const t = finite(times[i]);
+    if (t === undefined || t < fromEpochSec || t >= toEpochSec) continue;
+    const v = finite(precip[i]);
+    if (v === undefined) return null;
+    total += v;
+    hoursSeen++;
+  }
+  // The response must actually cover the window: 72h = 72 hourly buckets.
+  // (Bucket t covers [t, t+3600) — boundary hours approximate by ≤1h.)
+  const expected = Math.floor((toEpochSec - fromEpochSec) / 3600);
+  if (hoursSeen < expected) return null;
   return total;
 }

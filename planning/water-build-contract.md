@@ -134,10 +134,11 @@ export async function fetchWindSnapshot(lat, lng, whenUtcSec, deps?): Promise<Wi
 // Tag source with which API served it.
 
 export async function fetchPrecip72hMm(lat, lng, whenUtcSec, deps?): Promise<number | null>;
-// BACKDATE-CORRECT: start_date/end_date = the 3 civil days preceding the session date on the
-// forecast API (≤90d; archive API older), daily=precipitation_sum&timezone=auto (server resolves
-// tz from coords — Spot carries no tz field). Value = sum of 3 civil-day sums preceding the
-// session date; name kept, semantics documented.
+// BACKDATE-CORRECT, exact-window (review-amended): hourly=precipitation over the 72 hours
+// preceding the session instant, timeformat=unixtime&timezone=UTC, summed client-side in
+// [when−72h, when). Civil-day buckets were rejected — with timezone=auto they miscount every
+// evening session (counting post-paddle rain, dropping day −3). Cutover keys on the WINDOW
+// START (≤90d forecast API, older archive). Any missing hour → null, never a partial sum.
 ```
 ⚑ minutely_15 wind (confirmed working, HRRR US) deferred to a fast-follow — v1 uses hourly.
 

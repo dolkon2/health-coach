@@ -18,7 +18,7 @@ import type { WindSnapshot } from '@core/conditions/snapshot';
 import {
   parseCurrentWind,
   pickHourlyWind,
-  parsePrecipDaysSum,
+  sumHourlyPrecip,
   type ParsedWind,
 } from '@core/conditions/openMeteo';
 
@@ -130,13 +130,14 @@ export async function fetchWindSnapshot(
 }
 
 /**
- * Total rain (mm) over the 3 civil days PRECEDING the session date at
- * (lat, lng) — "did it rain into this river lately". `timezone=auto` lets
- * the server bucket days in the spot's local civil time (Spot carries no
- * tz field); the date strings themselves come from the session's UTC date,
- * an approximation only near local midnight. Explicit start_date/end_date
- * need no forecast_days param (live-verified 2026-07-05: exactly the
- * requested days come back). Any missing day → null, never a partial sum.
+ * Total rain (mm) over the EXACT 72 hours preceding the session instant at
+ * (lat, lng) — "did it rain into this river lately". Hourly UTC epoch math
+ * end to end: no civil-day buckets (which shift with timezone and, for any
+ * evening session, would count that night's post-paddle storm), no
+ * timezone=auto. The request dates span the window in UTC; the parser sums
+ * only hours in [when−72h, when). Cutover keys on the WINDOW START — the
+ * oldest hour needed decides forecast-past vs archive. Any missing hour →
+ * null, never a partial sum.
  */
 export async function fetchPrecip72hMm(
   lat: number,
@@ -144,14 +145,14 @@ export async function fetchPrecip72hMm(
   whenUtcSec: number,
   deps?: ConditionsDeps
 ): Promise<number | null> {
+  const fromSec = whenUtcSec - 72 * 3600;
   const nowSec = Date.now() / 1000;
-  const useArchive = nowSec - whenUtcSec > ARCHIVE_CUTOVER_S;
+  const useArchive = nowSec - fromSec > ARCHIVE_CUTOVER_S;
   const base = useArchive ? ARCHIVE_BASE : FORECAST_BASE;
 
-  const start = utcDate(whenUtcSec - 3 * 86400);
-  const end = utcDate(whenUtcSec - 86400);
   const url =
     `${base}?latitude=${lat}&longitude=${lng}` +
-    `&start_date=${start}&end_date=${end}&daily=precipitation_sum&timezone=auto`;
-  return parsePrecipDaysSum(await fetchJson(url, deps), 3);
+    `&start_date=${utcDate(fromSec)}&end_date=${utcDate(whenUtcSec)}` +
+    `&hourly=precipitation&timeformat=unixtime&timezone=UTC`;
+  return sumHourlyPrecip(await fetchJson(url, deps), fromSec, whenUtcSec);
 }

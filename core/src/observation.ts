@@ -252,7 +252,7 @@ export type WhitewaterBlock = {
   hazards?: string; // wood/strainer notes — free text, private-first
   swims?: number;
   rolls?: number;
-  precip72hMm?: number; // 3 civil-day rain sum preceding the session date (rain-driven levels)
+  precip72hMm?: number; // rain over the exact 72h preceding the session instant (rain-driven levels)
 };
 
 /**

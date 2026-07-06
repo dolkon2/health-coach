@@ -5,8 +5,9 @@
  *   - age cutover: ≤2h current=, ≤90d forecast start_date/end_date,
  *     older archive-api — source tags which model served the snapshot;
  *   - snapshot coords are the REQUESTED spot, not the grid-snapped echo;
- *   - precip: 3 civil days preceding the session date, timezone=auto,
- *     no forecast_days; null on failure — never a partial sum.
+ *   - precip: the exact 72 hours preceding the session instant, hourly
+ *     unixtime/UTC (never civil-day buckets, never timezone=auto); null on
+ *     any missing hour — never a partial sum.
  */
 import { describe, it, expect, jest } from '@jest/globals';
 import { readFileSync } from 'fs';
@@ -145,36 +146,52 @@ describe('fetchWindSnapshot — failure modes', () => {
   });
 });
 
-describe('fetchPrecip72hMm', () => {
-  it('asks for the 3 civil days preceding the session date with timezone=auto, no forecast_days', async () => {
+/** An hourly-precip body exactly covering [when−72h, when) with `mm` per hour. */
+function hourlyPrecipBody(whenSec: number, mmPerHour: number | ((i: number) => number | null)) {
+  const from = whenSec - 72 * 3600;
+  const firstHour = Math.floor(from / 3600) * 3600;
+  const time: number[] = [];
+  const precipitation: Array<number | null> = [];
+  // Pad an hour each side: the sum must window on epoch, not trust the span.
+  for (let t = firstHour - 3600, i = 0; t < whenSec + 3600; t += 3600, i++) {
+    time.push(t);
+    precipitation.push(typeof mmPerHour === 'function' ? mmPerHour(i) : mmPerHour);
+  }
+  return { hourly_units: { precipitation: 'mm' }, hourly: { time, precipitation } };
+}
+
+describe('fetchPrecip72hMm — exact 72h window, hourly UTC epoch math', () => {
+  it('requests hourly precipitation in unixtime/UTC spanning the window (never timezone=auto)', async () => {
     const when = Math.floor(Date.now() / 1000) - 2 * 86400;
-    const { impl, urls } = jsonFetch(load('om-precip-3day.json'));
+    const { impl, urls } = jsonFetch(hourlyPrecipBody(when, 0.5));
 
     const mm = await fetchPrecip72hMm(LAT, LNG, when, { fetchImpl: asFetch(impl) });
 
-    expect(mm).toBe(0); // fixture: dry Gorge week
+    // 72 in-window hours × 0.5 mm — post-session hours in the body are EXCLUDED
+    // (an evening paddle must not count that night's storm).
+    expect(mm).toBeCloseTo(36);
     expect(urls[0]).toContain('api.open-meteo.com/v1/forecast');
-    expect(urls[0]).toContain(`start_date=${utcDate(when - 3 * 86400)}`);
-    expect(urls[0]).toContain(`end_date=${utcDate(when - 86400)}`);
-    expect(urls[0]).toContain('daily=precipitation_sum');
-    expect(urls[0]).toContain('timezone=auto');
-    expect(urls[0]).not.toContain('forecast_days'); // verified live: not needed with explicit dates
+    expect(urls[0]).toContain(`start_date=${utcDate(when - 72 * 3600)}`);
+    expect(urls[0]).toContain(`end_date=${utcDate(when)}`);
+    expect(urls[0]).toContain('hourly=precipitation');
+    expect(urls[0]).toContain('timeformat=unixtime');
+    expect(urls[0]).toContain('timezone=UTC');
+    expect(urls[0]).not.toContain('timezone=auto'); // local civil-day buckets miscount evening sessions
+    expect(urls[0]).not.toContain('daily=');
     expect(urls[0]).not.toContain('windspeed_unit'); // no wind vars on this call
   });
 
-  it('sums real millimetres and uses the archive API past 90 days', async () => {
-    const when = Math.floor(Date.now() / 1000) - 120 * 86400;
-    const { impl, urls } = jsonFetch({
-      daily_units: { precipitation_sum: 'mm' },
-      daily: { time: ['a', 'b', 'c'], precipitation_sum: [2, 3.5, 1] },
-    });
-    expect(await fetchPrecip72hMm(LAT, LNG, when, { fetchImpl: asFetch(impl) })).toBeCloseTo(6.5);
+  it('cuts over to the archive API when the WINDOW START crosses 90 days', async () => {
+    // Session 89 days ago: the window start (89d + 72h) is past the cutover.
+    const when = Math.floor(Date.now() / 1000) - 89 * 86400;
+    const { impl, urls } = jsonFetch(hourlyPrecipBody(when, 0.1));
+    expect(await fetchPrecip72hMm(LAT, LNG, when, { fetchImpl: asFetch(impl) })).toBeCloseTo(7.2);
     expect(urls[0]).toContain('archive-api.open-meteo.com/v1/archive');
   });
 
-  it('nulls when a day is missing — never a partial sum — and on fetch failure', async () => {
+  it('nulls when an in-window hour is missing — never a partial sum — and on fetch failure', async () => {
     const when = Math.floor(Date.now() / 1000);
-    const gap = jsonFetch({ daily: { precipitation_sum: [1.0, null, 2.0] } });
+    const gap = jsonFetch(hourlyPrecipBody(when, (i) => (i === 30 ? null : 0.2)));
     expect(await fetchPrecip72hMm(LAT, LNG, when, { fetchImpl: asFetch(gap.impl) })).toBeNull();
 
     const http = jsonFetch({}, false);
