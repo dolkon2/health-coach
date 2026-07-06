@@ -37,6 +37,7 @@ import {
 import { activityById, type Surface } from './activity';
 import { deriveSessionDuration } from '@core/sessionTiming';
 import type { GearCategory } from '@core/gear';
+import type { ConditionsSnapshot } from '@core/conditions';
 
 // The legacy modality set the Today quick-log picker and older sessions use
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
@@ -104,6 +105,13 @@ export type SessionForm = {
     // isn't a file), raises fidelity to the live-phone level (0.7), and dates the
     // session at the recording's start (occurredAt = when it happened).
     captureMeta?: { startTime: string };
+    // Earth conditions frozen when a route attached (freezeEarthConditions,
+    // best-effort ⚑ E-2): rides the form like captureMeta/importMeta and is
+    // written to payload.conditions at build. A save that lands before the
+    // fetch resolves simply has none. Never carried across a route change —
+    // enduranceWithRoute rebuilds the slice without it (the old route's sky
+    // is not the new route's sky).
+    conditionsMeta?: ConditionsSnapshot;
   };
   climb: { style: ClimbStyle; sends: SendDraft[] };
   swim: {
@@ -461,6 +469,11 @@ export function buildSessionObservation(
       ...gainEntry,
       ...(hasRoute ? { gpsPath } : {}),
     };
+    // Frozen conditions ride only with the route they were fetched for —
+    // tier-3 context sitting BESIDE the tier-1 session, never gating it.
+    if (hasRoute && form.endurance.conditionsMeta) {
+      payload.conditions = form.endurance.conditionsMeta;
+    }
     // A device-recorded trace imported from a file is measured, not guessed:
     // 0.9 — below a live watch import (~0.95, Phase 3), well above manual 0.5.
     if (hasRoute && form.endurance.importMeta) fidelity = 0.9;
@@ -619,6 +632,9 @@ export function sessionFormFromObservation(
         ? { elevationGainSource: p.endurance.elevationGainSource }
         : {}),
       ...(p.endurance.gpsPath ? { gpsPath: p.endurance.gpsPath } : {}),
+      // Restore frozen conditions so an edit round-trips them (absent → absent;
+      // pre-E3 rows carry none and hydrate with the key absent, never {}).
+      ...(p.conditions ? { conditionsMeta: p.conditions } : {}),
       // Restore import provenance so an edit round-trips it (the edit path also
       // preserves the original source/fidelity at save; this keeps build() honest).
       ...(obs.source.type === 'fileimport'

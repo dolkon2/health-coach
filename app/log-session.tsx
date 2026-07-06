@@ -75,7 +75,13 @@ import {
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import { listGear, type GearRecord } from '@/storage/gear';
-import type { ElevationGainSource, MovementPattern, ObservationOf } from '@core/observation';
+import { freezeEarthConditions } from '@/lib/conditions/freeze';
+import type {
+  ElevationGainSource,
+  GeoPoint,
+  MovementPattern,
+  ObservationOf,
+} from '@core/observation';
 
 // Descriptive captions for elevation-gain provenance (E2). Rendered only when a
 // source is known — pre-E2 sessions carry none and show nothing.
@@ -316,6 +322,31 @@ export default function LogSessionScreen() {
     }));
   }
 
+  // ─── Conditions freeze (E3 — weather only; snow/avalanche join in E7) ─────
+  // Fired when a route attaches, best-effort (⚑ E-2): the fetch never blocks
+  // or fails a save — a save that lands first simply carries no conditions.
+  // The snapshot only lands if the SAME route (by identity) is still on the
+  // form, so a swapped or removed route can never wear another route's sky.
+  function freezeConditionsForRoute(points: GeoPoint[], startIso?: string) {
+    const first = points[0];
+    if (!first) return;
+    freezeEarthConditions({
+      lat: first.lat,
+      lng: first.lng,
+      atIso: startIso ?? new Date().toISOString(),
+      include: { weather: true },
+    })
+      .then((snapshot) => {
+        if (!snapshot.weather) return; // nothing landed — stay honestly absent
+        setForm((f) =>
+          f.endurance.gpsPath === points
+            ? { ...f, endurance: { ...f.endurance, conditionsMeta: snapshot } }
+            : f
+        );
+      })
+      .catch(() => {}); // freeze never throws; belt and braces
+  }
+
   // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
   // Pick a .gpx exported from Garmin Connect / Slopes / Gaia / AllTrails, parse
   // it client-side, and prefill the form: distance/duration/elevation land in
@@ -381,6 +412,8 @@ export default function LogSessionScreen() {
         ),
         ...(gpx.name && f.notes.trim() === '' ? { notes: gpx.name } : {}),
       }));
+      // Route attached → freeze weather at its first point + start (⚑ E-2).
+      freezeConditionsForRoute(gpx.points, gpx.startTime);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read that file as GPX.');
     } finally {
@@ -420,6 +453,8 @@ export default function LogSessionScreen() {
         { captureMeta: { startTime: summary.startTime ?? new Date().toISOString() } }
       ),
     }));
+    // Route attached → freeze weather at its first point + start (⚑ E-2).
+    freezeConditionsForRoute(summary.points, summary.startTime);
   }
 
   // ─── Save ──────────────────────────────────────────────────────────────────

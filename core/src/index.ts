@@ -7,6 +7,8 @@
  * from the app.
  */
 export * from './observation';
+export * from './geo';
+export * from './conditions';
 export * from './gear';
 export * from './benchmark';
 export * from './sessionTemplate';

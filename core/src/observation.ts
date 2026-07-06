@@ -29,6 +29,10 @@ export type LocalDate = string; // 'YYYY-MM-DD' in the user's local civil day
  */
 export type ElevationSource = 'barometric' | 'gps' | 'dem' | 'none';
 
+// Type-only: erased at compile, so the conditions.ts ↔ observation.ts
+// reference cycle has no runtime edge.
+import type { ConditionsSnapshot } from './conditions';
+
 export type GeoPoint = {
   lat: number;
   lng: number;
@@ -267,6 +271,7 @@ export type SessionPayload = {
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward
   gearIds?: string[]; // gear used (core/gear.ts quiver) — accrual derives from these tags on read, never a stored odometer
+  conditions?: ConditionsSnapshot; // external context frozen at log time, best-effort (⚑ E-2/⚑ E-3); absent when the fetch didn't land before save
 };
 
 export type FoodEntryPayload = {
