@@ -13,6 +13,7 @@ import { migration007 } from './007_benchmark_v03';
 import { migration008 } from './008_benchmark_faces';
 import { migration009 } from './009_settings';
 import { migration010 } from './010_gear';
+import { migration011 } from './011_spots';
 
 export type Migration = {
   version: number;
@@ -31,4 +32,5 @@ export const migrations: Migration[] = [
   migration008,
   migration009,
   migration010,
+  migration011,
 ];

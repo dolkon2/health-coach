@@ -20,6 +20,7 @@ import type {
   TemplateSurface,
 } from '@core/sessionTemplate';
 import type { GearItem, GearSpec } from '@core/gear';
+import type { Spot } from '@core/spot';
 
 // ─── Observation ────────────────────────────────────────────────────────────
 
@@ -206,5 +207,49 @@ export function rowToGear(r: GearRow): GearItem {
     ...(r.retiredAt != null ? { retiredAt: r.retiredAt } : {}),
     ...(r.notes != null ? { notes: r.notes } : {}),
     spec: JSON.parse(r.spec) as GearSpec,
+  };
+}
+
+// ─── Spot ───────────────────────────────────────────────────────────────────
+
+export type SpotRow = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  kind: string;
+  meta: string | null; // JSON
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * createdAt/updatedAt are storage bookkeeping, not entity fields (same deal
+ * as GearRow) — the storage layer passes them in alongside.
+ */
+export function spotToRow(s: Spot, createdAt: string, updatedAt: string): SpotRow {
+  return {
+    id: s.id,
+    name: s.name,
+    lat: s.lat,
+    lng: s.lng,
+    kind: s.kind,
+    meta: s.meta ? JSON.stringify(s.meta) : null,
+    notes: s.notes ?? null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function rowToSpot(r: SpotRow): Spot {
+  return {
+    id: r.id,
+    name: r.name,
+    lat: r.lat,
+    lng: r.lng,
+    kind: r.kind,
+    ...(r.meta != null ? { meta: JSON.parse(r.meta) as Record<string, unknown> } : {}),
+    ...(r.notes != null ? { notes: r.notes } : {}),
   };
 }
