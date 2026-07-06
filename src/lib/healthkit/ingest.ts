@@ -85,7 +85,10 @@ async function ingestRange(
   const [rawSteps, rawSleep, rawWorkouts] = await Promise.all([
     reader.readSteps(range),
     reader.readSleep(range),
-    reader.readActivities({ fromUtc: workoutFromUtc, toUtc }),
+    // A workout-read failure must not take down steps/sleep ingestion (which
+    // predates workouts and used to succeed alone) — degrade to an empty batch;
+    // the next poll retries.
+    reader.readActivities({ fromUtc: workoutFromUtc, toUtc }).catch(() => [] as const),
   ]);
 
   const ctx = { tz: deviceTz(), nowUtc: new Date().toISOString() };

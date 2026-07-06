@@ -297,3 +297,23 @@ describe('healthkit workout ingest', () => {
     expect(uuids).toEqual(['hk-kayak-am', 'hk-surf-pm', 'hk-swim']);
   });
 });
+
+describe('workout read failure isolation (adversarial-review regression)', () => {
+  it('a rejecting readActivities does not take down steps/sleep ingestion', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    const reader: WearableSource = {
+      ...makeFakeReader(),
+      async readActivities() {
+        throw new Error('HealthKit workout permission missing');
+      },
+    };
+
+    const result = await runBackfill(reader, db);
+    // Steps and sleep land exactly as they would without the workout arm;
+    // workouts degrade to an empty batch and the next poll retries.
+    expect(result.stepsInserted).toBe(3);
+    expect(result.sleepInserted).toBe(3);
+    expect(result.workoutsInserted).toBe(0);
+  });
+});
