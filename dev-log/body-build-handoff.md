@@ -44,20 +44,25 @@ estimation basis and sources); 48 yoga poses (MIT, 3 upstream data corrections a
 in loader code) + SVGs snapshotted to `assets/yoga-poses/`; 8-pattern breathwork
 library incl. WHM retention; yoga/dance/mobility/ROM-test taxonomies.
 
-**All 15 commits jest-green + tsc-clean at time of commit.** 30 ⚑ judgment calls
+**All 17 commits jest-green + tsc-clean at time of commit.** 32 ⚑ judgment calls
 recorded in `dev-log/body-build-flags.md` — read it, nothing there is a silent
 reinterpretation of the spec.
 
-**P3 (picker + ghosting + ladder engine) was in flight when this doc was written** —
-check `git log` for whether it landed; if `src/lib/exercisePicker.ts` exists but isn't
-committed, either resume it or treat it as abandoned and hand it to a fresh pass
-(the spec's P3 section is self-contained enough to restart from).
+**P3 is PARTIALLY done — session ended here, closed out cleanly (2026-07-05 evening).**
+Item 1 of 5 (the exercise picker query layer: `src/lib/exercisePicker.ts` — normalized
+search, gym/calisthenics picker datasets, hand-assigned ladder-step patterns) landed in
+`7fa11f0`, complete/tested/green. **The build agent running P3 stopped on its own after
+that — no error, no completion notification, it just stopped appearing in the
+background-task registry.** Root cause unknown; flagged in `dev-log/body-build-flags.md`
+as something to watch for on future overnight passes. Items 2-5 of P3 were never
+started.
 
 ## What's next — follow `planning/dimension-body-build.md` in order
 
-- **P3** (if not already landed): exercise picker/autocomplete, prev-set ghost resolver
-  (extends `useExercisePatternMemory`), duration-set entry UI, ladder engine (leverage
-  trend math — watch the loadable-step and L-sit seams called out in
+- **Finish P3**: prev-set ghost resolver (extends `useExercisePatternMemory`), the
+  picker UI wired into the gym logger (autocomplete over `exercisePicker.ts`'s
+  datasets, already built), duration-set entry UI (hold-seconds toggle), ladder trend
+  engine (leverage math — watch the loadable-step and L-sit seams called out in
   `ladders-notes.md`), template `exerciseId` upgrade.
 - **Build-B** (the gym-priority chunk Dylan asked to prioritize): **P4** gym analytics
   (e1RM/PR detection/weekly tonnage) → **P5** Strong/Hevy CSV import (format spec +

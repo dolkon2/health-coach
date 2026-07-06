@@ -26,6 +26,16 @@ Breathwork, PT) on `~/Projects/health-coach-body`, branch `dimension/body`, foll
    handoff doc's claims (the handoff doc may be stale if more landed after it was
    written).
 
+## A known failure mode from the last session
+
+Running a pass as a background `Workflow` once stopped silently — no error, no
+completion notification, no commit — after finishing only part of its scope. If you
+run passes in the background, don't assume "no notification yet" means "still
+working": periodically check `git log`/`git status` and the modification time of any
+new uncommitted files against wall-clock time. If a file hasn't changed in ~2x the
+time your other passes took, treat it as stalled, verify with jest/tsc whether the
+partial work is salvageable, and either commit the good part or restart the pass.
+
 ## The one thing that must not slip
 
 **Isolation.** This worktree/branch only. Never touch `main`, never touch the Earth
@@ -43,7 +53,9 @@ deciding it looks safer a different way.
 ## What to actually do
 
 1. Check `git status` and `git log` first — confirm the tree is clean and see exactly
-   which pass is next (cross-reference against `dev-log/body-build-handoff.md`).
+   which pass is next (cross-reference against `dev-log/body-build-handoff.md`). As of
+   this writing: P3 is only 1/5 done (the picker query layer, `7fa11f0`) — finish P3
+   before moving to Build-B.
 2. Resume at the next incomplete pass in `planning/dimension-body-build.md`'s order
    (P3 → P4 → P5 → P6 → P7a → P7b → P8), one pass at a time: implement, extend tests,
    `npx jest` full-suite green, `npx tsc --noEmit` clean LAST, single-concern commit(s)
