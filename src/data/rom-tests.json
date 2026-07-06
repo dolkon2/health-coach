@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "version": "0.1",
+    "purpose": "Catalog of self-administerable ROM tests the user can pick from (custom user-defined tests are also allowed — this list is a starter menu, not a fence). Every test here is measurable alone with household tools: wall, ruler/tape measure, a step, a bed edge, and a phone inclinometer app (validated against 3D motion analysis for hip ROM — Charlton et al., BMC Musculoskelet Disord 2021).",
+    "designRules": [
+      "Numbers over yes/no everywhere a number is honestly obtainable — trends need numbers.",
+      "The app displays raw values and their trend only. No 'good/bad' grading, no normative badge, no prescriptions (constitution + general-wellness guardrail). Normative context in this file is for docs/tooltips worded descriptively ('studies of healthy adults averaged ~10 cm'), never as a target.",
+      "perSide tests store left and right as separate readings; asymmetry is shown, not judged.",
+      "Measurement conditions matter: same time of day / warm-up state noted as a tip in UI copy; hip rotation values differ between seated/supine/prone so the position is baked into the protocol and must not be varied."
+    ],
+    "sources": {
+      "knee-to-wall": "https://www.physio-pedia.com/Knee_to_Wall_Test ; reliability: Konor et al., IJSPT 2012 (PMC3362988); ~3.6 deg dorsiflexion per cm; >2 cm side-to-side difference commonly flagged as meaningful; 2026 international normative study (899+ adults, ScienceDirect S2468781226000408)",
+      "sit-and-reach": "https://www.topendsports.com/testing/tests/home-sit-and-reach.htm and https://www.physio-pedia.com/Sit_and_Reach_Test (standard box places toes at 26 cm; home version zeroes at the toes)",
+      "fingertip-to-floor": "Perret et al. 2001, Arch Phys Med Rehabil (PubMed 11689977): test-retest ICC .97, MDC 4.5 cm; https://www.physio-pedia.com/Fingertips_to_Floor_Distance_-_Special_Test",
+      "apley-scratch": "https://www.topendsports.com/testing/tests/shoulder-apley-scratch.htm and https://www.physiotutors.com/wiki/apley-scratch-test/ (fingertip gap in cm; >3 cm L/R difference notable)",
+      "wall-shoulder-flexion": "back-to-wall shoulder flexion assessment per performanceplusprogramming.com/movements/all-mobility-tests/ and vaughnweightlifting.com overhead assessment; supine variant chosen because gravity holds the position and the free hand can measure",
+      "seated-hip-ir": "Smartphone inclinometer validity: Charlton et al., BMC Musculoskelet Disord 2021 (doi 10.1186/s12891-021-03995-2); seated active hip IR reliability: Aefsky et al. 2014 (PubMed 24912575); protocol per matassessment.com/blog/seated-hip-internal-rotation-test; healthy means ~31-33 deg",
+      "thomas-thigh-drop": "Modified Thomas test: https://www.physio-pedia.com/Thomas_Test and chiroup.com/blog/performing-the-modified-thomas-test; validity caveat (pelvic tilt must be controlled): Vigotsky et al. 2016, PeerJ (PMC4991856)",
+      "couch-knee-to-wall": "Pragmatic field variant of the couch stretch (Starrett) reframed as a measurable knee-to-wall distance; NOT a validated clinical test — flagged validated:false"
+    }
+  },
+  "tests": [
+    {
+      "id": "sit-and-reach",
+      "name": "Sit & reach",
+      "unit": "cm",
+      "perSide": false,
+      "higherIsBetter": true,
+      "validated": true,
+      "protocol": "Sit with shoes off, legs straight, soles flat against a step or box, ruler on top pointing at you with 0 at the line of your toes. With one hand on top of the other, reach slowly forward as far as you can and hold for 2 seconds. Record how far past your toes you reached in cm (short of toes = negative)."
+    },
+    {
+      "id": "knee-to-wall",
+      "name": "Knee-to-wall (ankle)",
+      "unit": "cm",
+      "perSide": true,
+      "higherIsBetter": true,
+      "validated": true,
+      "protocol": "Face a wall, test foot pointing straight at it, other foot behind for balance. Lunge the knee forward to touch the wall while keeping the heel fully on the floor; slide the foot back in small steps to find the farthest position where the knee still touches with the heel down. Record the distance from the tip of the big toe to the wall in cm."
+    },
+    {
+      "id": "wall-shoulder-flexion",
+      "name": "Overhead reach (lying)",
+      "unit": "cm",
+      "perSide": true,
+      "higherIsBetter": false,
+      "validated": true,
+      "protocol": "Lie on your back with knees bent and your lower back gently flattened toward the floor. Raise one straight arm overhead, thumb up, elbow locked, and let it settle toward the floor without arching the back. With the free hand, measure the gap between the wrist and the floor in cm (0 = wrist rests on the floor)."
+    },
+    {
+      "id": "apley-scratch",
+      "name": "Apley scratch (shoulder)",
+      "unit": "cm",
+      "perSide": true,
+      "higherIsBetter": false,
+      "validated": true,
+      "protocol": "Reach one hand over that shoulder and down your spine while the other hand reaches up your back from below; the side recorded is the top arm. Hold a ruler or tape hanging from the top hand, grasp it as high as possible with the bottom hand, and read the distance between the two index fingers in cm. Fingers touching = 0; overlap = negative."
+    },
+    {
+      "id": "toe-touch",
+      "name": "Standing toe touch",
+      "unit": "cm",
+      "perSide": false,
+      "higherIsBetter": false,
+      "validated": true,
+      "protocol": "Stand with feet together on a step, knees straight, and bend forward slowly reaching toward the floor; do one practice rep, then measure the second. Record the vertical distance from the middle fingertip to the floor level in cm (touching = 0; if you reach past your toes, record how far below step level as negative). Changes smaller than ~4-5 cm are within measurement noise."
+    },
+    {
+      "id": "seated-hip-ir",
+      "name": "Seated hip internal rotation",
+      "unit": "degrees",
+      "perSide": true,
+      "higherIsBetter": true,
+      "validated": true,
+      "protocol": "Sit on a chair or table edge with hips and knees at 90 degrees, thighs staying parallel. Open a level/inclinometer app, zero the phone vertically, hold it flat against the front of the shin just below the knee, then swing the foot outward as far as it goes without lifting the thigh or leaning the trunk. Record the angle in degrees. Always test seated — values from lying positions are not comparable."
+    },
+    {
+      "id": "couch-knee-to-wall",
+      "name": "Couch stretch knee-to-wall (quad/hip flexor)",
+      "unit": "cm",
+      "perSide": true,
+      "higherIsBetter": false,
+      "validated": false,
+      "protocol": "Kneel facing away from a wall with the test knee on the floor near the wall and that shin running vertically up the wall, other foot planted in front. Squeeze the glute, tuck the pelvis, and bring the torso as upright as you can; slide the knee away from the wall until you find the closest distance at which you can hold the torso upright for 5 seconds. Record knee-to-wall distance in cm (0 = knee at the wall, torso upright). Practical field measure, not a validated clinical test — useful for personal trend only."
+    },
+    {
+      "id": "thomas-thigh-drop",
+      "name": "Thigh drop (Thomas test, phone)",
+      "unit": "degrees",
+      "perSide": true,
+      "higherIsBetter": false,
+      "validated": true,
+      "protocol": "Sit at the very edge of a bed or table, roll back, and hug the non-test knee firmly to the chest, keeping the lower back pressed down; let the test thigh hang relaxed off the edge. Lay the phone flat along the hanging thigh with a level/inclinometer app and read the thigh angle relative to horizontal in degrees (0 = level with the table, positive = riding above horizontal, negative = below). Keep the knee hugged tight — letting the pelvis roll fakes a better score."
+    }
+  ]
+}
