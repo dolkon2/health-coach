@@ -37,7 +37,7 @@ Also fixed from my triage of the interrupted findings: workout read failure no l
 
 ## ⚑ Flags for Dylan
 
-1. **Migration numbers: Water=010 is claimed.** Tell the Earth/Sky/Body sessions: **Earth=011, Sky=012, Body=013.** Water also owns the `readActivities` rewrite — Earth should rebase on it for run/ride/hike ingestion, not reimplement.
+1. **⚠️ MIGRATION COLLISION — CONFIRMED, not hypothetical.** Water claimed M010 (gear/kits/spots). The **Sky session ALSO shipped an M010 (its own gear entity), M011 (spot), and its own Open-Meteo conditions module** on `dimension/sky`. The migrations bookkeeping table is version-keyed, so whichever branch merges second gets its 010 **silently skipped** — and gear/spot/Open-Meteo now exist as TWO independent implementations. The merge-to-main session must renumber one side and unify the duplicated primitives into one gear entity, one spot entity, one Open-Meteo module. Earth/Body: **do not use 010–013 without checking both branches first.** Water also owns the `readActivities` rewrite — Earth should rebase on it for run/ride/hike ingestion, not reimplement.
 2. **HK paddleSports → 'kayak' default** — can't auto-detect whitewater; you edit the activity after import.
 3. **Dual-device duplicates** (Watch + Garmin recording the same session = two UUIDs = two sessions) — overlap dedup deliberately deferred; needs a design call.
 4. **Deleting an ingested workout un-deletes on the next poll** (UUID no longer in DB → re-import). Needs a tombstone design call.
