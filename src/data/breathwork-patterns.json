@@ -1,0 +1,184 @@
+{
+  "version": 1,
+  "$schemaNotes": {
+    "phase.type": "inhale | hold | exhale | holdEmpty",
+    "phase.seconds": "seconds for the phase; null ONLY when untimed is true",
+    "phase.untimed": "true = the phase ends on user action (tap-to-stop) or the urge to breathe — never a timer. Pacer must not count down this phase.",
+    "phase.capture": "'retention' marks the untimed hold whose elapsed time is recorded per round as BreathworkRound.retentionSeconds",
+    "phase.group": "phases sharing a group id repeat together as a unit; count lives in pattern.groups[id]",
+    "phase.label": "display-only cue text",
+    "pattern.groups": "map of group id -> { repeat, repeatMax?, label? }; repeat..repeatMax is a user-variable range",
+    "pattern.defaultCycles|defaultMinutes": "exactly one is present: fixed-cycle patterns carry defaultCycles, run-for-duration patterns carry defaultMinutes",
+    "pattern.cycleLabel": "display noun for one pass through phases; default 'cycle' ('round' for whm)",
+    "pattern.timingNote": "honesty note where sources prescribe a shape or ratio rather than exact seconds",
+    "constitution": "descriptions are descriptive only — what the pattern IS and where it comes from, never what it will do for you"
+  },
+  "patterns": [
+    {
+      "id": "box-4-4-4-4",
+      "name": "Box breathing",
+      "phases": [
+        { "type": "inhale", "seconds": 4 },
+        { "type": "hold", "seconds": 4 },
+        { "type": "exhale", "seconds": 4 },
+        { "type": "holdEmpty", "seconds": 4 }
+      ],
+      "defaultMinutes": 3,
+      "description": "Four equal 4-second sides — inhale, hold, exhale, hold on empty — an equal-count pacing pattern popularized by US Navy SEAL training.",
+      "cautions": [
+        "If the empty-lungs hold feels straining, drop it and use triangle 4-4-4 instead — same pattern without the bottom hold."
+      ],
+      "sources": [
+        "https://health.clevelandclinic.org/box-breathing-benefits",
+        "https://www.medicinenet.com/why_do_navy_seals_use_box_breathing/article.htm"
+      ]
+    },
+    {
+      "id": "four-seven-eight",
+      "name": "4-7-8 breathing",
+      "phases": [
+        { "type": "inhale", "seconds": 4, "label": "Inhale quietly through the nose" },
+        { "type": "hold", "seconds": 7 },
+        { "type": "exhale", "seconds": 8, "label": "Exhale fully through the mouth with a whoosh" }
+      ],
+      "defaultCycles": 4,
+      "timingNote": "Weil: the 4:7:8 ratio matters, not the absolute seconds — speed the whole cycle up if the holds are hard, keep the ratio.",
+      "description": "Andrew Weil's relaxing-breath pattern: a 4-count nasal inhale, 7-count hold, and 8-count audible mouth exhale, done in short sets of four cycles.",
+      "cautions": [
+        "Light-headedness is common at first; Weil advises no more than four cycles per sitting for the first month of practice.",
+        "If holding is uncomfortable, shorten every phase but keep the 4:7:8 ratio."
+      ],
+      "sources": [
+        "https://www.drweil.com/health-wellness/body-mind-spirit/stress-anxiety/three-breathing-exercises-and-techniques/",
+        "https://health.clevelandclinic.org/4-7-8-breathing"
+      ]
+    },
+    {
+      "id": "coherent-5-5",
+      "name": "Coherent breathing (5.5-5.5)",
+      "phases": [
+        { "type": "inhale", "seconds": 5.5 },
+        { "type": "exhale", "seconds": 5.5 }
+      ],
+      "defaultMinutes": 5,
+      "timingNote": "5.5s in / 5.5s out = 5.5 breaths per minute — the population-average resonance frequency, the breathing rate at which heart-rate oscillations synchronize with respiration. Individual resonance rates vary roughly 4.5-7 breaths/min; equal-length sides can be shortened or lengthened together.",
+      "description": "Slow, even breathing at about 5.5 breaths per minute with equal inhale and exhale — the rate used in resonance-frequency (HRV biofeedback) protocols.",
+      "cautions": [
+        "If 5.5 seconds per side feels long, shorten both sides equally rather than clipping the exhale."
+      ],
+      "sources": [
+        "https://www.sciencedirect.com/science/article/abs/pii/S0167876013003346",
+        "https://www.frontiersin.org/journals/neuroscience/articles/10.3389/fnins.2020.570400/full",
+        "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5575449/"
+      ]
+    },
+    {
+      "id": "physiological-sigh",
+      "name": "Physiological sigh (cyclic sighing)",
+      "phases": [
+        { "type": "inhale", "seconds": 2, "label": "Deep inhale through the nose" },
+        { "type": "inhale", "seconds": 1, "label": "Short second top-up inhale to fully inflate" },
+        { "type": "exhale", "seconds": 6, "label": "Slow, full exhale through the mouth" }
+      ],
+      "defaultMinutes": 5,
+      "timingNote": "The Stanford study prescribed the shape (double inhale, then a slow full exhale longer than the combined inhales), not exact counts — the seconds here are approximate pacing.",
+      "description": "A double nasal inhale followed by a long mouth exhale, repeated for about five minutes — the 'cyclic sighing' protocol from the 2023 Stanford study by Balban, Spiegel, and Huberman.",
+      "cautions": [],
+      "sources": [
+        "https://www.cell.com/cell-reports-medicine/fulltext/S2666-3791(22)00474-8",
+        "https://med.stanford.edu/news/insights/2023/02/cyclic-sighing-can-help-breathe-away-anxiety.html"
+      ]
+    },
+    {
+      "id": "extended-exhale-4-6",
+      "name": "Extended exhale 4-6",
+      "phases": [
+        { "type": "inhale", "seconds": 4 },
+        { "type": "exhale", "seconds": 6 }
+      ],
+      "defaultMinutes": 5,
+      "description": "Six breaths per minute with the exhale half again as long as the inhale — the exact 4-in/6-out timing studied as prolonged expiratory breathing.",
+      "cautions": [
+        "Keep the long exhale unforced — straining to empty the lungs defeats the slow, easy pacing."
+      ],
+      "sources": [
+        "https://pmc.ncbi.nlm.nih.gov/articles/PMC6037091/",
+        "https://www.sciencedirect.com/science/article/pii/S0965229923000249"
+      ]
+    },
+    {
+      "id": "triangle-4-4-4",
+      "name": "Triangle breathing",
+      "phases": [
+        { "type": "inhale", "seconds": 4 },
+        { "type": "hold", "seconds": 4 },
+        { "type": "exhale", "seconds": 4 }
+      ],
+      "defaultMinutes": 3,
+      "description": "Box breathing minus the empty-lungs hold: inhale, hold, exhale at four counts each, flowing straight from exhale into the next inhale.",
+      "cautions": [],
+      "sources": [
+        "https://positivepsychology.com/deep-breathing-techniques-exercises/",
+        "https://breathwork.tools/triangle-breathing"
+      ]
+    },
+    {
+      "id": "whm",
+      "name": "Wim Hof round",
+      "cycleLabel": "round",
+      "phases": [
+        { "type": "inhale", "seconds": 2, "label": "Power breath in — deep, belly first, through nose or mouth", "group": "powerBreaths" },
+        { "type": "exhale", "seconds": 1.5, "label": "Let go — relaxed release, not forced fully out", "group": "powerBreaths" },
+        {
+          "type": "holdEmpty",
+          "seconds": null,
+          "untimed": true,
+          "capture": "retention",
+          "label": "Retention — after the final exhale, hold on empty lungs until the urge to breathe returns"
+        },
+        { "type": "inhale", "seconds": 2, "label": "Recovery breath — inhale fully to capacity" },
+        { "type": "hold", "seconds": 15, "label": "Recovery hold — 15 seconds, then release" }
+      ],
+      "groups": {
+        "powerBreaths": {
+          "repeat": 30,
+          "repeatMax": 40,
+          "label": "30-40 deep breaths at a steady personal pace"
+        }
+      },
+      "defaultCycles": 3,
+      "timingNote": "Official guidance is 30 breaths per round and 3-4 rounds; power-breath seconds here are approximate pacing, and the retention hold is untimed and user-variable by design — its elapsed time is the captured metric (BreathworkRound.retentionSeconds).",
+      "description": "The Wim Hof Method round: 30-40 deep power breaths, an untimed breath-hold on empty lungs (the retention), then a full recovery inhale held about 15 seconds — repeated for 3-4 rounds.",
+      "cautions": [
+        "NEVER practice in or near water — breath-holding after heavy breathing can cause blackout without warning (shallow-water blackout).",
+        "NEVER practice while driving or standing, or anywhere fainting would be dangerous — always sit or lie down in a safe place.",
+        "Tingling, light-headedness, and dizziness are common; if they intensify or you feel faint, stop and breathe normally.",
+        "Loss of consciousness is possible in rare cases even when seated — do not push retention past a strong urge to breathe.",
+        "The official method advises against practicing during pregnancy or with epilepsy, and advises medical consultation first for cardiovascular or other serious health conditions."
+      ],
+      "sources": [
+        "https://www.wimhofmethod.com/breathing-exercises",
+        "https://www.medicalnewstoday.com/articles/wim-hof-breathing-method",
+        "https://www.webmd.com/balance/wim-hof-breathing-technique"
+      ]
+    },
+    {
+      "id": "pursed-lip-2-4",
+      "name": "Pursed-lip breathing",
+      "phases": [
+        { "type": "inhale", "seconds": 2, "label": "In through the nose — 'smell the roses'" },
+        { "type": "exhale", "seconds": 4, "label": "Out slowly through pursed lips — 'blow out the candles'" }
+      ],
+      "defaultMinutes": 5,
+      "timingNote": "American Lung Association guidance: exhale about twice as long as the inhale (2 in / 4-or-more out), through lips pursed as if whistling.",
+      "description": "A 2-second nasal inhale followed by a 4-second exhale through pursed lips — the exhale-doubled pacing pattern taught in pulmonary rehabilitation.",
+      "cautions": [
+        "Exhale gently through the pursed lips; never force the air out."
+      ],
+      "sources": [
+        "https://www.lung.org/lung-health-diseases/wellness/breathing-exercises",
+        "https://my.clevelandclinic.org/health/treatments/9443-pursed-lip-breathing"
+      ]
+    }
+  ]
+}
