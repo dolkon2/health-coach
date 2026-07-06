@@ -19,7 +19,7 @@
  * BAREBONES functional UI (Dylan's redesign supersedes). Primitives are
  * imported directly, not via the '@/components' barrel — see SpotPicker.tsx.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../Text';
 import { Card } from '../Card';
@@ -73,16 +73,31 @@ const MANUAL_PARAMETERS: ChipOption<GaugeReading['parameter']>[] = [
 export type WhitewaterSectionProps = {
   value: SessionForm['whitewater'];
   onChange: (patch: Partial<SessionForm['whitewater']>) => void;
-  /** original?.occurredAt ?? screen-open time — what makes fetches backdate-correct. */
+  /** Session time (edit: original occurredAt; new: route start or screen open) — what makes fetches backdate-correct. */
   sessionTimeUtc: string;
+  /** True when the snapshot was already on the SAVED session — truly immutable.
+   *  A draft-fetched snapshot may still be invalidated by re-picking the spot. */
+  snapshotLocked?: boolean;
 };
 
-export function WhitewaterSection({ value, onChange, sessionTimeUtc }: WhitewaterSectionProps) {
+export function WhitewaterSection({
+  value,
+  onChange,
+  sessionTimeUtc,
+  snapshotLocked,
+}: WhitewaterSectionProps) {
   const theme = useTheme();
   const [spot, setSpot] = useState<Spot | null>(null);
   const [boats, setBoats] = useState<GearItem[]>([]);
   const [fetching, setFetching] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  // Race guards for the in-flight fetch: a manual entry or a spot re-pick while
+  // a fetch is airborne must win over the fetch's late result. `seqRef` bumps on
+  // every pick/manual save; `valueRef` mirrors the latest form slice so the
+  // post-await check isn't reading a stale closure.
+  const seqRef = useRef(0);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   // Manual gauge fallback drafts.
   const [showManual, setShowManual] = useState(false);
   const [manualValue, setManualValue] = useState('');
@@ -124,8 +139,11 @@ export function WhitewaterSection({ value, onChange, sessionTimeUtc }: Whitewate
    * too). Precip rides alongside when the spot has coords; either half failing
    * simply leaves its field absent.
    */
-  async function fetchConditions(target: Spot, siteName?: string) {
-    if (value.gauge || fetching) return;
+  async function fetchConditions(target: Spot, siteName?: string, force = false) {
+    // `force` bypasses the entry guard on a re-pick, where the clearing patch is
+    // still in flight and the closure/ref both hold the previous spot's snapshot.
+    if ((value.gauge && !force) || fetching) return;
+    const seq = ++seqRef.current;
     setFetching(true);
     setUnavailable(false);
     const whenSec = Math.floor(Date.parse(sessionTimeUtc) / 1000);
@@ -137,30 +155,44 @@ export function WhitewaterSection({ value, onChange, sessionTimeUtc }: Whitewate
         ? fetchPrecip72hMm(target.lat, target.lng, whenSec)
         : Promise.resolve<number | null>(null),
     ]);
+    setFetching(false);
+    // A newer pick or a manual entry happened while this fetch was airborne —
+    // the user's action wins; the late result is dropped, never overwrites.
+    if (seq !== seqRef.current) return;
+    if (!force && valueRef.current.gauge) return;
     const patch: Partial<SessionForm['whitewater']> = {};
     // COPY the picked site's name — the client omits it (known gap).
     if (gauge) patch.gauge = { ...gauge, ...(siteName ? { siteName } : {}) };
     if (precip != null) patch.precip72hMm = precip;
     if (Object.keys(patch).length > 0) onChange(patch);
     if (!gauge && target.gaugeSiteId) setUnavailable(true);
-    setFetching(false);
   }
 
   function handlePick(s: Spot, site?: { name: string }) {
     setSpot(s);
+    // Correcting a mis-tapped spot invalidates the DRAFT snapshot (and its
+    // precip) — the previous river's flow must not describe this one. A
+    // snapshot restored from a saved session stays locked.
+    const repick = value.spotId != null && value.spotId !== s.id;
+    const invalidate = repick && !snapshotLocked && value.gauge != null;
+    seqRef.current++;
     onChange({
       spotId: s.id,
       riverName: s.riverName ?? '',
       sectionName: s.sectionName ?? s.name,
+      ...(invalidate ? { gauge: undefined, precip72hMm: undefined } : {}),
     });
-    if (!value.gauge && (s.gaugeSiteId || (s.lat != null && s.lng != null))) {
-      void fetchConditions(s, site?.name);
+    const canFetch = s.gaugeSiteId || (s.lat != null && s.lng != null);
+    if (canFetch && (invalidate || !value.gauge)) {
+      void fetchConditions(s, site?.name, invalidate);
     }
   }
 
   function saveManualReading() {
     const v = Number(manualValue);
     if (value.gauge || !Number.isFinite(v) || manualUnit.trim() === '') return;
+    // A manual entry outruns any in-flight auto-fetch (seq bump drops it).
+    seqRef.current++;
     onChange({
       gauge: manualGaugeSnapshot({
         value: v,

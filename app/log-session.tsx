@@ -66,6 +66,9 @@ import {
   buildSessionObservation,
   sessionFormFromObservation,
   resolveSurface,
+  sessionTimeForConditions,
+  WHITEWATER_ACTIVITIES,
+  WIND_ACTIVITIES,
   type SessionForm,
   type ExerciseDraft,
   type SetDraft,
@@ -75,11 +78,10 @@ import {
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import type { MovementPattern, ObservationOf } from '@core/observation';
 
-// Water sections on the gps surface, keyed off the activity id (contract §8):
-// whitewater/kayak get the gauge + river section, the wind sub-sports get the
-// wind + kit section. The activity id IS the sub-sport — no subSport field.
-const WHITEWATER_ACTIVITIES = ['whitewater', 'kayak'];
-const WIND_ACTIVITIES = ['wingfoil', 'windsurf', 'kitesurf', 'parawing', 'sail'];
+// Water sections on the gps surface are keyed off the activity id (contract
+// §8): whitewater/kayak get the gauge + river section, the wind sub-sports get
+// the wind + kit section. The activity sets live in lib/session — the SAME
+// gate the payload builder uses, so a hidden section can never write a block.
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -139,7 +141,14 @@ export default function LogSessionScreen() {
   // fetched as they were THEN), a new log uses the moment the screen opened
   // (stable across re-renders, unlike an inline new Date()).
   const [openedAt] = useState(() => new Date().toISOString());
-  const sessionTimeUtc = original?.occurredAt ?? openedAt;
+  // Recomputes when a GPX import / live recording lands: a route from last
+  // Saturday must freeze Saturday's gauge and wind, never today's.
+  const sessionTimeUtc = sessionTimeForConditions(original?.occurredAt, form, openedAt);
+  // A snapshot that was already on the SAVED session is immutable; a snapshot
+  // fetched into the current draft may still be invalidated by re-picking the
+  // spot before save (mis-tap correction ≠ rewriting history).
+  const gaugeLocked = !!original?.payload.whitewater?.gauge;
+  const windLocked = !!original?.payload.wind?.wind;
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -659,6 +668,7 @@ export default function LogSessionScreen() {
             setForm((f) => ({ ...f, whitewater: { ...f.whitewater, ...patch } }))
           }
           sessionTimeUtc={sessionTimeUtc}
+          snapshotLocked={gaugeLocked}
         />
       ) : null}
       {surface === 'gps' && form.activity && WIND_ACTIVITIES.includes(form.activity) ? (
@@ -666,6 +676,7 @@ export default function LogSessionScreen() {
           value={form.wind}
           onChange={(patch) => setForm((f) => ({ ...f, wind: { ...f.wind, ...patch } }))}
           sessionTimeUtc={sessionTimeUtc}
+          snapshotLocked={windLocked}
         />
       ) : null}
 

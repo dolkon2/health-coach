@@ -20,7 +20,7 @@
  * BAREBONES functional UI (Dylan's redesign supersedes). Primitives are
  * imported directly, not via the '@/components' barrel — see SpotPicker.tsx.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '../Text';
 import { Card } from '../Card';
@@ -88,17 +88,30 @@ const SESSION_STYLES: ChipOption<'downwind' | 'back-and-forth'>[] = [
 export type WindSectionProps = {
   value: SessionForm['wind'];
   onChange: (patch: Partial<SessionForm['wind']>) => void;
-  /** original?.occurredAt ?? screen-open time — what makes fetches backdate-correct. */
+  /** Session time (edit: original occurredAt; new: route start or screen open) — what makes fetches backdate-correct. */
   sessionTimeUtc: string;
+  /** True when the snapshot was already on the SAVED session — truly immutable.
+   *  A draft-fetched snapshot may still be invalidated by re-picking the spot. */
+  snapshotLocked?: boolean;
 };
 
-export function WindSection({ value, onChange, sessionTimeUtc }: WindSectionProps) {
+export function WindSection({
+  value,
+  onChange,
+  sessionTimeUtc,
+  snapshotLocked,
+}: WindSectionProps) {
   const theme = useTheme();
   const [spot, setSpot] = useState<Spot | null>(null);
   const [kits, setKits] = useState<Kit[]>([]);
   const [gear, setGear] = useState<GearItem[]>([]);
   const [fetching, setFetching] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  // Race guards mirroring WhitewaterSection: a manual entry or spot re-pick
+  // while a fetch is airborne must win over the fetch's late result.
+  const seqRef = useRef(0);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   // Manual wind fallback drafts.
   const [showManual, setShowManual] = useState(false);
   const [manualSpeed, setManualSpeed] = useState('');
@@ -137,8 +150,11 @@ export function WindSection({ value, onChange, sessionTimeUtc }: WindSectionProp
   }, []);
 
   /** Freeze the wind for the session time — only while no snapshot exists. */
-  async function fetchConditions(target: Spot) {
-    if (value.wind || fetching || target.lat == null || target.lng == null) return;
+  async function fetchConditions(target: Spot, force = false) {
+    // `force` bypasses the entry guard on a re-pick, where the clearing patch is
+    // still in flight and the closure/ref both hold the previous spot's snapshot.
+    if ((value.wind && !force) || fetching || target.lat == null || target.lng == null) return;
+    const seq = ++seqRef.current;
     setFetching(true);
     setUnavailable(false);
     const snap = await fetchWindSnapshot(
@@ -146,21 +162,38 @@ export function WindSection({ value, onChange, sessionTimeUtc }: WindSectionProp
       target.lng,
       Math.floor(Date.parse(sessionTimeUtc) / 1000)
     );
+    setFetching(false);
+    // A newer pick or a manual entry happened while this fetch was airborne —
+    // the user's action wins; the late result is dropped, never overwrites.
+    if (seq !== seqRef.current) return;
+    if (!force && valueRef.current.wind) return;
     if (snap) onChange({ wind: snap });
     else setUnavailable(true);
-    setFetching(false);
   }
 
   function handlePick(s: Spot) {
     setSpot(s);
-    onChange({ spotId: s.id, spotName: s.name });
-    if (!value.wind && s.lat != null && s.lng != null) void fetchConditions(s);
+    // Correcting a mis-tapped launch invalidates the DRAFT snapshot — spot A's
+    // wind must not describe spot B. A saved session's snapshot stays locked.
+    const repick = value.spotId != null && value.spotId !== s.id;
+    const invalidate = repick && !snapshotLocked && value.wind != null;
+    seqRef.current++;
+    onChange({
+      spotId: s.id,
+      spotName: s.name,
+      ...(invalidate ? { wind: undefined } : {}),
+    });
+    if (s.lat != null && s.lng != null && (invalidate || !value.wind)) {
+      void fetchConditions(s, invalidate);
+    }
   }
 
   function saveManualReading() {
     const speed = Number(manualSpeed);
     const coords = spot && spot.lat != null && spot.lng != null ? spot : null;
     if (value.wind || !coords || !Number.isFinite(speed)) return;
+    // A manual entry outruns any in-flight auto-fetch (seq bump drops it).
+    seqRef.current++;
     const gust = Number(manualGust);
     const direction = Number(manualDirection);
     onChange({
