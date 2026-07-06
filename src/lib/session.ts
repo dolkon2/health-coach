@@ -99,6 +99,11 @@ export type SessionForm = {
     // isn't a file), raises fidelity to the live-phone level (0.7), and dates the
     // session at the recording's start (occurredAt = when it happened).
     captureMeta?: { startTime: string };
+    // Device-measured total (healthkit-ingested sessions), carried whole so an
+    // edit round-trips it exactly — the display-unit `distance` string rounds
+    // (2 dp km = a 10 m quantum). When present the `distance` field restores
+    // empty; a user-typed distance overrides the measured value (honest edit).
+    measuredDistanceM?: number;
   };
   climb: { style: ClimbStyle; sends: SendDraft[] };
   swim: {
@@ -112,9 +117,10 @@ export type SessionForm = {
     // hand-edited (importMeta pattern). Present -> buildSwimming() writes them back
     // and keeps the MEASURED total below instead of recomputing laps × poolLengthM.
     lengths?: SwimLength[];
-    // The device-measured total distance in metres, carried whole alongside
-    // `lengths` so an edit round-trips it exactly (a display-unit string would
-    // round it). Only meaningful when `lengths` is present.
+    // The device-measured total distance in metres, carried whole so an edit
+    // round-trips it exactly (a display-unit string would round it). Carried
+    // whenever the session is healthkit-ingested — with or without `lengths`
+    // (a watch swim may report a total but no per-length rows).
     measuredDistanceM?: number;
   };
   practice: { style: string }; // optional free style tag for yoga/pilates/mobility
@@ -367,12 +373,44 @@ function buildSwimming(swim: SessionForm['swim'], distanceUnit: DistanceUnit): S
       block.distanceM = block.poolLengthM * block.laps;
     }
   } else {
+    // A typed estimate wins (honest hand-edit); otherwise a carried device-
+    // measured total (healthkit swim without per-length rows) round-trips exactly.
     const distance = num(swim.distance);
     if (distance !== null && distance > 0) {
       block.distanceM = displayToMeters(distance, distanceUnit);
+    } else if (swim.measuredDistanceM != null) {
+      block.distanceM = swim.measuredDistanceM;
     }
   }
   return block;
+}
+
+/**
+ * Which gps-surface activities carry each Water bespoke block. Single source
+ * of truth for BOTH the form (which section renders) and the builder (which
+ * block may be written) — the gate that keeps a stale section draft from
+ * leaking onto the wrong activity after a switch.
+ */
+export const WHITEWATER_ACTIVITIES = ['whitewater', 'kayak'];
+export const WIND_ACTIVITIES = ['wingfoil', 'windsurf', 'kitesurf', 'parawing', 'sail'];
+
+/**
+ * The instant conditions are frozen FOR. Editing keeps the session's own time;
+ * a new log with an imported/recorded route happens when the route says it
+ * happened (a GPX from last Saturday must freeze Saturday's gauge, not
+ * today's); only a from-scratch manual log uses the screen-open time.
+ */
+export function sessionTimeForConditions(
+  originalOccurredAt: string | undefined,
+  form: SessionForm,
+  screenOpenedAt: string
+): string {
+  return (
+    originalOccurredAt ??
+    form.endurance.importMeta?.startTime ??
+    form.endurance.captureMeta?.startTime ??
+    screenOpenedAt
+  );
 }
 
 /**
@@ -463,9 +501,13 @@ export function buildSessionObservation(
     const hasRoute = gpsPath != null && gpsPath.length >= 2;
     payload.endurance = {
       energySystem: form.endurance.energySystem,
+      // A typed distance wins (an honest hand-edit); otherwise the carried
+      // device-measured total round-trips exactly (the display string rounds).
       ...(distance !== null && distance > 0
         ? { distanceM: displayToMeters(distance, ctx.distanceUnit) }
-        : {}),
+        : form.endurance.measuredDistanceM != null
+          ? { distanceM: form.endurance.measuredDistanceM }
+          : {}),
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
       ...(form.endurance.elevationGainM != null && form.endurance.elevationGainM > 0
         ? { elevationGainM: Math.round(form.endurance.elevationGainM) }
@@ -480,11 +522,17 @@ export function buildSessionObservation(
     else if (hasRoute && form.endurance.captureMeta) fidelity = 0.7;
     // Water bespoke blocks ride ALONGSIDE the endurance envelope. Only a section
     // with at least one populated field writes a block — an untouched section
-    // writes nothing at all (omit-when-absent).
-    const whitewater = buildWhitewater(form.whitewater);
-    if (whitewater) payload.whitewater = whitewater;
-    const wind = buildWind(form.wind);
-    if (wind) payload.wind = wind;
+    // writes nothing at all (omit-when-absent). Gated on the activity id: the
+    // form slices survive an activity switch (sections merely hide), so an
+    // abandoned wingfoil draft must not leak a WindBlock onto a run.
+    if (form.activity && WHITEWATER_ACTIVITIES.includes(form.activity)) {
+      const whitewater = buildWhitewater(form.whitewater);
+      if (whitewater) payload.whitewater = whitewater;
+    }
+    if (form.activity && WIND_ACTIVITIES.includes(form.activity)) {
+      const wind = buildWind(form.wind);
+      if (wind) payload.wind = wind;
+    }
   } else if (surface === 'climbing') {
     payload.climbing = {
       style: form.climb.style,
@@ -621,11 +669,16 @@ export function sessionFormFromObservation(
   }
 
   if (p.endurance) {
+    // Healthkit-ingested distances are measured facts: carry them whole and
+    // restore the display field empty — rendering to a 2 dp string would bake
+    // a ~10 m rounding error into the payload on every edit.
+    const measuredEnd = obs.source.type === 'healthkit' ? p.endurance.distanceM : undefined;
     form.endurance = {
       distance:
-        p.endurance.distanceM != null
+        p.endurance.distanceM != null && measuredEnd == null
           ? numStr(metersToDisplay(p.endurance.distanceM, units.distanceUnit), 2)
           : '',
+      ...(measuredEnd != null ? { measuredDistanceM: measuredEnd } : {}),
       avgHr: p.endurance.avgHr != null ? String(p.endurance.avgHr) : '',
       energySystem: p.endurance.energySystem,
       ...(p.endurance.elevationGainM != null
@@ -666,6 +719,11 @@ export function sessionFormFromObservation(
   if (p.swimming) {
     const sw = p.swimming;
     const hasLengths = sw.lengths != null && sw.lengths.length > 0;
+    // Measured totals (ingested lengths, or any healthkit swim — a watch may
+    // report a total with no per-length rows) ride whole; the display-unit
+    // estimate field stays empty (it would round the fact).
+    const measuredSwim =
+      hasLengths || obs.source.type === 'healthkit' ? sw.distanceM : undefined;
     form.swim = {
       mode: sw.poolLengthM != null ? 'pool' : 'open',
       // 2 digits, not 0: ingested yard pools are 22.86 m — rounding to '23'
@@ -673,10 +731,8 @@ export function sessionFormFromObservation(
       // trimmed, so a manual '25' still restores as '25'.
       poolLengthM: sw.poolLengthM != null ? numStr(sw.poolLengthM, 2) : '',
       laps: sw.laps != null ? String(sw.laps) : '',
-      // With ingested lengths the measured total rides `measuredDistanceM` whole;
-      // the display-unit estimate field stays empty (it would round the fact).
       distance:
-        !hasLengths && sw.poolLengthM == null && sw.distanceM != null
+        measuredSwim == null && sw.poolLengthM == null && sw.distanceM != null
           ? numStr(metersToDisplay(sw.distanceM, units.distanceUnit), 2)
           : '',
       stroke: sw.stroke ?? 'freestyle',
@@ -684,7 +740,7 @@ export function sessionFormFromObservation(
       // Carried whole, never hand-edited — buildSwimming() writes them back and
       // keeps the measured total instead of recomputing laps × poolLengthM.
       ...(hasLengths ? { lengths: sw.lengths } : {}),
-      ...(hasLengths && sw.distanceM != null ? { measuredDistanceM: sw.distanceM } : {}),
+      ...(measuredSwim != null ? { measuredDistanceM: measuredSwim } : {}),
     };
   }
 

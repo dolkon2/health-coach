@@ -348,3 +348,130 @@ describe('legacy payloads without the new blocks hydrate fine', () => {
     expect(rebuilt.payload).toEqual(obs.payload);
   });
 });
+
+// ─── Adversarial-review regression guards (2026-07-05 panel) ────────────────
+
+import { sessionTimeForConditions, WHITEWATER_ACTIVITIES, WIND_ACTIVITIES } from '../session';
+
+describe('water blocks are gated on the activity id (stale-draft leak)', () => {
+  it('an abandoned wind draft writes NO block onto a run (or any non-wind activity)', () => {
+    const f = emptySessionForm();
+    f.activity = 'run';
+    f.durationMin = '45';
+    // Simulate the abandoned wingfoil draft: section data survives the switch.
+    f.wind = { ...f.wind, spotId: 's1', spotName: 'Sandbar', wind: WIND, gearIds: ['g1'] };
+    f.whitewater = { ...f.whitewater, riverName: 'White Salmon', gauge: GAUGE };
+
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.wind).toBeUndefined();
+    expect(obs.payload.whitewater).toBeUndefined();
+  });
+
+  it('a kayak session writes the whitewater block but never a stale wind block', () => {
+    const f = emptySessionForm();
+    f.activity = 'kayak';
+    f.durationMin = '60';
+    f.whitewater = { ...f.whitewater, riverName: 'Klickitat', gauge: GAUGE };
+    f.wind = { ...f.wind, spotId: 's1', wind: WIND }; // leftover from a switch
+
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.whitewater?.gauge).toEqual(GAUGE);
+    expect(obs.payload.wind).toBeUndefined();
+  });
+
+  it('every gated activity id resolves to the gps surface (sets stay in sync with the registry)', () => {
+    for (const id of [...WHITEWATER_ACTIVITIES, ...WIND_ACTIVITIES]) {
+      expect(resolveSurface({ activity: id, modality: null })).toBe('gps');
+    }
+  });
+});
+
+describe('sessionTimeForConditions — what instant conditions freeze FOR', () => {
+  const OPENED = '2026-07-05T17:00:00Z';
+
+  it('editing keeps the session moment; an imported route uses ITS start, not the screen-open time', () => {
+    const f = emptySessionForm();
+    expect(sessionTimeForConditions('2026-07-01T10:00:00Z', f, OPENED)).toBe('2026-07-01T10:00:00Z');
+
+    // A GPX from last Saturday must freeze Saturday's gauge, never today's.
+    f.endurance = {
+      ...f.endurance,
+      gpsPath: [
+        { lat: 45.8, lng: -121.5, tsSec: 0 },
+        { lat: 45.81, lng: -121.51, tsSec: 60 },
+      ],
+      importMeta: { format: 'gpx', startTime: '2026-06-28T09:30:00Z' },
+    };
+    expect(sessionTimeForConditions(undefined, f, OPENED)).toBe('2026-06-28T09:30:00Z');
+  });
+
+  it('a live recording uses its start; a from-scratch manual log uses screen-open', () => {
+    const f = emptySessionForm();
+    f.endurance = { ...f.endurance, captureMeta: { startTime: '2026-07-05T15:00:00Z' } };
+    expect(sessionTimeForConditions(undefined, f, OPENED)).toBe('2026-07-05T15:00:00Z');
+    expect(sessionTimeForConditions(undefined, emptySessionForm(), OPENED)).toBe(OPENED);
+  });
+});
+
+describe('healthkit-measured distances survive an edit exactly (display strings round)', () => {
+  it('endurance: a 5023 m ingested paddle round-trips byte-identical, typed distance overrides', () => {
+    const obs: ObservationOf<'session'> = {
+      id: 'hk1',
+      kind: 'session',
+      occurredAt: '2026-07-04T18:00:00Z',
+      loggedAt: '2026-07-04T20:00:00Z',
+      tz: 'America/Los_Angeles',
+      tier: 1,
+      fidelity: 0.95,
+      source: { type: 'healthkit', rawType: 'HKWorkout', workoutUuid: 'u-1' },
+      payload: {
+        kind: 'session',
+        modality: 'paddle',
+        activity: 'kayak',
+        durationMin: 75,
+        endurance: { energySystem: 'aerobic', distanceM: 5023 },
+      },
+    };
+
+    const form = invert(obs);
+    // Measured fact carried whole; the rounding display field stays empty.
+    expect(form.endurance.measuredDistanceM).toBe(5023);
+    expect(form.endurance.distance).toBe('');
+
+    const rebuilt = buildSessionObservation({ ...form, activity: 'kayak' }, CTX);
+    expect(rebuilt.payload.endurance?.distanceM).toBe(5023); // NOT 5020 via '5.02 km'
+
+    // An honest hand-edit wins over the carried measurement.
+    const edited = { ...form, endurance: { ...form.endurance, distance: '6' } };
+    expect(buildSessionObservation(edited, CTX).payload.endurance?.distanceM).toBe(6000);
+  });
+
+  it('swim: an ingested total with NO per-length rows still round-trips exactly', () => {
+    const obs: ObservationOf<'session'> = {
+      id: 'hk2',
+      kind: 'session',
+      occurredAt: '2026-07-04T07:00:00Z',
+      loggedAt: '2026-07-04T09:00:00Z',
+      tz: 'America/Los_Angeles',
+      tier: 1,
+      fidelity: 0.95,
+      source: { type: 'healthkit', rawType: 'HKWorkout', workoutUuid: 'u-2' },
+      payload: {
+        kind: 'session',
+        modality: 'swim',
+        activity: 'swim',
+        durationMin: 32,
+        // A watch swim with a measured total but no lengths (unknown location
+        // type) and no pool length — the open-mode display field would round it.
+        swimming: { energySystem: 'aerobic', distanceM: 1487.3 },
+      },
+    };
+
+    const form = invert(obs);
+    expect(form.swim.measuredDistanceM).toBe(1487.3);
+    expect(form.swim.distance).toBe('');
+
+    const rebuilt = buildSessionObservation({ ...form, activity: 'swim' }, CTX);
+    expect(rebuilt.payload.swimming?.distanceM).toBe(1487.3); // NOT 1490 via '1.49 km'
+  });
+});
