@@ -11,6 +11,7 @@ export * from './benchmark';
 export * from './sessionTemplate';
 export * from './gear';
 export * from './spot';
+export * from './conditions';
 export * from './timeline';
 export * from './trend';
 export * from './expenditure';

@@ -21,6 +21,7 @@ import type {
 } from '@core/sessionTemplate';
 import type { GearItem, GearSpec } from '@core/gear';
 import type { Spot } from '@core/spot';
+import type { ConditionsSnapshot } from '@core/conditions';
 
 // ─── Observation ────────────────────────────────────────────────────────────
 
@@ -251,5 +252,43 @@ export function rowToSpot(r: SpotRow): Spot {
     kind: r.kind,
     ...(r.meta != null ? { meta: JSON.parse(r.meta) as Record<string, unknown> } : {}),
     ...(r.notes != null ? { notes: r.notes } : {}),
+  };
+}
+
+// ─── ConditionsSnapshot ─────────────────────────────────────────────────────
+
+export type ConditionsSnapshotRow = {
+  id: string;
+  spotId: string;
+  capturedAt: string;
+  dateLocal: string;
+  source: string;
+  surface: string | null; // JSON
+  aloft: string | null; // JSON
+};
+
+export function conditionsSnapshotToRow(s: ConditionsSnapshot): ConditionsSnapshotRow {
+  return {
+    id: s.id,
+    spotId: s.spotId,
+    capturedAt: s.capturedAt,
+    dateLocal: s.dateLocal,
+    source: s.source,
+    surface: s.surface ? JSON.stringify(s.surface) : null,
+    aloft: s.aloft ? JSON.stringify(s.aloft) : null,
+  };
+}
+
+export function rowToConditionsSnapshot(r: ConditionsSnapshotRow): ConditionsSnapshot {
+  return {
+    id: r.id,
+    spotId: r.spotId,
+    capturedAt: r.capturedAt,
+    dateLocal: r.dateLocal,
+    source: r.source as ConditionsSnapshot['source'],
+    ...(r.surface != null
+      ? { surface: JSON.parse(r.surface) as ConditionsSnapshot['surface'] }
+      : {}),
+    ...(r.aloft != null ? { aloft: JSON.parse(r.aloft) as ConditionsSnapshot['aloft'] } : {}),
   };
 }
