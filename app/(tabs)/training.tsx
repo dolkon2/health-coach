@@ -31,7 +31,13 @@ import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { deleteObservation } from '@/storage/observations';
 import { deleteHealthKitExport } from '@/lib/healthkit/writer';
-import { elementSections, reviewPendingActivities, type Activity } from '@/lib/activity';
+import {
+  elementSections,
+  moreDeprioritizedActivities,
+  reviewPendingActivities,
+  snowSportActivities,
+  type Activity,
+} from '@/lib/activity';
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -54,6 +60,8 @@ export default function TrainingScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { sessions, reload } = useSessionHistory();
+  const [showSnow, setShowSnow] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [showReview, setShowReview] = useState(false);
 
   // Re-fetch whenever the tab regains focus — after the logger saves or a delete.
@@ -89,8 +97,11 @@ export default function TrainingScreen() {
   }
 
   // Body → Earth → Water → Sky (replaces the old headline/"More" flat
-  // outdoor grouping), plus the pending-delete Review tail (2026-07-09).
+  // outdoor grouping), plus two closeable trays carved out of Earth/Water
+  // (Snow Sports, More) and the pending-delete Review tail (2026-07-09).
   const sections = elementSections();
+  const snowSports = snowSportActivities();
+  const moreActivitiesList = moreDeprioritizedActivities();
   const reviewPending = reviewPendingActivities();
 
   return (
@@ -175,49 +186,40 @@ export default function TrainingScreen() {
         ) : null
       )}
 
+      {/* Snow Sports — carved out of Earth's flat list into its own closeable
+          tray (Dylan, 2026-07-09): Ski, Snowboard, XC Ski, Snowshoe, Ski-touring. */}
+      <CollapsibleTray
+        title="Snow Sports"
+        activities={snowSports}
+        expanded={showSnow}
+        onToggle={() => setShowSnow((v) => !v)}
+        onLogActivity={logActivity}
+      />
+
+      {/* More — Ruck and Sail, decluttered from Earth/Water's main lists but
+          still fully loggable and dimension-built (Dylan, 2026-07-09). NOT a
+          delete-review tray — unlike Review below, nothing here is queued
+          for removal. */}
+      <CollapsibleTray
+        title="More"
+        activities={moreActivitiesList}
+        expanded={showMore}
+        onToggle={() => setShowMore((v) => !v)}
+        onLogActivity={logActivity}
+      />
+
       {/* Pending-delete review (2026-07-09 prune): activities not in the
           Training Database and untouched by the dimension builds. Collapsed
           by default; they can still be logged from here until the delete is
           confirmed — nothing is removed silently. */}
-      {reviewPending.length > 0 ? (
-        <View>
-          <Pressable
-            onPress={() => setShowReview((v) => !v)}
-            accessibilityRole="button"
-            accessibilityLabel={
-              showReview ? 'Hide activities pending removal' : 'Show activities pending removal'
-            }
-            style={{ marginTop: theme.spacing[6] }}
-          >
-            <Text variant="label" color={theme.colors.textMuted}>
-              {showReview ? 'Review — pending removal ▲' : 'Review — pending removal ▼'}
-            </Text>
-          </Pressable>
-          {showReview ? (
-            <>
-              <Text
-                variant="bodySm"
-                color={theme.colors.textMuted}
-                style={{ marginTop: theme.spacing[2] }}
-              >
-                Not in the Training Database — queued for deletion once you confirm.
-              </Text>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  gap: theme.spacing[3],
-                  marginTop: theme.spacing[3],
-                }}
-              >
-                {reviewPending.map((a) => (
-                  <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
-                ))}
-              </View>
-            </>
-          ) : null}
-        </View>
-      ) : null}
+      <CollapsibleTray
+        title="Review — pending removal"
+        caption="Not in the Training Database — queued for deletion once you confirm."
+        activities={reviewPending}
+        expanded={showReview}
+        onToggle={() => setShowReview((v) => !v)}
+        onLogActivity={logActivity}
+      />
 
       {/* History */}
       <Text
@@ -260,6 +262,69 @@ export default function TrainingScreen() {
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
+  );
+}
+
+/**
+ * A closeable activity tray — a toggle line plus, when expanded, an optional
+ * caption and the tile grid. Backs Snow Sports / More / Review on the
+ * Training tab (2026-07-09); renders nothing when there's nothing to show.
+ */
+function CollapsibleTray({
+  title,
+  caption,
+  activities,
+  expanded,
+  onToggle,
+  onLogActivity,
+}: {
+  title: string;
+  caption?: string;
+  activities: Activity[];
+  expanded: boolean;
+  onToggle: () => void;
+  onLogActivity: (a: Activity) => void;
+}) {
+  const theme = useTheme();
+  if (activities.length === 0) return null;
+  return (
+    <View>
+      <Pressable
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? `Hide ${title}` : `Show ${title}`}
+        style={{ marginTop: theme.spacing[6] }}
+      >
+        <Text variant="label" color={theme.colors.textMuted}>
+          {title} {expanded ? '▲' : '▼'}
+        </Text>
+      </Pressable>
+      {expanded ? (
+        <>
+          {caption ? (
+            <Text
+              variant="bodySm"
+              color={theme.colors.textMuted}
+              style={{ marginTop: theme.spacing[2] }}
+            >
+              {caption}
+            </Text>
+          ) : null}
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: theme.spacing[3],
+              marginTop: theme.spacing[3],
+            }}
+          >
+            {activities.map((a) => (
+              <ActivityTile key={a.id} activity={a} onPress={() => onLogActivity(a)} />
+            ))}
+          </View>
+        </>
+      ) : null}
+    </View>
   );
 }
 

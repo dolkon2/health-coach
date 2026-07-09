@@ -3,12 +3,16 @@ import {
   ACTIVITIES,
   ELEMENT_ORDER,
   HEADLINE_DEFAULT_IDS,
+  MORE_ACTIVITY_IDS,
   REVIEW_PENDING_IDS,
+  SNOW_SPORT_IDS,
   activityById,
   elementSections,
   headlineActivities,
   moreActivities,
+  moreDeprioritizedActivities,
   reviewPendingActivities,
+  snowSportActivities,
   type Surface,
 } from '../activity';
 
@@ -72,15 +76,40 @@ describe('activity registry', () => {
     );
   });
 
-  it('element sections cover the pickable registry exactly once, Body→Earth→Water→Sky', () => {
+  it('element sections + Snow Sports + More partition the pickable registry exactly once, Body→Earth→Water→Sky', () => {
     const sections = elementSections();
     expect(sections.map((s) => s.element)).toEqual([...ELEMENT_ORDER]);
-    const ids = sections.flatMap((s) => s.activities.map((a) => a.id)).sort();
-    expect(ids).toEqual(
+    const sectionIds = sections.flatMap((s) => s.activities.map((a) => a.id));
+    const snowIds = snowSportActivities().map((a) => a.id);
+    const moreIds = moreDeprioritizedActivities().map((a) => a.id);
+
+    // No overlap between the three groupings.
+    const seen = new Set<string>();
+    for (const id of [...sectionIds, ...snowIds, ...moreIds]) {
+      expect(seen.has(id)).toBe(false);
+      seen.add(id);
+    }
+
+    const combined = [...sectionIds, ...snowIds, ...moreIds].sort();
+    expect(combined).toEqual(
       ACTIVITIES.filter((a) => a.deprecated !== true && !REVIEW_PENDING_IDS.includes(a.id))
         .map((a) => a.id)
         .sort()
     );
+  });
+
+  it('Snow Sports tray holds exactly the snow-sport ids', () => {
+    expect(snowSportActivities().map((a) => a.id).sort()).toEqual([...SNOW_SPORT_IDS].sort());
+  });
+
+  it('More tray holds Ruck and Sail — dimension-built, NOT delete-candidates', () => {
+    const more = moreDeprioritizedActivities();
+    expect(more.map((a) => a.id).sort()).toEqual([...MORE_ACTIVITY_IDS].sort());
+    for (const id of MORE_ACTIVITY_IDS) {
+      expect(REVIEW_PENDING_IDS).not.toContain(id);
+    }
+    // Ruck carries Earth's gearCategories; Sail is functional, not orphaned.
+    expect(activityById('ruck')?.gearCategories).toBeDefined();
   });
 
   it('review-pending activities resolve, are excluded from pickers, and none is dimension-built', () => {

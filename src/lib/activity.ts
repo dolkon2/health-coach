@@ -208,6 +208,33 @@ export const REVIEW_PENDING_IDS: readonly string[] = [
 
 const REVIEW_PENDING = new Set(REVIEW_PENDING_IDS);
 
+/**
+ * Snow-specific activities carved out of Earth's flat list into their own
+ * closeable Training-tab section (Dylan, 2026-07-09) — everything that
+ * happens on snow, kept together instead of mixed in with land sports.
+ */
+export const SNOW_SPORT_IDS: readonly string[] = [
+  'ski',
+  'snowboard',
+  'xc-ski',
+  'snowshoe',
+  'ski-touring',
+];
+
+const SNOW_SPORT_SET = new Set(SNOW_SPORT_IDS);
+
+/**
+ * Lower-priority activities pulled out of their element's main list into a
+ * shared closeable "More" tray on the Training tab (Dylan, 2026-07-09) —
+ * still fully loggable, just decluttered from the primary picker. NOT
+ * delete-candidates like REVIEW_PENDING_IDS: Ruck carries Earth's
+ * gearCategories and Sail is one of Water's WIND_ACTIVITIES — both are
+ * dimension-built and functional, just less commonly logged.
+ */
+export const MORE_ACTIVITY_IDS: readonly string[] = ['ruck', 'sail'];
+
+const MORE_ACTIVITY_SET = new Set(MORE_ACTIVITY_IDS);
+
 /** Pickable = shown in pickers: not deprecated, not pending delete-review. */
 function pickable(a: Activity): boolean {
   return a.deprecated !== true && !REVIEW_PENDING.has(a.id);
@@ -215,18 +242,39 @@ function pickable(a: Activity): boolean {
 
 export type ElementSection = { element: Element; title: string; activities: Activity[] };
 
-/** The Training tab's sections: Body → Earth → Water → Sky, registry order within. */
+/**
+ * The Training tab's sections: Body → Earth → Water → Sky, registry order
+ * within. Snow-sport and "More" ids are carved out into their own closeable
+ * trays (see snowSportActivities/moreDeprioritizedActivities) so they don't
+ * render twice.
+ */
 export function elementSections(): ElementSection[] {
   return ELEMENT_ORDER.map((element) => ({
     element,
     title: ELEMENT_LABELS[element],
-    activities: ACTIVITIES.filter((a) => pickable(a) && elementOf(a) === element),
+    activities: ACTIVITIES.filter(
+      (a) =>
+        pickable(a) &&
+        elementOf(a) === element &&
+        !SNOW_SPORT_SET.has(a.id) &&
+        !MORE_ACTIVITY_SET.has(a.id)
+    ),
   }));
 }
 
 /** The pending-delete list for the Training tab's Review section. */
 export function reviewPendingActivities(): Activity[] {
   return ACTIVITIES.filter((a) => a.deprecated !== true && REVIEW_PENDING.has(a.id));
+}
+
+/** Snow sports — their own closeable Training-tab tray, registry order. */
+export function snowSportActivities(): Activity[] {
+  return ACTIVITIES.filter((a) => pickable(a) && SNOW_SPORT_SET.has(a.id));
+}
+
+/** The "More" tray — lower-priority but fully functional, dimension-built activities. */
+export function moreDeprioritizedActivities(): Activity[] {
+  return ACTIVITIES.filter((a) => pickable(a) && MORE_ACTIVITY_SET.has(a.id));
 }
 
 /**
