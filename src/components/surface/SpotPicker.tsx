@@ -84,6 +84,7 @@ export function SpotPicker({
   const [gaugeResults, setGaugeResults] = useState<GaugeSite[] | null>(null);
   const [gaugeSite, setGaugeSite] = useState<GaugeSite | null>(null);
   const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function openList() {
     setOpen(true);
@@ -115,6 +116,7 @@ export function SpotPicker({
     const n = kind === 'river-section' ? derivedRiverSection!.name : name.trim();
     if (n === '' || busy) return;
     setBusy(true);
+    setError(null);
     const latN = Number(lat);
     const lngN = Number(lng);
     const spot: Spot = {
@@ -141,7 +143,9 @@ export function SpotPicker({
       await createSpot(spot);
       pick(spot, gaugeSite ?? undefined);
     } catch {
-      // Creation failed — leave the form open so nothing typed is lost.
+      // Leave the form open so nothing typed is lost, but say so — a silent
+      // failure here reads as "nothing happened" and hides a real problem.
+      setError('Could not create spot. Try again.');
     }
     setBusy(false);
   }
@@ -295,6 +299,11 @@ export function SpotPicker({
                   </View>
                 </>
               )}
+              {error ? (
+                <Text variant="bodySm" color={theme.colors.negative}>
+                  {error}
+                </Text>
+              ) : null}
               <Button
                 label="Create spot"
                 variant="secondary"
