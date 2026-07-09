@@ -152,7 +152,7 @@ export default function LogSessionScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    listGear()
+    listGear({ includeRetired: true })
       .then((g) => {
         if (!cancelled) setGearOptions(g);
       })
@@ -575,10 +575,15 @@ export default function LogSessionScreen() {
   const surface = resolveSurface(form);
   const label = form.activity ? activityById(form.activity)?.label ?? form.activity : form.modality ?? 'session';
   // Gear chips (E1): only when the picked activity declares gear categories AND
-  // matching active gear exists — a gearless user never sees the row.
+  // matching gear exists — a gearless user never sees the row. Retired gear is
+  // excluded from new tagging (soft-disappear from future pickers) but stays
+  // visible when this session already tagged it, so a saved session never
+  // silently loses sight of gear that's since been retired.
   const gearCats = form.activity ? activityById(form.activity)?.gearCategories : undefined;
   const gearChoices = gearCats
-    ? gearOptions.filter((g) => gearCats.includes(g.category))
+    ? gearOptions.filter(
+        (g) => gearCats.includes(g.category) && (g.retiredAt == null || form.gearIds.includes(g.id))
+      )
     : [];
   const poolTotalM =
     form.swim.mode === 'pool'
@@ -936,6 +941,7 @@ export default function LogSessionScreen() {
                       color={selected ? theme.colors.bg : theme.colors.textSecondary}
                     >
                       {g.name}
+                      {g.retiredAt != null ? ' (retired)' : ''}
                     </Text>
                   </Pressable>
                 );
