@@ -15,7 +15,7 @@
  * enforced by the same builder the test drives, so an untagged set can't reach
  * storage.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
@@ -77,7 +77,7 @@ import {
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
-import type { GeoPoint, MovementPattern, ObservationOf } from '@core/observation';
+import type { GeoPoint, MovementPattern, ObservationOf, SkySegment } from '@core/observation';
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -87,6 +87,21 @@ import type { GeoPoint, MovementPattern, ObservationOf } from '@core/observation
  * GPS surface with the activity's default energy system, so the detail step has
  * something to fill.
  */
+/** Runs the detector and stamps every proposed segment `provenance: 'auto'` —
+ * shared by the initial track attach and by re-detecting on an activity
+ * switch, so the two call sites can't drift on how a raw detection becomes
+ * a SkySegment[]. */
+function detectAutoSegments(
+  points: GeoPoint[],
+  activity: SkyDetectorActivity,
+  trackSource: 'igc' | 'liveGps' | undefined
+): SkySegment[] {
+  return detectFlightSegments(points, activity, { trackSource }).map((s) => ({
+    ...s,
+    provenance: 'auto' as const,
+  }));
+}
+
 function seededFormForActivity(a: Activity): SessionForm {
   const base = emptySessionForm();
   return {
@@ -198,9 +213,7 @@ export default function LogSessionScreen() {
         a.surface === 'sky' && f.sky.track && f.sky.track.length >= 2
           ? {
               ...f.sky,
-              segments: detectFlightSegments(f.sky.track, a.id as SkyDetectorActivity, {
-                trackSource: f.sky.trackSource,
-              }).map((s) => ({ ...s, provenance: 'auto' as const })),
+              segments: detectAutoSegments(f.sky.track, a.id as SkyDetectorActivity, f.sky.trackSource),
               ascentMode: a.id === 'speedflying' ? f.sky.ascentMode : '',
             }
           : f.sky,
@@ -404,25 +417,20 @@ export default function LogSessionScreen() {
       setError('That file has no usable track points.');
       return;
     }
-    const detected = detectFlightSegments(points, form.activity as SkyDetectorActivity, {
-      trackSource,
-    });
+    const segments = detectAutoSegments(points, form.activity as SkyDetectorActivity, trackSource);
     const durationSec = points[points.length - 1].tsSec - points[0].tsSec;
     setForm((f) => ({
       ...f,
       durationMin: durationSec >= 60 ? String(Math.max(1, Math.round(durationSec / 60))) : f.durationMin,
-      sky: {
-        track: points,
-        trackSource,
-        segments: detected.map((s) => ({ ...s, provenance: 'auto' as const })),
-        ascentMode: f.sky.ascentMode,
-        onSkis: f.sky.onSkis,
-      },
+      sky: { ...f.sky, track: points, trackSource, segments },
     }));
   }
 
   function removeSkyTrack() {
-    setForm((f) => ({ ...f, sky: { segments: [], ascentMode: f.sky.ascentMode, onSkis: f.sky.onSkis } }));
+    setForm((f) => ({
+      ...f,
+      sky: { ascentMode: f.sky.ascentMode, onSkis: f.sky.onSkis, segments: [] },
+    }));
   }
 
   function setSkySegmentKind(idx: number, kind: 'air' | 'ground') {
@@ -610,6 +618,21 @@ export default function LogSessionScreen() {
     form.swim.mode === 'pool'
       ? (Number(form.swim.poolLengthM) || 0) * (Number(form.swim.laps) || 0)
       : 0;
+
+  // Each of these is an O(track-length) scan (topSpeedMS additionally
+  // rebuilds a cumulative-distance array) — computed once per track/segments
+  // change rather than repeatedly inline in the render below.
+  const skyStats = useMemo(() => {
+    const track = form.sky.track;
+    if (!track || track.length < 2) return null;
+    return {
+      topSpeedMS: topSpeedMS(track),
+      maxAltitudeM: maxAltitudeM(track),
+      totalAirtimeSec: totalAirtimeSec(track, form.sky.segments),
+      airSegmentCount: airSegmentCount(form.sky.segments),
+      longestAirSegmentSec: longestAirSegmentSec(track, form.sky.segments),
+    };
+  }, [form.sky.track, form.sky.segments]);
 
   return (
     <Screen scroll>
@@ -912,12 +935,8 @@ export default function LogSessionScreen() {
               <Text variant="dataSm" color={theme.colors.textSecondary}>
                 {[
                   `${form.sky.track.length} points`,
-                  topSpeedMS(form.sky.track) != null
-                    ? `${Math.round((topSpeedMS(form.sky.track) ?? 0) * 3.6)} km/h top`
-                    : null,
-                  maxAltitudeM(form.sky.track) != null
-                    ? `${Math.round(maxAltitudeM(form.sky.track) ?? 0)} m max`
-                    : null,
+                  skyStats?.topSpeedMS != null ? `${Math.round(skyStats.topSpeedMS * 3.6)} km/h top` : null,
+                  skyStats?.maxAltitudeM != null ? `${Math.round(skyStats.maxAltitudeM)} m max` : null,
                 ]
                   .filter(Boolean)
                   .join('  ·  ')}
@@ -946,10 +965,10 @@ export default function LogSessionScreen() {
                     ) : null}
                   </View>
                   <Text variant="dataSm" color={theme.colors.textSecondary}>
-                    {`${formatDurationSec(totalAirtimeSec(form.sky.track, form.sky.segments))} airtime  ·  ` +
-                      `${airSegmentCount(form.sky.segments)} air segment${airSegmentCount(form.sky.segments) === 1 ? '' : 's'}` +
-                      (longestAirSegmentSec(form.sky.track, form.sky.segments) != null
-                        ? `  ·  longest ${formatDurationSec(longestAirSegmentSec(form.sky.track, form.sky.segments)!)}`
+                    {`${formatDurationSec(skyStats?.totalAirtimeSec ?? 0)} airtime  ·  ` +
+                      `${skyStats?.airSegmentCount ?? 0} air segment${skyStats?.airSegmentCount === 1 ? '' : 's'}` +
+                      (skyStats?.longestAirSegmentSec != null
+                        ? `  ·  longest ${formatDurationSec(skyStats.longestAirSegmentSec)}`
                         : '')}
                   </Text>
                   {form.sky.segments.map((seg, idx) => (

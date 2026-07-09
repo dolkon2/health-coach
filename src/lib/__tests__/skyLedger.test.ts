@@ -1,7 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ObservationOf } from '@core/observation';
 import { computeUshpaLedger, ledgerAgainst, USHPA_P3 } from '@core/ushpaLedger';
-import { skyFlightFacts } from '../skyLedger';
+import { skyFlightFacts, SKY_ACTIVITY_IDS } from '../skyLedger';
+import { ACTIVITIES } from '../activity';
 
 function skySession(over: {
   activity: string;
@@ -117,5 +118,16 @@ describe('skyFlightFacts', () => {
     expect(ledger.totalHours).toBeCloseTo(1.5, 6);
     const cmp = ledgerAgainst(ledger, USHPA_P3);
     expect(cmp.flights?.met).toBe(false);
+  });
+
+  it('SKY_ACTIVITY_IDS matches the sky-surface activities in the registry — a drift tripwire', () => {
+    // skyLedger.ts's own activity->style map is a second list of the same
+    // four ids activity.ts's registry carries; if a sky activity is ever
+    // added/renamed in one without the other, this test catches it instead
+    // of the ledger silently dropping/misclassifying real sessions.
+    const registrySkyIds = new Set(
+      ACTIVITIES.filter((a) => a.surface === 'sky').map((a) => a.id)
+    );
+    expect(SKY_ACTIVITY_IDS).toEqual(registrySkyIds);
   });
 });

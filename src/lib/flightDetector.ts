@@ -77,12 +77,19 @@ export const XC_MERGE_GROUND_GAP_SEC = 300;
  * Ship as the default; tune once there are real dune tracks to look at. */
 export const PARAKITE_MERGE_GROUND_GAP_SEC = 30;
 
-/** The merge-window default for an activity — parakite and speedfly both get
- * the short touch-and-go window; paragliding/hike&fly get the XC window. */
+/** The merge-window default per activity — parakite and speedfly both get
+ * the short touch-and-go window; paragliding/hike&fly get the XC window. A
+ * lookup keyed on the full activity union (rather than a growing ternary)
+ * so a 5th sky activity can't be added without deciding its value here. */
+const MERGE_GROUND_GAP_SEC_BY_ACTIVITY: Record<SkyDetectorActivity, number> = {
+  paragliding: XC_MERGE_GROUND_GAP_SEC,
+  hikeAndFly: XC_MERGE_GROUND_GAP_SEC,
+  speedflying: PARAKITE_MERGE_GROUND_GAP_SEC,
+  parakiting: PARAKITE_MERGE_GROUND_GAP_SEC,
+};
+
 export function mergeGroundGapSecForActivity(activity: SkyDetectorActivity): number {
-  return activity === 'parakiting' || activity === 'speedflying'
-    ? PARAKITE_MERGE_GROUND_GAP_SEC
-    : XC_MERGE_GROUND_GAP_SEC;
+  return MERGE_GROUND_GAP_SEC_BY_ACTIVITY[activity];
 }
 
 export type DetectFlightSegmentsOptions = {
