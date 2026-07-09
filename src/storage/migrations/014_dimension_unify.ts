@@ -101,18 +101,25 @@ async function unifyGear(db: MigrationDb): Promise<void> {
 
   // Legacy → canonical column mapping, keyed by each shape's fingerprint.
   //   Water  (010_gear_kits_spots): snake dates, no parentId/updatedAt
-  //   Earth  (010_gear + 011 rename): parentId, camel 'On' dates, no updatedAt
-  //   Sky    (010_gear + 013 rename): updatedAt, camel 'On' dates, no parentId
+  //   Earth  (010_gear [+ 011 rename]): parentId, camel dates, no updatedAt
+  //   Sky    (010_gear [+ 013 rename]): updatedAt, camel dates, no parentId
+  // The camel date columns are resolved from the ACTUAL schema: a device that
+  // upgraded before Earth's 011 / Sky's 013 rename shipped still has
+  // acquiredAt/retiredAt — and since those numbers are burned, the rename can
+  // only ever happen here.
+  const acquired = cols.has('acquiredOn') ? 'acquiredOn' : 'acquiredAt';
+  const retired = cols.has('retiredOn') ? 'retiredOn' : 'retiredAt';
   let select: string;
   if (cols.has('acquired_on')) {
     select = `SELECT id, name, category, NULL, acquired_on, retired_on, spec, notes, created_at, NULL FROM gear`;
   } else if (cols.has('parentId')) {
-    select = `SELECT id, name, category, parentId, acquiredOn, retiredOn, spec, notes, createdAt, NULL FROM gear`;
+    select = `SELECT id, name, category, parentId, ${acquired}, ${retired}, spec, notes, createdAt, NULL FROM gear`;
   } else {
-    select = `SELECT id, name, category, NULL, acquiredOn, retiredOn, spec, notes, createdAt, updatedAt FROM gear`;
+    select = `SELECT id, name, category, NULL, ${acquired}, ${retired}, spec, notes, createdAt, updatedAt FROM gear`;
   }
 
   await db.execAsync(`
+    DROP TABLE IF EXISTS gear__new;
     CREATE TABLE gear__new (
       id          TEXT PRIMARY KEY NOT NULL,
       name        TEXT NOT NULL,
@@ -141,6 +148,7 @@ async function unifyKits(db: MigrationDb): Promise<void> {
   }
   if (cols.has('gearIds')) return; // already canonical
   await db.execAsync(`
+    DROP TABLE IF EXISTS kits__new;
     CREATE TABLE kits__new (
       id        TEXT PRIMARY KEY NOT NULL,
       name      TEXT NOT NULL,
@@ -168,6 +176,7 @@ async function unifySpots(db: MigrationDb): Promise<void> {
     : `SELECT id, name, lat, lng, kind, meta, NULL, NULL, NULL, notes, createdAt, updatedAt FROM spots`;
 
   await db.execAsync(`
+    DROP TABLE IF EXISTS spots__new;
     CREATE TABLE spots__new (
       id          TEXT PRIMARY KEY NOT NULL,
       name        TEXT NOT NULL,

@@ -209,6 +209,60 @@ describe('migration 014 — Sky-shaped device (010 gear + 011 spots + 012 condit
     expect(snap).toEqual({ spotId: 'fs1' });
   });
 
+  it('handles a PRE-RENAME Sky device (acquiredAt/retiredAt, upgraded before 013 shipped)', async () => {
+    const db = makeTestDb();
+    await markApplied(db, [10, 11, 12]);
+    await db.execAsync(`
+      CREATE TABLE gear (
+        id TEXT PRIMARY KEY NOT NULL, category TEXT NOT NULL, name TEXT NOT NULL,
+        spec TEXT NOT NULL, acquiredAt TEXT, retiredAt TEXT, notes TEXT,
+        createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL
+      );
+      CREATE TABLE spots (
+        id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL,
+        kind TEXT NOT NULL, meta TEXT, notes TEXT, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL
+      );
+      CREATE TABLE conditions_snapshots (
+        id TEXT PRIMARY KEY NOT NULL, spotId TEXT NOT NULL, capturedAt TEXT NOT NULL,
+        dateLocal TEXT NOT NULL, source TEXT NOT NULL, surface TEXT, aloft TEXT
+      );
+      INSERT INTO gear VALUES ('w2', 'paraglider', 'Old Wing', '{}', '2025-01-01', NULL, NULL, '2026-06-01T10:00:00.000Z', '2026-06-01T10:00:00.000Z');
+    `);
+
+    await runMigrations(db);
+
+    expect(await columns(db, 'gear')).toEqual(CANONICAL_GEAR_COLS);
+    const wing = await db.getFirstAsync<{ acquiredOn: string }>(
+      'SELECT acquiredOn FROM gear WHERE id = ?;',
+      ['w2']
+    );
+    expect(wing).toEqual({ acquiredOn: '2025-01-01' }); // acquiredAt carried into acquiredOn
+  });
+
+  it('handles a PRE-RENAME Earth device (acquiredAt/retiredAt, upgraded before 011 shipped)', async () => {
+    const db = makeTestDb();
+    await markApplied(db, [10]);
+    // Earth's original 010: camelCase, parentId, pre-rename date columns —
+    // BUT the fingerprint must not confuse it with Water (which also applied
+    // only version 10). parentId is the Earth tell.
+    await db.execAsync(`
+      CREATE TABLE gear (
+        id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, category TEXT NOT NULL,
+        parentId TEXT, acquiredAt TEXT, retiredAt TEXT, spec TEXT, notes TEXT, createdAt TEXT NOT NULL
+      );
+      INSERT INTO gear VALUES ('sh1', 'Speedgoats', 'shoes', NULL, '2025-03-01', NULL, '{"targetKm":500}', NULL, '2026-06-01T10:00:00.000Z');
+    `);
+
+    await runMigrations(db);
+
+    expect(await columns(db, 'gear')).toEqual(CANONICAL_GEAR_COLS);
+    const shoes = await db.getFirstAsync<{ acquiredOn: string; spec: string }>(
+      'SELECT acquiredOn, spec FROM gear WHERE id = ?;',
+      ['sh1']
+    );
+    expect(shoes).toEqual({ acquiredOn: '2025-03-01', spec: '{"targetKm":500}' });
+  });
+
   it('is idempotent — a second run on an already-canonical db is a no-op', async () => {
     const db = makeTestDb();
     await runMigrations(db);
