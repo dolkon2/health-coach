@@ -28,7 +28,6 @@ import {
   RestTimer,
   GymExerciseEditor,
   RemoveButton,
-  Checkbox,
   RoutePreview,
   RouteMap,
   ElevationProfile,
@@ -38,6 +37,8 @@ import {
 import {
   ENERGY_SYSTEMS,
   CLIMB_STYLES,
+  CLIMB_OUTCOMES,
+  CLIMB_LOCATIONS,
   SWIM_MODES,
   SWIM_STROKES,
   EFFORT,
@@ -46,6 +47,7 @@ import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useExercisePatternMemory } from '@/hooks/useExercisePatternMemory';
 import { useRestTimer } from '@/hooks/useRestTimer';
+import { useCragPin } from '@/hooks/useCragPin';
 import {
   createObservation,
   getObservationById,
@@ -57,6 +59,8 @@ import { parseGpx } from '@/lib/gpxImport';
 import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
 import {
+  applyElevationGainEdit,
+  enduranceWithRoute,
   emptySessionForm,
   emptyExerciseDraft,
   emptySetDraft,
@@ -66,6 +70,7 @@ import {
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
+  pruneGearIdsForCategories,
   resolveSurface,
   ghostSetPlaceholders,
   withEntryType,
@@ -82,7 +87,25 @@ import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker
 import { yogaStyles, danceFamilies, danceContextTags, mobilityZones, ZONE_SIDES } from '@/data/taxonomies';
 import { breathPatterns, breathPatternById } from '@/data/breathwork';
 import { writeSessionToHealthKit } from '@/lib/healthkit/writer';
-import type { MovementPattern, ObservationOf, PracticeContextTag } from '@core/observation';
+import { listGear, type GearRecord } from '@/storage/gear';
+import { freezeEarthConditions } from '@/lib/conditions/freeze';
+import type {
+  ClimbOutcome,
+  ElevationGainSource,
+  GeoPoint,
+  MovementPattern,
+  ObservationOf,
+  PracticeContextTag,
+} from '@core/observation';
+
+// Descriptive captions for elevation-gain provenance (E2). Rendered only when a
+// source is known — pre-E2 sessions carry none and show nothing.
+const ELEVATION_SOURCE_LABELS: Record<ElevationGainSource, string> = {
+  gps: 'GPS',
+  barometric: 'barometric',
+  dem: 'terrain model',
+  manual: 'entered by hand',
+};
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -162,6 +185,23 @@ export default function LogSessionScreen() {
     [form.activity]
   );
 
+  // Active quiver for the gear chip row (E1). Empty until loaded — and when the
+  // user owns no gear the row never renders (zero-clutter default), so a load
+  // failure just means no chips, never an error state.
+  const [gearOptions, setGearOptions] = useState<GearRecord[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listGear({ includeRetired: true })
+      .then((g) => {
+        if (!cancelled) setGearOptions(g);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
   // instead of dispatching a GO_BACK action no navigator can handle.
@@ -210,6 +250,11 @@ export default function LogSessionScreen() {
       ...f,
       activity: a.id,
       modality: null,
+      // A gear tag survives an activity switch only if the new activity's chip
+      // row can still show it — a tag outside a.gearCategories would be
+      // invisible yet still saved, silently accruing this session to another
+      // sport's gear (E1, ⚑ E-4).
+      gearIds: pruneGearIdsForCategories(f.gearIds, gearOptions, a.gearCategories),
       // Seed the gym logger with one empty exercise so there's something to fill.
       gym: a.surface === 'gym' && f.gym.exercises.length === 0
         ? { exercises: [emptyExerciseDraft(uuidv7(), uuidv7())] }
@@ -345,12 +390,24 @@ export default function LogSessionScreen() {
       ...f,
       climb: {
         ...f.climb,
-        sends: [...f.climb.sends, { id: uuidv7(), grade: '', attempts: '', sent: false }],
+        sends: [
+          ...f.climb.sends,
+          { id: uuidv7(), grade: '', attempts: '', sent: false, outcome: null, route: '', pitches: '' },
+        ],
       },
     }));
   }
 
-  function mutateSend(id: string, patch: Partial<{ grade: string; attempts: string; sent: boolean }>) {
+  function mutateSend(
+    id: string,
+    patch: Partial<{
+      grade: string;
+      attempts: string;
+      outcome: ClimbOutcome | null;
+      route: string;
+      pitches: string;
+    }>
+  ) {
     setForm((f) => ({
       ...f,
       climb: {
@@ -463,6 +520,40 @@ export default function LogSessionScreen() {
     setForm((f) => ({ ...f, painAreas: f.painAreas.map((a) => (a.id === id ? fn(a) : a)) }));
   }
 
+  // ─── Crag pin (⚑ E-5) ──────────────────────────────────────────────────────
+  // One device fix, not a track — captured on demand, never automatically.
+  const cragPin = useCragPin();
+
+  async function pinCragLocation() {
+    const loc = await cragPin.capture();
+    if (loc) setForm((f) => ({ ...f, climb: { ...f.climb, location: loc } }));
+  }
+
+  // ─── Conditions freeze (E3 — weather only; snow/avalanche join in E7) ─────
+  // Fired when a route attaches, best-effort (⚑ E-2): the fetch never blocks
+  // or fails a save — a save that lands first simply carries no conditions.
+  // The snapshot only lands if the SAME route (by identity) is still on the
+  // form, so a swapped or removed route can never wear another route's sky.
+  function freezeConditionsForRoute(points: GeoPoint[], startIso?: string) {
+    const first = points[0];
+    if (!first) return;
+    freezeEarthConditions({
+      lat: first.lat,
+      lng: first.lng,
+      atIso: startIso ?? new Date().toISOString(),
+      include: { weather: true },
+    })
+      .then((snapshot) => {
+        if (!snapshot.weather) return; // nothing landed — stay honestly absent
+        setForm((f) =>
+          f.endurance.gpsPath === points
+            ? { ...f, endurance: { ...f.endurance, conditionsMeta: snapshot } }
+            : f
+        );
+      })
+      .catch(() => {}); // freeze never throws; belt and braces
+  }
+
   // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
   // Pick a .gpx exported from Garmin Connect / Slopes / Gaia / AllTrails, parse
   // it client-side, and prefill the form: distance/duration/elevation land in
@@ -497,22 +588,39 @@ export default function LogSessionScreen() {
         ...f,
         durationMin:
           gpx.durationMin != null ? String(Math.max(1, Math.round(gpx.durationMin))) : f.durationMin,
-        endurance: {
-          ...f.endurance,
-          distance:
-            gpx.distanceM > 0
-              ? String(Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100)
-              : f.endurance.distance,
-          gpsPath: gpx.points,
-          ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
-          importMeta: {
-            format: 'gpx' as const,
-            ...(asset.name ? { filename: asset.name } : {}),
-            ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+        // Rebuilt via enduranceWithRoute (never spread) so a prior route's
+        // gain/source/captureMeta can't linger on this file's geometry. The
+        // gain's label comes from the parser itself: 'gps' only for a recorded
+        // <trk>; a planned <rte>'s gain carries no source (⚑ E-9 — the device
+        // is unknowable from a file; understate, never overstate).
+        endurance: enduranceWithRoute(
+          f.endurance,
+          {
+            gpsPath: gpx.points,
+            ...(gpx.distanceM > 0
+              ? {
+                  distance: String(
+                    Math.round(metersToDisplay(gpx.distanceM, distanceUnit) * 100) / 100
+                  ),
+                }
+              : {}),
+            ...(gpx.elevationGainM != null ? { elevationGainM: gpx.elevationGainM } : {}),
+            ...(gpx.elevationGainSource != null
+              ? { elevationGainSource: gpx.elevationGainSource }
+              : {}),
           },
-        },
+          {
+            importMeta: {
+              format: 'gpx' as const,
+              ...(asset.name ? { filename: asset.name } : {}),
+              ...(gpx.startTime ? { startTime: gpx.startTime } : {}),
+            },
+          }
+        ),
         ...(gpx.name && f.notes.trim() === '' ? { notes: gpx.name } : {}),
       }));
+      // Route attached → freeze weather at its first point + start (⚑ E-2).
+      freezeConditionsForRoute(gpx.points, gpx.startTime);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read that file as GPX.');
     } finally {
@@ -524,8 +632,8 @@ export default function LogSessionScreen() {
   // The recorder hands back the same GeoPoint[] a GPX import does; we prefill the
   // editable distance/duration and attach the geometry + capture provenance, so
   // buildSessionObservation writes a manual-source session at live-phone fidelity
-  // (0.7), dated to the recording's start. Rebuilt (not spread) so a prior file
-  // import's provenance can't linger on a freshly recorded route.
+  // (0.7), dated to the recording's start. enduranceWithRoute rebuilds (never
+  // spreads) so a prior file import's provenance can't linger on a fresh recording.
   function applyCapturedRoute(summary: TrackSummary) {
     setForm((f) => ({
       ...f,
@@ -533,18 +641,27 @@ export default function LogSessionScreen() {
         summary.durationSec >= 60
           ? String(Math.max(1, Math.round(summary.durationSec / 60)))
           : f.durationMin,
-      endurance: {
-        distance:
-          summary.distanceM > 0
-            ? String(Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100)
-            : f.endurance.distance,
-        avgHr: f.endurance.avgHr,
-        energySystem: f.endurance.energySystem,
-        gpsPath: summary.points,
-        ...(summary.elevationGainM != null ? { elevationGainM: summary.elevationGainM } : {}),
-        captureMeta: { startTime: summary.startTime ?? new Date().toISOString() },
-      },
+      endurance: enduranceWithRoute(
+        f.endurance,
+        {
+          gpsPath: summary.points,
+          ...(summary.distanceM > 0
+            ? {
+                distance: String(
+                  Math.round(metersToDisplay(summary.distanceM, distanceUnit) * 100) / 100
+                ),
+              }
+            : {}),
+          // Gain computed from the phone's GPS-elevation fixes → 'gps' (⚑ E-9).
+          ...(summary.elevationGainM != null
+            ? { elevationGainM: summary.elevationGainM, elevationGainSource: 'gps' as const }
+            : {}),
+        },
+        { captureMeta: { startTime: summary.startTime ?? new Date().toISOString() } }
+      ),
     }));
+    // Route attached → freeze weather at its first point + start (⚑ E-2).
+    freezeConditionsForRoute(summary.points, summary.startTime);
   }
 
   // ─── Save ──────────────────────────────────────────────────────────────────
@@ -665,6 +782,17 @@ export default function LogSessionScreen() {
 
   const surface = resolveSurface(form);
   const label = form.activity ? activityById(form.activity)?.label ?? form.activity : form.modality ?? 'session';
+  // Gear chips (E1): only when the picked activity declares gear categories AND
+  // matching gear exists — a gearless user never sees the row. Retired gear is
+  // excluded from new tagging (soft-disappear from future pickers) but stays
+  // visible when this session already tagged it, so a saved session never
+  // silently loses sight of gear that's since been retired.
+  const gearCats = form.activity ? activityById(form.activity)?.gearCategories : undefined;
+  const gearChoices = gearCats
+    ? gearOptions.filter(
+        (g) => gearCats.includes(g.category) && (g.retiredOn == null || form.gearIds.includes(g.id))
+      )
+    : [];
   const poolTotalM =
     form.swim.mode === 'pool'
       ? (Number(form.swim.poolLengthM) || 0) * (Number(form.swim.laps) || 0)
@@ -757,6 +885,22 @@ export default function LogSessionScreen() {
             suffix="bpm"
             keyboardType="number-pad"
           />
+          <Field
+            label="Elevation gain (m, optional)"
+            value={
+              form.endurance.elevationGainM != null
+                ? String(form.endurance.elevationGainM)
+                : ''
+            }
+            onChangeText={(text) =>
+              // Pure reducer (lib/session): a typed value is the user's number →
+              // source 'manual', even over a route prefill; cleared → both absent.
+              update({ endurance: applyElevationGainEdit(form.endurance, text) })
+            }
+            placeholder="—"
+            suffix="m"
+            keyboardType="number-pad"
+          />
           <View style={{ gap: theme.spacing[2] }}>
             <Text variant="label">Energy system</Text>
             <ChipSelect
@@ -798,6 +942,11 @@ export default function LogSessionScreen() {
                   form.endurance.elevationGainM != null
                     ? `${form.endurance.elevationGainM} m gain`
                     : null,
+                  // Provenance caption (E2) — only when the source is known.
+                  form.endurance.elevationGainM != null &&
+                  form.endurance.elevationGainSource != null
+                    ? `elevation: ${ELEVATION_SOURCE_LABELS[form.endurance.elevationGainSource]}`
+                    : null,
                 ]
                   .filter(Boolean)
                   .join('  ·  ')}
@@ -834,36 +983,112 @@ export default function LogSessionScreen() {
               onChange={(style) => update({ climb: { ...form.climb, style } })}
             />
           </View>
-          {form.climb.sends.map((s) => (
-            <View
-              key={s.id}
-              style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}
-            >
-              <Field
-                label="Grade"
-                value={s.grade}
-                onChangeText={(grade) => mutateSend(s.id, { grade })}
-                placeholder="V4 / 6a"
-                keyboardType="default"
-                style={{ flex: 1 }}
-              />
-              <Field
-                label="Attempts"
-                value={s.attempts}
-                onChangeText={(attempts) => mutateSend(s.id, { attempts })}
-                placeholder="1"
-                keyboardType="number-pad"
-                style={{ width: 80 }}
-              />
-              <Checkbox
-                label="Sent"
-                checked={s.sent}
-                onToggle={() => mutateSend(s.id, { sent: !s.sent })}
-              />
-              <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
-            </View>
-          ))}
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Location (optional)</Text>
+            <ChipSelect
+              options={CLIMB_LOCATIONS}
+              value={form.climb.indoor === true ? 'indoor' : form.climb.indoor === false ? 'outdoor' : null}
+              onChange={(loc) => update({ climb: { ...form.climb, indoor: loc === 'indoor' } })}
+            />
+          </View>
+          {form.climb.sends.map((s) => {
+            const outdoorRoute =
+              form.climb.style === 'sport' ||
+              form.climb.style === 'trad' ||
+              form.climb.style === 'top-rope';
+            return (
+              <View key={s.id} style={{ gap: theme.spacing[2] }}>
+                <View style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
+                  <Field
+                    label="Grade"
+                    value={s.grade}
+                    onChangeText={(grade) => mutateSend(s.id, { grade })}
+                    placeholder={
+                      form.climb.style === 'boulder'
+                        ? 'V4'
+                        : outdoorRoute
+                          ? '5.10a / 6a'
+                          : 'V4 / 5.10a'
+                    }
+                    keyboardType="default"
+                    style={{ flex: 1 }}
+                  />
+                  <Field
+                    label="Attempts"
+                    value={s.attempts}
+                    onChangeText={(attempts) => mutateSend(s.id, { attempts })}
+                    placeholder="1"
+                    keyboardType="number-pad"
+                    style={{ width: 80 }}
+                  />
+                  {outdoorRoute ? (
+                    <Field
+                      label="Pitches"
+                      value={s.pitches}
+                      onChangeText={(pitches) => mutateSend(s.id, { pitches })}
+                      placeholder="1"
+                      keyboardType="number-pad"
+                      style={{ width: 80 }}
+                    />
+                  ) : null}
+                  <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
+                </View>
+                <Field
+                  label="Route (optional)"
+                  value={s.route}
+                  onChangeText={(route) => mutateSend(s.id, { route })}
+                  placeholder="Route or problem name"
+                  keyboardType="default"
+                />
+                <ChipSelect
+                  options={CLIMB_OUTCOMES}
+                  value={s.outcome}
+                  onChange={(outcome) => mutateSend(s.id, { outcome })}
+                />
+              </View>
+            );
+          })}
           <Button label="+ Add send" variant="secondary" onPress={addSend} />
+          <Field
+            label="Total problems (optional)"
+            value={form.climb.totalProblems}
+            onChangeText={(totalProblems) =>
+              update({ climb: { ...form.climb, totalProblems } })
+            }
+            placeholder="e.g. 15 — a high-volume shortcut instead of logging every send"
+            keyboardType="number-pad"
+          />
+          <View style={{ gap: theme.spacing[2] }}>
+            <Button
+              label={
+                cragPin.status === 'locating'
+                  ? 'Locating…'
+                  : form.climb.location
+                    ? 'Update crag pin'
+                    : 'Pin crag location'
+              }
+              variant="ghost"
+              onPress={pinCragLocation}
+              disabled={cragPin.status === 'locating'}
+            />
+            {form.climb.location ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Pinned at {form.climb.location.lat.toFixed(4)}, {form.climb.location.lng.toFixed(4)}
+              </Text>
+            ) : null}
+            {cragPin.status === 'denied' ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Location is off — the pin isn't required, or turn on location for the app in
+                Settings and try again.
+              </Text>
+            ) : null}
+            {(cragPin.status === 'unavailable' || cragPin.status === 'error') &&
+            cragPin.errorMessage ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                {cragPin.errorMessage}
+              </Text>
+            ) : null}
+          </View>
         </Card>
       ) : null}
 
@@ -1228,6 +1453,52 @@ export default function LogSessionScreen() {
           <Button label="+ Add pain entry" variant="secondary" onPress={addPainArea} />
         </View>
 
+        {gearChoices.length > 0 ? (
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Gear (optional)</Text>
+            {/* Multi-select — ChipSelect is single-choice, so these are plain
+                pressables in the same chip clothes. Tapping toggles membership
+                in form.gearIds; mileage is derived from these tags on read. */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[2] }}>
+              {gearChoices.map((g) => {
+                const selected = form.gearIds.includes(g.id);
+                return (
+                  <Pressable
+                    key={g.id}
+                    onPress={() =>
+                      update({
+                        gearIds: selected
+                          ? form.gearIds.filter((id) => id !== g.id)
+                          : [...form.gearIds, g.id],
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    style={{
+                      paddingVertical: theme.spacing[2],
+                      paddingHorizontal: theme.spacing[3],
+                      borderRadius: theme.radius.full,
+                      backgroundColor: selected
+                        ? theme.colors.sandstone
+                        : theme.colors.surfaceRaised,
+                      borderWidth: 1,
+                      borderColor: selected ? theme.colors.sandstone : theme.colors.border,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text
+                      variant="label"
+                      color={selected ? theme.colors.bg : theme.colors.textSecondary}
+                    >
+                      {g.name}
+                      {g.retiredOn != null ? ' (retired)' : ''}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
         <Field
           // Body P7a: no new schema — the practice surface just prompts the
           // EXISTING notes field more prominently ("how did it feel?"),

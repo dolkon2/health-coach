@@ -20,7 +20,30 @@ export type ISOInstant = string; // ISO 8601 UTC, e.g. '2026-06-25T14:32:00Z'
 export type IANATimezone = string; // e.g. 'America/Los_Angeles'
 export type LocalDate = string; // 'YYYY-MM-DD' in the user's local civil day
 
-export type GeoPoint = { lat: number; lng: number; tsSec: number; eleM?: number };
+/**
+ * Where a point's elevation reading came from. Precedence when merging:
+ * barometric > gps > dem — a dem correction never overwrites a barometric
+ * reading. Writers omit the field when eleM is absent (never 'none' on write);
+ * 'none' is reserved for a processing stage that explicitly declares no
+ * elevation was available.
+ */
+export type ElevationSource = 'barometric' | 'gps' | 'dem' | 'none';
+
+// Type-only: erased at compile, so the conditions.ts ↔ observation.ts
+// reference cycle has no runtime edge.
+import type { ConditionsSnapshot } from './conditions';
+import type { ClimbGradeSystem } from './climbGrade';
+import type { LatLng } from './geo';
+
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+  tsSec: number;
+  eleM?: number;
+  // Per-point elevation provenance (see ElevationSource). Absent when eleM is
+  // absent — a source label without a reading would be a fabricated value.
+  eleSource?: ElevationSource;
+};
 
 export type Tier = 1 | 2 | 3;
 
@@ -144,10 +167,15 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
+  // user-picked activity file, parsed client-side (wearable-ingestion-spec.md
+  // Addendum, Layer 2). `platform` tags which exporter a generic 'csv' came
+  // from (⚑ E-16 — climbing tick import, Pass E5); meaningless for
+  // gpx/fit/tcx. strong-csv/hevy-csv are Body P5's gym imports.
   | {
       type: 'fileimport';
-      format: 'gpx' | 'fit' | 'tcx' | 'strong-csv' | 'hevy-csv'; // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2); strong-csv/hevy-csv are Body P5
+      format: 'gpx' | 'fit' | 'tcx' | 'csv' | 'strong-csv' | 'hevy-csv';
       filename?: string;
+      platform?: string;
       // Strong/Hevy only: hash(date, workout name, exercise, set order,
       // weight, reps) per source row this session was built from — lets a
       // re-import of an overlapping export skip already-stored rows without
@@ -184,18 +212,89 @@ export type LiftingBlock = {
   }>;
 };
 
+/**
+ * Provenance of EnduranceBlock.elevationGainM. 'gps' = computed from a
+ * GPS-elevation track; 'manual' = typed by the user; 'barometric' is reserved
+ * for sources that declare it (e.g. HealthKit elevationAscended); 'dem' for a
+ * terrain-model correction. Written only alongside elevationGainM — never a
+ * label without a value.
+ */
+export type ElevationGainSource = 'barometric' | 'gps' | 'dem' | 'manual';
+
 export type EnduranceBlock = {
   distanceM?: number;
   elevationGainM?: number;
+  elevationGainSource?: ElevationGainSource; // absent when elevationGainM is absent
   avgHr?: number;
   energySystem: EnergySystem;
   gpsPath?: GeoPoint[]; // if synced from device
 };
 
+/**
+ * Send outcome — the granularity ladder's level-3 extension (⚑ E-13/E-14,
+ * dev-log/dimension-earth-build.md; the market convergently tracks this axis
+ * per climbing-apps-research.md, citing Mountain Project's two-column model).
+ * 'fell-hung' means the climber fell or weighted the rope/gear on this go — a
+ * worked attempt, NOT a clean send, same category as 'attempt'. Only
+ * onsight/flash/redpoint/pinkpoint are sends; use isSentOutcome() rather than
+ * re-deriving this, since it's easy to assume "not attempt" means "sent" and
+ * get fell-hung wrong (verified: that was this pass's own first draft).
+ * Optional and layered on top of `sent`, never a replacement for it — `sent`
+ * is the always-written coarse fact (did this send happen, yes/no) that stays
+ * meaningful even when the richer outcome is unknown (a pre-E4 row) or simply
+ * unspecified (the user didn't pick one). Never invent a specific `outcome`
+ * from `sent` alone — sent:true is compatible with four different outcomes;
+ * leave outcome absent rather than guess (constitution: never fabricate).
+ */
+export type ClimbOutcome = 'onsight' | 'flash' | 'redpoint' | 'pinkpoint' | 'fell-hung' | 'attempt';
+
+/** Which ClimbOutcome values represent a completed, clean send. */
+export function isSentOutcome(outcome: ClimbOutcome): boolean {
+  return outcome === 'onsight' || outcome === 'flash' || outcome === 'redpoint' || outcome === 'pinkpoint';
+}
+
 export type ClimbingBlock = {
-  style: 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
-  sends: Array<{ grade: string; attempts: number; sent: boolean; route?: string }>;
+  // ⚑ E-17: 'gym' was removed as a style value — it conflated two independent
+  // axes (climbing TECHNIQUE vs. WHERE it happened; Dylan's call, 2026-07-09).
+  // A style is a real technique choice at manual-entry time, so the form
+  // always has one; it's optional here only because an imported session can
+  // be genuinely ambiguous (an 8a.nu row whose grade notation doesn't say
+  // boulder or route) — absent, never a guessed value (constitution: never
+  // fabricate). See `indoor` below for the axis 'gym' used to smuggle in.
+  style?: 'sport' | 'trad' | 'boulder' | 'top-rope';
+  // Indoor vs outdoor — independent of style (you can boulder or sport climb
+  // either place). Optional: often not worth asking about, and unknown for
+  // most imports. Certain only where the source guarantees it (BoardLib rows
+  // are always a physical board, so the E5 importer sets this true).
+  indoor?: boolean;
+  sends: Array<{
+    grade: string;
+    // Which sandbag scale the grade matched at log time (core/climbGrade.ts),
+    // frozen so a later read never has to re-guess or silently reinterpret it
+    // under a different scale. Absent when the grade didn't parse against any
+    // known scale — the string above stays the tier-1 fact either way.
+    gradeSystem?: ClimbGradeSystem;
+    attempts: number;
+    sent: boolean;
+    outcome?: ClimbOutcome;
+    route?: string;
+    // Multipitch count for outdoor routes (⚑ E-17, Dylan's call). Meaningful
+    // for sport/trad/top-rope; boulder problems have none. Never defaulted to
+    // 1 — a single-pitch route just carries no pitches key, same "don't
+    // assert what wasn't declared" rule as everything else on a send.
+    pitches?: number;
+    // The original imported row, verbatim string cells, for audit (⚑ E-16 —
+    // "frozen verbatim" per climbing-apps-research.md's convergent import
+    // strategy). Import-only: never written by manual entry, absent on every
+    // hand-logged send.
+    raw?: Record<string, string>;
+  }>;
   totalProblems?: number; // for high-volume sessions where individual logging is impractical
+  // Crag pin (⚑ E-5): a device GPS fix taken at log time, not a Spot row —
+  // Spot is a cross-dimension entity (Water hangs gauges off it); building it
+  // unilaterally here would invite a merge collision. Promote pin -> Spot when
+  // Spot lands. `name` is free text the user may add; never reverse-geocoded.
+  location?: LatLng & { name?: string };
 };
 
 export type PaddlingBlock = {
@@ -321,6 +420,8 @@ export type SessionPayload = {
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward
+  gearIds?: string[]; // gear used (core/gear.ts quiver) — accrual derives from these tags on read, never a stored odometer
+  conditions?: ConditionsSnapshot; // external context frozen at log time, best-effort (⚑ E-2/⚑ E-3); absent when the fetch didn't land before save
 };
 
 export type FoodEntryPayload = {

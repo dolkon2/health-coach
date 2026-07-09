@@ -7,7 +7,7 @@
  * "add a new pattern" or "rename a style" is one edit, not two.
  */
 import type { ChipOption } from '@/components';
-import type { EnergySystem, MovementPattern, SwimStroke } from '@core/observation';
+import type { ClimbOutcome, EnergySystem, MovementPattern, SwimStroke } from '@core/observation';
 import type { ClimbStyle, SwimMode } from '@/lib/session';
 
 export const PATTERNS: ChipOption<MovementPattern>[] = [
@@ -30,11 +30,25 @@ export const ENERGY_SYSTEMS: ChipOption<EnergySystem>[] = [
 ];
 
 export const CLIMB_STYLES: ChipOption<ClimbStyle>[] = [
-  { value: 'gym', label: 'Gym' },
   { value: 'boulder', label: 'Boulder' },
   { value: 'sport', label: 'Sport' },
   { value: 'top-rope', label: 'Top rope' },
   { value: 'trad', label: 'Trad' },
+];
+
+// Independent of style — you can boulder or sport climb either place (⚑ E-17).
+export const CLIMB_LOCATIONS: ChipOption<'indoor' | 'outdoor'>[] = [
+  { value: 'indoor', label: 'Indoor' },
+  { value: 'outdoor', label: 'Outdoor' },
+];
+
+export const CLIMB_OUTCOMES: ChipOption<ClimbOutcome>[] = [
+  { value: 'attempt', label: 'Attempt' },
+  { value: 'redpoint', label: 'Redpoint' },
+  { value: 'flash', label: 'Flash' },
+  { value: 'onsight', label: 'Onsight' },
+  { value: 'pinkpoint', label: 'Pinkpoint' },
+  { value: 'fell-hung', label: 'Fell/hung' },
 ];
 
 export const SWIM_MODES: ChipOption<SwimMode>[] = [

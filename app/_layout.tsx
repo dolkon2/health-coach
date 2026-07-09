@@ -87,6 +87,10 @@ function ThemedStack() {
         name="body-profile"
         options={{ title: 'Body stats', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="gear"
+        options={{ title: 'Gear', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

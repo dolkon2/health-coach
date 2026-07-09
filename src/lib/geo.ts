@@ -8,25 +8,18 @@
  * truth and everything derived from it is honest arithmetic on the points.
  */
 import type { GeoPoint } from '@core/observation';
+import { haversineM } from '@core/geo';
 
-export const EARTH_RADIUS_M = 6371000;
+// The haversine itself moved to core (E3: the conditions clients need it and
+// core can't import from the app). Re-exported so every existing call site —
+// gpsTrack, gpxImport, splits, elevationProfile — keeps the single copy.
+export { EARTH_RADIUS_M, haversineM } from '@core/geo';
 
 /** Above this, a stored path is evenly thinned to ~half the cap. Callers compute
  * stats on the FULL set first; only the stored geometry is thinned. Typical
  * recorded tracks (smart-recording watches, Slopes, a phone at 2 s cadence) are
  * 1–4k points. */
 export const MAX_STORED_POINTS = 4000;
-
-/** Great-circle distance between two points, in metres. */
-export function haversineM(a: GeoPoint, b: GeoPoint): number {
-  const rad = Math.PI / 180;
-  const dLat = (b.lat - a.lat) * rad;
-  const dLng = (b.lng - a.lng) * rad;
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(s)));
-}
 
 /** Hysteresis elevation gain: only counts a climb once it clears the threshold,
  * so GPS elevation jitter doesn't inflate the number. Absent (undefined) when no

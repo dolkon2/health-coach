@@ -17,6 +17,8 @@
 import type {
   BodySide,
   BreathworkBlock,
+  ClimbOutcome,
+  ElevationGainSource,
   EnergySystem,
   LiftingBlock,
   GeoPoint,
@@ -29,6 +31,7 @@ import type {
   SwimmingBlock,
   SwimStroke,
 } from '@core/observation';
+import { isSentOutcome } from '@core/observation';
 import {
   displayToKg,
   displayToMeters,
@@ -39,12 +42,16 @@ import {
 } from './units';
 import { activityById, type Surface } from './activity';
 import { deriveSessionDuration } from '@core/sessionTiming';
+import type { GearCategory } from '@core/gear';
+import type { ConditionsSnapshot } from '@core/conditions';
+import { parseClimbGrade } from '@core/climbGrade';
+import type { LatLng } from '@core/geo';
 
 // The legacy modality set the Today quick-log picker and older sessions use
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
 // maps either onto a logging surface.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
-export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope';
 export type SwimMode = 'pool' | 'open'; // pool: laps × length; open: estimated distance
 
 // ─── Form state ──────────────────────────────────────────────────────────────
@@ -77,7 +84,21 @@ export type SendDraft = {
   id: string;
   grade: string;
   attempts: string;
+  // Always meaningful: did this send happen, yes/no. The old checkbox fact,
+  // unchanged — a new row defaults false (unconfirmed), same as before E4.
   sent: boolean;
+  // Richer than sent/not-sent (⚑ E-13/E-14, the granularity ladder's level-3
+  // extension). null = not specified — a fresh row the user hasn't picked a
+  // chip for yet, or a pre-E4 row with no richer record than `sent`. NEVER
+  // backfilled with a guessed member (constitution: never fabricate) — build()
+  // and the inverse both treat null as "defer to `sent`", not "assume redpoint".
+  outcome: ClimbOutcome | null;
+  route: string; // optional per-climb name; '' when not set
+  pitches: string; // multipitch count (⚑ E-17); '' when not set, meaningful for sport/trad/top-rope only
+  // The imported row this send came from (⚑ E-16), if any. Never set by the
+  // UI — carried through inverse -> build untouched so editing an unrelated
+  // field on an imported session can't silently drop its audit trail.
+  raw?: Record<string, string>;
 };
 
 // A body area worked in a practice session (mobility). Tightness is an optional
@@ -115,6 +136,9 @@ export type SessionForm = {
   durationMin: string;
   perceivedEffort: number | null; // 1–10, optional
   notes: string;
+  // Gear tagged on this session (quiver, E1). Always an array in the form;
+  // written to the payload only when non-empty. Never gates saving.
+  gearIds: string[];
   gym: { exercises: ExerciseDraft[] };
   endurance: {
     distance: string;
@@ -125,15 +149,44 @@ export type SessionForm = {
     // fidelity to the device-recorded level, and dates the session at the
     // file's start time (occurredAt = when it happened, loggedAt = now).
     gpsPath?: GeoPoint[];
+    // Prefilled by a GPX import / live capture (source 'gps') or typed by the
+    // user (source 'manual', via applyElevationGainEdit). The two travel
+    // together: no gain, no source label.
     elevationGainM?: number;
+    elevationGainSource?: ElevationGainSource;
     importMeta?: { format: 'gpx'; filename?: string; startTime?: string };
     // Attached by an in-app live GPS recording (lib/gpsTrack). Present -> build()
     // writes the same gpsPath/elevation, keeps the source `manual` (a recording
     // isn't a file), raises fidelity to the live-phone level (0.7), and dates the
     // session at the recording's start (occurredAt = when it happened).
     captureMeta?: { startTime: string };
+    // Earth conditions frozen when a route attached (freezeEarthConditions,
+    // best-effort ⚑ E-2): rides the form like captureMeta/importMeta and is
+    // written to payload.conditions at build. A save that lands before the
+    // fetch resolves simply has none. Never carried across a route change —
+    // enduranceWithRoute rebuilds the slice without it (the old route's sky
+    // is not the new route's sky).
+    conditionsMeta?: ConditionsSnapshot;
   };
-  climb: { style: ClimbStyle; sends: SendDraft[] };
+  climb: {
+    // null = not chosen. emptySessionForm() pre-selects 'boulder' for a BRAND
+    // NEW entry (an editable UI starting point, same as endurance's default
+    // energySystem) — but editing an existing session whose style was never
+    // recorded (an ambiguous import, ⚑ E-17) must show null, not a guess,
+    // or resaving without touching the chip would silently write a
+    // fabricated style over a genuine absence (the same bug class E4's
+    // review caught for `outcome`).
+    style: ClimbStyle | null;
+    // Indoor vs outdoor (⚑ E-17) — independent of style; null = not specified,
+    // never defaulted. Manual entry always has a definite style but often
+    // genuinely doesn't need to say where.
+    indoor: boolean | null;
+    sends: SendDraft[];
+    totalProblems: string; // raw count, alternative/supplement to enumerating every send
+    // Crag pin (⚑ E-5): a device fix captured via useCragPin, or absent — never
+    // reverse-geocoded, `name` is free text the user may add by hand.
+    location?: LatLng & { name?: string };
+  };
   swim: {
     mode: SwimMode;
     poolLengthM: string; // pool length in metres (pool mode)
@@ -211,9 +264,10 @@ export function emptySessionForm(): SessionForm {
     durationMin: '',
     perceivedEffort: null,
     notes: '',
+    gearIds: [],
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
-    climb: { style: 'gym', sends: [] },
+    climb: { style: 'boulder', indoor: null, sends: [], totalProblems: '' },
     swim: {
       mode: 'pool',
       poolLengthM: '',
@@ -329,6 +383,85 @@ function bodyAreaFilled(a: BodyAreaDraft): boolean {
  *  a deliberate pain-free reading, distinct from an untouched draft. */
 function painAreaFilled(a: PainAreaDraft): boolean {
   return a.zoneId.trim() !== '' && a.pain.trim() !== '';
+}
+
+/**
+ * The gear tags that survive switching the form to an activity offering
+ * `allowedCategories`. The chip row only renders gear in those categories, so
+ * any other tag would be invisible on screen yet still written to the payload
+ * — the session would silently accrue distance/days to another sport's gear
+ * (E1, ⚑ E-4). Ids with no record in `gear` are dropped for the same reason:
+ * no chip, no way to untag. An activity with no categories keeps no tags.
+ */
+export function pruneGearIdsForCategories(
+  gearIds: string[],
+  gear: ReadonlyArray<{ id: string; category: GearCategory }>,
+  allowedCategories: readonly GearCategory[] | undefined
+): string[] {
+  if (!allowedCategories || allowedCategories.length === 0) return [];
+  return gearIds.filter((id) => {
+    const g = gear.find((x) => x.id === id);
+    return g != null && allowedCategories.includes(g.category);
+  });
+}
+
+/**
+ * The endurance slice after the user types in the elevation-gain field — the
+ * pure reducer behind the input so the honesty rule is testable without React.
+ * Any direct edit is the user's number, so the source becomes 'manual' — even
+ * if a route prefilled the field first (they overrode the computed value).
+ * Cleared (or unparsable) → BOTH keys removed: no value, no source label.
+ */
+export function applyElevationGainEdit(
+  endurance: SessionForm['endurance'],
+  text: string
+): SessionForm['endurance'] {
+  const { elevationGainM: _gain, elevationGainSource: _source, ...rest } = endurance;
+  const n = num(text);
+  // A negative "gain" is meaningless (gain is a non-negative accumulator) —
+  // treated like an unparsable entry. 0 is a real declaration: a flat session
+  // (null ≠ 0; house precedent: weight 0 = bodyweight).
+  if (n === null || n < 0) return rest;
+  return { ...rest, elevationGainM: n, elevationGainSource: 'manual' };
+}
+
+/**
+ * The endurance slice after a route lands on the form — GPX file import or
+ * live capture. Rebuilt, never spread, so a prior route's provenance can't
+ * linger on new geometry: an earlier import's 'gps'-labeled gain surviving
+ * onto an <ele>-less planned route (or a stale captureMeta riding under a
+ * fresh importMeta) would be a fabricated provenance claim at save (⚑ E-9).
+ * Only the hand-entered fields (distance/avgHr/energySystem) carry over;
+ * elevation keys come exclusively from the incoming route, and the two still
+ * travel together — no gain, no source label.
+ */
+export function enduranceWithRoute(
+  prev: SessionForm['endurance'],
+  route: {
+    gpsPath: GeoPoint[];
+    distance?: string; // display-units string, converted by the caller; absent → keep the typed one
+    elevationGainM?: number;
+    elevationGainSource?: ElevationGainSource;
+  },
+  meta:
+    | { importMeta: NonNullable<SessionForm['endurance']['importMeta']> }
+    | { captureMeta: NonNullable<SessionForm['endurance']['captureMeta']> }
+): SessionForm['endurance'] {
+  return {
+    distance: route.distance ?? prev.distance,
+    avgHr: prev.avgHr,
+    energySystem: prev.energySystem,
+    gpsPath: route.gpsPath,
+    ...(route.elevationGainM != null
+      ? {
+          elevationGainM: route.elevationGainM,
+          ...(route.elevationGainSource != null
+            ? { elevationGainSource: route.elevationGainSource }
+            : {}),
+        }
+      : {}),
+    ...meta,
+  };
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
@@ -473,6 +606,9 @@ export function buildSessionObservation(
     modality,
     ...(form.activity ? { activity: form.activity } : {}),
     ...(form.perceivedEffort != null ? { perceivedEffort: form.perceivedEffort } : {}),
+    // Written only when the user tagged gear — an untagged session carries no
+    // gearIds key at all (absent, not []), matching the other optional fields.
+    ...(form.gearIds.length > 0 ? { gearIds: [...form.gearIds] } : {}),
   };
 
   // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
@@ -497,17 +633,34 @@ export function buildSessionObservation(
     const avgHr = num(form.endurance.avgHr);
     const gpsPath = form.endurance.gpsPath;
     const hasRoute = gpsPath != null && gpsPath.length >= 2;
+    const gain = form.endurance.elevationGainM;
+    const gainSource = form.endurance.elevationGainSource;
+    // A positive gain always writes; an explicit 0 writes only when it carries
+    // a source — a measured flat track ('gps') or the user's typed zero
+    // ('manual') is a declared fact the form already displays, not absence
+    // (null ≠ 0). A sourceless 0, or anything negative, never lands.
+    const gainEntry =
+      gain != null && (gain > 0 || (gain === 0 && gainSource != null))
+        ? {
+            elevationGainM: Math.round(gain),
+            // Source rides only with a written gain — a label alone would fabricate.
+            ...(gainSource != null ? { elevationGainSource: gainSource } : {}),
+          }
+        : {};
     payload.endurance = {
       energySystem: form.endurance.energySystem,
       ...(distance !== null && distance > 0
         ? { distanceM: displayToMeters(distance, ctx.distanceUnit) }
         : {}),
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
-      ...(form.endurance.elevationGainM != null && form.endurance.elevationGainM > 0
-        ? { elevationGainM: Math.round(form.endurance.elevationGainM) }
-        : {}),
+      ...gainEntry,
       ...(hasRoute ? { gpsPath } : {}),
     };
+    // Frozen conditions ride only with the route they were fetched for —
+    // tier-3 context sitting BESIDE the tier-1 session, never gating it.
+    if (hasRoute && form.endurance.conditionsMeta) {
+      payload.conditions = form.endurance.conditionsMeta;
+    }
     // A device-recorded trace imported from a file is measured, not guessed:
     // 0.9 — below a live watch import (~0.95, Phase 3), well above manual 0.5.
     if (hasRoute && form.endurance.importMeta) fidelity = 0.9;
@@ -515,13 +668,37 @@ export function buildSessionObservation(
     // and drops indoors, so 0.7 — above a manual guess (0.5), below a file import.
     else if (hasRoute && form.endurance.captureMeta) fidelity = 0.7;
   } else if (surface === 'climbing') {
+    const totalProblems = num(form.climb.totalProblems);
     payload.climbing = {
-      style: form.climb.style,
-      sends: form.climb.sends.filter(sendFilled).map((s) => ({
-        grade: s.grade.trim(),
-        attempts: Math.max(1, Math.round(num(s.attempts) ?? 1)),
-        sent: s.sent,
-      })),
+      ...(form.climb.style ? { style: form.climb.style } : {}),
+      ...(form.climb.indoor != null ? { indoor: form.climb.indoor } : {}),
+      sends: form.climb.sends.filter(sendFilled).map((s) => {
+        const grade = s.grade.trim();
+        const route = s.route.trim();
+        // Best-effort scale match against sandbag, biased by style (⚑ E-13/
+        // E-14). Absent when nothing matches — the grade string above stays
+        // the tier-1 fact regardless.
+        const gradeSystem = parseClimbGrade(grade, form.climb.style ?? undefined);
+        // outcome absent (never chosen, or a pre-E4 row) -> defer to the
+        // coarse `sent` fact rather than guess which of four send styles it
+        // was (constitution: never fabricate a specific value from a boolean).
+        const sent = s.outcome != null ? isSentOutcome(s.outcome) : s.sent;
+        const pitches = num(s.pitches);
+        return {
+          grade,
+          ...(gradeSystem ? { gradeSystem } : {}),
+          attempts: Math.max(1, Math.round(num(s.attempts) ?? 1)),
+          sent,
+          ...(s.outcome != null ? { outcome: s.outcome } : {}),
+          ...(route ? { route } : {}),
+          ...(pitches !== null && pitches > 0 ? { pitches: Math.round(pitches) } : {}),
+          ...(s.raw ? { raw: s.raw } : {}),
+        };
+      }),
+      ...(totalProblems !== null && totalProblems > 0
+        ? { totalProblems: Math.round(totalProblems) }
+        : {}),
+      ...(form.climb.location ? { location: form.climb.location } : {}),
     };
   } else if (surface === 'swim') {
     payload.swimming = buildSwimming(form.swim, ctx.distanceUnit);
@@ -698,6 +875,7 @@ export function sessionFormFromObservation(
     durationMin: numStr(p.durationMin, 1),
     perceivedEffort: p.perceivedEffort ?? null,
     notes: obs.notes ?? '',
+    gearIds: p.gearIds ?? [], // absent on the payload hydrates to the form's empty default
   };
 
   // Rebuild from whichever block is populated (not the coarse modality) so an
@@ -748,7 +926,14 @@ export function sessionFormFromObservation(
       ...(p.endurance.elevationGainM != null
         ? { elevationGainM: p.endurance.elevationGainM }
         : {}),
+      // Pre-E2 rows carry no source — the key stays absent, never defaulted.
+      ...(p.endurance.elevationGainSource != null
+        ? { elevationGainSource: p.endurance.elevationGainSource }
+        : {}),
       ...(p.endurance.gpsPath ? { gpsPath: p.endurance.gpsPath } : {}),
+      // Restore frozen conditions so an edit round-trips them (absent → absent;
+      // pre-E3 rows carry none and hydrate with the key absent, never {}).
+      ...(p.conditions ? { conditionsMeta: p.conditions } : {}),
       // Restore import provenance so an edit round-trips it (the edit path also
       // preserves the original source/fidelity at save; this keeps build() honest).
       ...(obs.source.type === 'fileimport'
@@ -770,13 +955,28 @@ export function sessionFormFromObservation(
 
   if (p.climbing) {
     form.climb = {
-      style: p.climbing.style as ClimbStyle,
+      // Never guessed (⚑ E-17) — an ambiguous import may genuinely have no
+      // style; null shows no chip selected rather than fabricating one that
+      // becomes a permanent "fact" the moment the session is next resaved.
+      style: p.climbing.style ?? null,
+      indoor: p.climbing.indoor ?? null,
       sends: p.climbing.sends.map((s) => ({
         id: idFactory(),
         grade: s.grade,
         attempts: String(s.attempts),
         sent: s.sent,
+        // Pre-E4 rows (and any row the user simply didn't pick a chip for)
+        // carry sent but no outcome. Never guessed — sent:true alone can't
+        // tell onsight from flash from redpoint from pinkpoint, so this stays
+        // null rather than manufacturing a specific answer that would become
+        // a permanent "fact" the moment the session is next resaved.
+        outcome: s.outcome ?? null,
+        route: s.route ?? '',
+        pitches: s.pitches != null ? String(s.pitches) : '',
+        ...(s.raw ? { raw: s.raw } : {}),
       })),
+      totalProblems: p.climbing.totalProblems != null ? String(p.climbing.totalProblems) : '',
+      ...(p.climbing.location ? { location: p.climbing.location } : {}),
     };
   }
 

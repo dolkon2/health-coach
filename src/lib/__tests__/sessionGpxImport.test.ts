@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import type { GeoPoint } from '@core/observation';
 import {
   buildSessionObservation,
+  enduranceWithRoute,
   sessionFormFromObservation,
   emptySessionForm,
   type SessionForm,
@@ -104,5 +105,79 @@ describe('GPX-imported session build', () => {
     expect(obs.payload.endurance?.gpsPath).toBeUndefined();
     expect(obs.source).toEqual({ type: 'manual' });
     expect(obs.fidelity).toBe(0.5);
+  });
+});
+
+/**
+ * The Proof — enduranceWithRoute rebuilds the slice, never spreads it, so a
+ * prior route's provenance can't linger on new geometry:
+ *   1. Importing an <ele>-less route over a form holding a 'gps'-labeled gain
+ *      drops BOTH stale keys — no fabricated "GPS-computed" gain on a file
+ *      that contains zero elevation data (⚑ E-9).
+ *   2. capture → import leaves no stale captureMeta beside the new importMeta
+ *      (and vice versa).
+ *   3. Hand-entered fields (avgHr/energySystem, distance when the route has
+ *      none) survive the swap.
+ */
+describe('enduranceWithRoute (route-attach reducer)', () => {
+  const stale: SessionForm['endurance'] = {
+    distance: '4.2',
+    avgHr: '150',
+    energySystem: 'aerobic',
+    gpsPath: PATH,
+    elevationGainM: 500,
+    elevationGainSource: 'gps',
+    importMeta: { format: 'gpx', filename: 'first.gpx', startTime: '2026-07-01T15:00:00.000Z' },
+  };
+  const NEW_PATH: GeoPoint[] = [
+    { lat: 44.0, lng: -121.0, tsSec: 0 },
+    { lat: 44.01, lng: -121.0, tsSec: 0 },
+  ];
+
+  it('a gain-less second import drops the previous gain AND its gps label', () => {
+    const next = enduranceWithRoute(stale, { gpsPath: NEW_PATH }, {
+      importMeta: { format: 'gpx', filename: 'planned.gpx' },
+    });
+    expect(next.gpsPath).toBe(NEW_PATH);
+    expect('elevationGainM' in next).toBe(false);
+    expect('elevationGainSource' in next).toBe(false);
+    expect(next.importMeta).toEqual({ format: 'gpx', filename: 'planned.gpx' });
+    // Hand-entered fields survive; the typed distance stays when the route has none.
+    expect(next.avgHr).toBe('150');
+    expect(next.energySystem).toBe('aerobic');
+    expect(next.distance).toBe('4.2');
+  });
+
+  it('a gain WITH a label lands both keys; a caller-supplied distance replaces the old', () => {
+    const next = enduranceWithRoute(
+      stale,
+      { gpsPath: NEW_PATH, distance: '7.5', elevationGainM: 120, elevationGainSource: 'gps' },
+      { importMeta: { format: 'gpx' } }
+    );
+    expect(next.elevationGainM).toBe(120);
+    expect(next.elevationGainSource).toBe('gps');
+    expect(next.distance).toBe('7.5');
+  });
+
+  it('a gain without a label (planned <rte> file) lands the value alone', () => {
+    const next = enduranceWithRoute(stale, { gpsPath: NEW_PATH, elevationGainM: 80 }, {
+      importMeta: { format: 'gpx' },
+    });
+    expect(next.elevationGainM).toBe(80);
+    expect('elevationGainSource' in next).toBe(false);
+  });
+
+  it('capture over a prior import carries no stale importMeta (and import drops captureMeta)', () => {
+    const captured = enduranceWithRoute(stale, { gpsPath: NEW_PATH }, {
+      captureMeta: { startTime: '2026-07-01T18:00:00.000Z' },
+    });
+    expect('importMeta' in captured).toBe(false);
+    expect(captured.captureMeta?.startTime).toBe('2026-07-01T18:00:00.000Z');
+
+    const reimported = enduranceWithRoute(captured, { gpsPath: PATH }, {
+      importMeta: { format: 'gpx', filename: 'second.gpx' },
+    });
+    expect('captureMeta' in reimported).toBe(false);
+    expect(reimported.importMeta?.filename).toBe('second.gpx');
   });
 });

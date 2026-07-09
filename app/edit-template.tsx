@@ -183,7 +183,7 @@ function emptyTemplateForm(): TemplateForm {
     gym: { exercises: [] },
     gps: { targetDistance: '', energySystem: 'aerobic', notes: '' },
     practice: { targetDurationMin: '', style: '', notes: '' },
-    climbing: { style: 'gym', targetGradeRange: '', targetSends: '', notes: '' },
+    climbing: { style: 'boulder', targetGradeRange: '', targetSends: '', notes: '' },
     swim: {
       mode: 'pool',
       poolLengthM: '',
