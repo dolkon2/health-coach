@@ -17,16 +17,20 @@
  *   gym session on a day a later BoardLib import also covers, since both
  *   would collide on the same date key. Scoping to (platform, date) fixes
  *   that while still making a same-file re-import a no-op.
- * - BoardLib sessions are always tagged 'boulder' — Aurora/Moon boards are
- *   exclusively bouldering apparatus, a certain fact, not an inference.
+ * - BoardLib sessions are always tagged style 'boulder' and indoor:true —
+ *   Aurora/Moon boards are exclusively bouldering apparatus in a fixed
+ *   location, both certain facts, not inferences.
  * - 8a.nu mixes route and boulder climbing in one export with no reliable
  *   per-row discipline column (research: "gym + outdoor in one logbook").
  *   Style is inferred per date-group by a majority vote of which grade scale
  *   each row's grade string matches with NO bias (core/climbGrade.ts tries
  *   boulder scales first when unbiased) — a genuine tie (including 0-0, when
- *   nothing is unambiguous) resolves to 'gym', the same style the manual log
- *   form and climbGrade.ts already use for "mixed/unknown discipline" rather
- *   than fabricating a confident 'sport' label the data doesn't support.
+ *   nothing is unambiguous) leaves style absent (⚑ E-17: 'gym' was this
+ *   app's old name for "mixed/unknown discipline"; removed as a style value
+ *   entirely, so the honest fallback here is now omitting the field, not a
+ *   confident 'sport' guess the data doesn't support). indoor is never set
+ *   for 8a.nu — the export covers both indoor gym and outdoor crag ascents
+ *   with nothing to tell them apart.
  */
 import type { ClimbingBlock, ObservationOf } from '@core/observation';
 import { parseClimbGrade } from '@core/climbGrade';
@@ -65,7 +69,7 @@ function inferSessionStyle(sends: ImportedSend[]): ClimbingBlock['style'] {
   }
   if (boulderVotes > routeVotes) return 'boulder';
   if (routeVotes > boulderVotes) return 'sport';
-  return 'gym'; // genuine tie (including 0-0) — honestly "mixed/unknown", not a guess
+  return undefined; // genuine tie (including 0-0) — honestly unknown, not a guess
 }
 
 export type BuildImportedSessionsContext = {
@@ -129,7 +133,11 @@ export function buildImportedClimbingSessions(
         kind: 'session',
         activity: 'climb',
         modality: 'climb',
-        climbing: { style, sends },
+        climbing: {
+          ...(style ? { style } : {}),
+          ...(platform === 'boardlib' ? { indoor: true } : {}),
+          sends,
+        },
       },
     });
   }

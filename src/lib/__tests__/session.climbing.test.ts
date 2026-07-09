@@ -11,10 +11,12 @@
  *   3. gradeSystem is tagged from sandbag (core/climbGrade.ts) when the grade
  *      parses, styled by the session's climbing style; a freeform/unparseable
  *      grade string is preserved with no gradeSystem key at all.
- *   4. route/totalProblems/location are omitted when blank/absent — never a
- *      fabricated empty string or zero.
- *   5. Round-trips through build -> invert -> rebuild unchanged.
- *   6. A pre-E4 row (sent only, no outcome/gradeSystem/route/totalProblems/
+ *   4. route/pitches/totalProblems/location are omitted when blank/absent —
+ *      never a fabricated empty string or zero.
+ *   5. style/indoor (⚑ E-17) are written only when the form has a definite
+ *      value — never guessed, same "never fabricate" discipline as outcome.
+ *   6. Round-trips through build -> invert -> rebuild unchanged.
+ *   7. A pre-E4 row (sent only, no outcome/gradeSystem/route/totalProblems/
  *      location) hydrates with sent preserved verbatim, outcome left null —
  *      never invented — and every new field absent.
  */
@@ -56,10 +58,10 @@ describe('climbing build — outcome drives sent, fell-hung is NOT a send', () =
     const f = climbForm({
       style: 'boulder',
       sends: [
-        { id: 'a', grade: 'V4', attempts: '3', sent: false, outcome: 'attempt', route: '' },
-        { id: 'b', grade: 'V4', attempts: '2', sent: false, outcome: 'fell-hung', route: '' },
-        { id: 'c', grade: 'V4', attempts: '1', sent: false, outcome: 'flash', route: '' },
-        { id: 'd', grade: 'V4', attempts: '2', sent: false, outcome: 'redpoint', route: '' },
+        { id: 'a', grade: 'V4', attempts: '3', sent: false, outcome: 'attempt', route: '', pitches: '' },
+        { id: 'b', grade: 'V4', attempts: '2', sent: false, outcome: 'fell-hung', route: '', pitches: '' },
+        { id: 'c', grade: 'V4', attempts: '1', sent: false, outcome: 'flash', route: '', pitches: '' },
+        { id: 'd', grade: 'V4', attempts: '2', sent: false, outcome: 'redpoint', route: '', pitches: '' },
       ],
     });
     const obs = buildSessionObservation(f, CTX);
@@ -75,8 +77,8 @@ describe('climbing build — outcome drives sent, fell-hung is NOT a send', () =
     const f = climbForm({
       style: 'boulder',
       sends: [
-        { id: 'a', grade: 'V4', attempts: '1', sent: true, outcome: null, route: '' },
-        { id: 'b', grade: 'V5', attempts: '3', sent: false, outcome: null, route: '' },
+        { id: 'a', grade: 'V4', attempts: '1', sent: true, outcome: null, route: '', pitches: '' },
+        { id: 'b', grade: 'V5', attempts: '3', sent: false, outcome: null, route: '', pitches: '' },
       ],
     });
     const obs = buildSessionObservation(f, CTX);
@@ -92,7 +94,7 @@ describe('climbing build — gradeSystem tagging', () => {
   it('tags a recognized grade with the scale it matched, styled by session style', () => {
     const f = climbForm({
       style: 'boulder',
-      sends: [{ id: 'a', grade: 'V4', attempts: '1', sent: true, outcome: 'redpoint', route: '' }],
+      sends: [{ id: 'a', grade: 'V4', attempts: '1', sent: true, outcome: 'redpoint', route: '', pitches: '' }],
     });
     const obs = buildSessionObservation(f, CTX);
     expect(obs.payload.climbing?.sends[0]).toMatchObject({ grade: 'V4', gradeSystem: 'vscale' });
@@ -102,14 +104,14 @@ describe('climbing build — gradeSystem tagging', () => {
     const boulder = buildSessionObservation(
       climbForm({
         style: 'boulder',
-        sends: [{ id: 'a', grade: '6a', attempts: '1', sent: true, outcome: 'redpoint', route: '' }],
+        sends: [{ id: 'a', grade: '6a', attempts: '1', sent: true, outcome: 'redpoint', route: '', pitches: '' }],
       }),
       CTX
     );
     const sport = buildSessionObservation(
       climbForm({
         style: 'sport',
-        sends: [{ id: 'a', grade: '6a', attempts: '1', sent: true, outcome: 'redpoint', route: '' }],
+        sends: [{ id: 'a', grade: '6a', attempts: '1', sent: true, outcome: 'redpoint', route: '', pitches: '' }],
       }),
       CTX
     );
@@ -119,9 +121,17 @@ describe('climbing build — gradeSystem tagging', () => {
 
   it('leaves gradeSystem absent for a grade that matches no known scale — the string stays the fact', () => {
     const f = climbForm({
-      style: 'gym',
+      style: null, // no style chosen -> unbiased parse, same as any ambiguous case
       sends: [
-        { id: 'a', grade: 'purple circuit', attempts: '1', sent: true, outcome: 'redpoint', route: '' },
+        {
+          id: 'a',
+          grade: 'purple circuit',
+          attempts: '1',
+          sent: true,
+          outcome: 'redpoint',
+          route: '',
+          pitches: '',
+        },
       ],
     });
     const obs = buildSessionObservation(f, CTX);
@@ -131,12 +141,12 @@ describe('climbing build — gradeSystem tagging', () => {
   });
 });
 
-describe('climbing build — route/totalProblems/location omitted when blank', () => {
+describe('climbing build — route/pitches/totalProblems/location omitted when blank', () => {
   it('omits route when blank, writes it when filled', () => {
     const f = climbForm({
       style: 'sport',
       sends: [
-        { id: 'a', grade: '5.9', attempts: '1', sent: true, outcome: 'onsight', route: '' },
+        { id: 'a', grade: '5.9', attempts: '1', sent: true, outcome: 'onsight', route: '', pitches: '' },
         {
           id: 'b',
           grade: '5.10a',
@@ -144,6 +154,7 @@ describe('climbing build — route/totalProblems/location omitted when blank', (
           sent: true,
           outcome: 'redpoint',
           route: 'Center Route',
+          pitches: '',
         },
       ],
     });
@@ -151,6 +162,25 @@ describe('climbing build — route/totalProblems/location omitted when blank', (
     const sends = obs.payload.climbing?.sends ?? [];
     expect('route' in sends[0]).toBe(false);
     expect(sends[1].route).toBe('Center Route');
+  });
+
+  it('omits pitches when blank or zero, writes it when positive', () => {
+    const base = { id: 'a', grade: '5.9', attempts: '1', sent: true, outcome: 'onsight' as const, route: '' };
+    const blank = buildSessionObservation(
+      climbForm({ style: 'trad', sends: [{ ...base, pitches: '' }] }),
+      CTX
+    );
+    const zero = buildSessionObservation(
+      climbForm({ style: 'trad', sends: [{ ...base, pitches: '0' }] }),
+      CTX
+    );
+    const filled = buildSessionObservation(
+      climbForm({ style: 'trad', sends: [{ ...base, pitches: '4' }] }),
+      CTX
+    );
+    expect('pitches' in blank.payload.climbing!.sends[0]).toBe(false);
+    expect('pitches' in zero.payload.climbing!.sends[0]).toBe(false);
+    expect(filled.payload.climbing?.sends[0].pitches).toBe(4);
   });
 
   it('omits totalProblems when blank or zero, writes it when positive', () => {
@@ -173,10 +203,29 @@ describe('climbing build — route/totalProblems/location omitted when blank', (
   });
 });
 
+describe('climbing build — style/indoor (⚑ E-17) written only when definite', () => {
+  it('omits style when the form has none chosen (null), writes it when chosen', () => {
+    const noStyle = buildSessionObservation(climbForm({ style: null }), CTX);
+    const chosen = buildSessionObservation(climbForm({ style: 'trad' }), CTX);
+    expect('style' in (noStyle.payload.climbing ?? {})).toBe(false);
+    expect(chosen.payload.climbing?.style).toBe('trad');
+  });
+
+  it('omits indoor when unspecified (null), writes it true or false when chosen', () => {
+    const unspecified = buildSessionObservation(climbForm({ indoor: null }), CTX);
+    const indoor = buildSessionObservation(climbForm({ indoor: true }), CTX);
+    const outdoor = buildSessionObservation(climbForm({ indoor: false }), CTX);
+    expect('indoor' in (unspecified.payload.climbing ?? {})).toBe(false);
+    expect(indoor.payload.climbing?.indoor).toBe(true);
+    expect(outdoor.payload.climbing?.indoor).toBe(false);
+  });
+});
+
 describe('climbing round-trip', () => {
   it('build -> invert -> rebuild is unchanged', () => {
     const f = climbForm({
       style: 'trad',
+      indoor: false,
       sends: [
         {
           id: 'a',
@@ -185,6 +234,7 @@ describe('climbing round-trip', () => {
           sent: true,
           outcome: 'pinkpoint',
           route: 'The Nose',
+          pitches: '3',
         },
       ],
       totalProblems: '',
@@ -192,12 +242,15 @@ describe('climbing round-trip', () => {
     });
     const obs = buildSessionObservation(f, CTX);
     const restored = invert(obs);
+    expect(restored.climb.style).toBe('trad');
+    expect(restored.climb.indoor).toBe(false);
     expect(restored.climb.sends[0]).toMatchObject({
       grade: '5.9',
       attempts: '2',
       sent: true,
       outcome: 'pinkpoint',
       route: 'The Nose',
+      pitches: '3',
     });
     expect(restored.climb.location).toEqual({ lat: 45.5, lng: -121.7, name: 'Smith Rock' });
 
@@ -263,5 +316,31 @@ describe('climbing inverse — pre-E4 row back-compat', () => {
     const send = rebuilt.payload.climbing?.sends[0];
     expect(send?.sent).toBe(true);
     expect('outcome' in (send ?? {})).toBe(false);
+  });
+
+  it('an ambiguous imported row with no style resaves without fabricating one (⚑ E-17)', () => {
+    const obs: ObservationOf<'session'> = {
+      id: 'ambiguous-import',
+      kind: 'session',
+      occurredAt: CTX.now,
+      loggedAt: CTX.now,
+      tz: CTX.tz,
+      tier: 1,
+      fidelity: 0.65,
+      source: { type: 'fileimport', format: 'csv', platform: '8a.nu' },
+      payload: {
+        kind: 'session',
+        activity: 'climb',
+        modality: 'climb',
+        durationMin: 60,
+        // No `style` key at all — a genuine tie in E5's import inference.
+        climbing: { sends: [{ grade: '7a', attempts: 1, sent: true }] },
+      },
+    };
+    const restored = invert(obs);
+    expect(restored.climb.style).toBeNull();
+    restored.notes = 'edited unrelated field';
+    const rebuilt = buildSessionObservation(restored, CTX);
+    expect('style' in (rebuilt.payload.climbing ?? {})).toBe(false);
   });
 });

@@ -82,10 +82,11 @@ function climbForm(durationMin: number): SessionForm {
   form.notes = SAMPLE_TAG;
   form.climb = {
     style: 'boulder',
+    indoor: true,
     sends: [
-      { id: 'a', grade: 'V2', attempts: '1', sent: true, outcome: 'flash', route: '' },
-      { id: 'b', grade: 'V3', attempts: '3', sent: true, outcome: 'redpoint', route: '' },
-      { id: 'c', grade: 'V4', attempts: '4', sent: false, outcome: 'attempt', route: '' },
+      { id: 'a', grade: 'V2', attempts: '1', sent: true, outcome: 'flash', route: '', pitches: '' },
+      { id: 'b', grade: 'V3', attempts: '3', sent: true, outcome: 'redpoint', route: '', pitches: '' },
+      { id: 'c', grade: 'V4', attempts: '4', sent: false, outcome: 'attempt', route: '', pitches: '' },
     ],
     totalProblems: '',
   };

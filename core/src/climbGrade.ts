@@ -55,10 +55,13 @@ const ROUTE_SYSTEMS: ClimbGradeSystem[] = [
 const ICE_AID_SYSTEMS: ClimbGradeSystem[] = ['ai', 'wi', 'aid'];
 
 /**
- * Candidate scales in priority order for a given session style. 'gym' gets no
- * bias (indoor sessions mix boulder and route climbing) — boulder scales are
- * tried first only because indoor gym logging skews bouldering in the market
- * research (climbing-apps-research.md), not because it's more likely correct.
+ * Candidate scales in priority order for a given session style. No style (or
+ * an unrecognized one) gets no bias — this is the "we don't know if it's
+ * boulder or route" case (⚑ E-17: 'gym' used to be this app's name for that;
+ * removed as a ClimbingBlock.style value, but the same ambiguity still needs
+ * an honest fallback here). Boulder scales are tried first only because
+ * indoor/ambiguous climbing skews bouldering in the market research
+ * (climbing-apps-research.md), not because it's more likely correct.
  */
 function systemsFor(style: string | undefined): ClimbGradeSystem[] {
   if (style === 'boulder') return [...BOULDER_SYSTEMS, ...ROUTE_SYSTEMS];

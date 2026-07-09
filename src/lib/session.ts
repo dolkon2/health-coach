@@ -47,7 +47,7 @@ import type { LatLng } from '@core/geo';
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
 // maps either onto a logging surface.
 export type SessionModality = 'gym' | 'run' | 'ride' | 'climb' | 'paddle' | 'hike' | 'other';
-export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope';
 export type SwimMode = 'pool' | 'open'; // pool: laps × length; open: estimated distance
 
 // ─── Form state ──────────────────────────────────────────────────────────────
@@ -83,6 +83,7 @@ export type SendDraft = {
   // and the inverse both treat null as "defer to `sent`", not "assume redpoint".
   outcome: ClimbOutcome | null;
   route: string; // optional per-climb name; '' when not set
+  pitches: string; // multipitch count (⚑ E-17); '' when not set, meaningful for sport/trad/top-rope only
   // The imported row this send came from (⚑ E-16), if any. Never set by the
   // UI — carried through inverse -> build untouched so editing an unrelated
   // field on an imported session can't silently drop its audit trail.
@@ -131,7 +132,18 @@ export type SessionForm = {
     conditionsMeta?: ConditionsSnapshot;
   };
   climb: {
-    style: ClimbStyle;
+    // null = not chosen. emptySessionForm() pre-selects 'boulder' for a BRAND
+    // NEW entry (an editable UI starting point, same as endurance's default
+    // energySystem) — but editing an existing session whose style was never
+    // recorded (an ambiguous import, ⚑ E-17) must show null, not a guess,
+    // or resaving without touching the chip would silently write a
+    // fabricated style over a genuine absence (the same bug class E4's
+    // review caught for `outcome`).
+    style: ClimbStyle | null;
+    // Indoor vs outdoor (⚑ E-17) — independent of style; null = not specified,
+    // never defaulted. Manual entry always has a definite style but often
+    // genuinely doesn't need to say where.
+    indoor: boolean | null;
     sends: SendDraft[];
     totalProblems: string; // raw count, alternative/supplement to enumerating every send
     // Crag pin (⚑ E-5): a device fix captured via useCragPin, or absent — never
@@ -166,7 +178,7 @@ export function emptySessionForm(): SessionForm {
     gearIds: [],
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
-    climb: { style: 'gym', sends: [], totalProblems: '' },
+    climb: { style: 'boulder', indoor: null, sends: [], totalProblems: '' },
     swim: {
       mode: 'pool',
       poolLengthM: '',
@@ -507,18 +519,20 @@ export function buildSessionObservation(
   } else if (surface === 'climbing') {
     const totalProblems = num(form.climb.totalProblems);
     payload.climbing = {
-      style: form.climb.style,
+      ...(form.climb.style ? { style: form.climb.style } : {}),
+      ...(form.climb.indoor != null ? { indoor: form.climb.indoor } : {}),
       sends: form.climb.sends.filter(sendFilled).map((s) => {
         const grade = s.grade.trim();
         const route = s.route.trim();
         // Best-effort scale match against sandbag, biased by style (⚑ E-13/
         // E-14). Absent when nothing matches — the grade string above stays
         // the tier-1 fact regardless.
-        const gradeSystem = parseClimbGrade(grade, form.climb.style);
+        const gradeSystem = parseClimbGrade(grade, form.climb.style ?? undefined);
         // outcome absent (never chosen, or a pre-E4 row) -> defer to the
         // coarse `sent` fact rather than guess which of four send styles it
         // was (constitution: never fabricate a specific value from a boolean).
         const sent = s.outcome != null ? isSentOutcome(s.outcome) : s.sent;
+        const pitches = num(s.pitches);
         return {
           grade,
           ...(gradeSystem ? { gradeSystem } : {}),
@@ -526,6 +540,7 @@ export function buildSessionObservation(
           sent,
           ...(s.outcome != null ? { outcome: s.outcome } : {}),
           ...(route ? { route } : {}),
+          ...(pitches !== null && pitches > 0 ? { pitches: Math.round(pitches) } : {}),
           ...(s.raw ? { raw: s.raw } : {}),
         };
       }),
@@ -701,7 +716,11 @@ export function sessionFormFromObservation(
 
   if (p.climbing) {
     form.climb = {
-      style: p.climbing.style as ClimbStyle,
+      // Never guessed (⚑ E-17) — an ambiguous import may genuinely have no
+      // style; null shows no chip selected rather than fabricating one that
+      // becomes a permanent "fact" the moment the session is next resaved.
+      style: p.climbing.style ?? null,
+      indoor: p.climbing.indoor ?? null,
       sends: p.climbing.sends.map((s) => ({
         id: idFactory(),
         grade: s.grade,
@@ -714,6 +733,7 @@ export function sessionFormFromObservation(
         // a permanent "fact" the moment the session is next resaved.
         outcome: s.outcome ?? null,
         route: s.route ?? '',
+        pitches: s.pitches != null ? String(s.pitches) : '',
         ...(s.raw ? { raw: s.raw } : {}),
       })),
       totalProblems: p.climbing.totalProblems != null ? String(p.climbing.totalProblems) : '',

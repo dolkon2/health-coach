@@ -76,7 +76,9 @@ export type GpsTemplateShape = {
   notes?: string;
 };
 
-export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+// ⚑ E-17: 'gym' dropped — it conflated climbing technique with indoor/outdoor,
+// two independent axes (see core/observation.ts's ClimbingBlock doc).
+export type ClimbStyle = 'sport' | 'trad' | 'boulder' | 'top-rope';
 
 export type ClimbingTemplateShape = {
   surface: 'climbing';

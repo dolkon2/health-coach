@@ -238,7 +238,19 @@ export function isSentOutcome(outcome: ClimbOutcome): boolean {
 }
 
 export type ClimbingBlock = {
-  style: 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
+  // ⚑ E-17: 'gym' was removed as a style value — it conflated two independent
+  // axes (climbing TECHNIQUE vs. WHERE it happened; Dylan's call, 2026-07-09).
+  // A style is a real technique choice at manual-entry time, so the form
+  // always has one; it's optional here only because an imported session can
+  // be genuinely ambiguous (an 8a.nu row whose grade notation doesn't say
+  // boulder or route) — absent, never a guessed value (constitution: never
+  // fabricate). See `indoor` below for the axis 'gym' used to smuggle in.
+  style?: 'sport' | 'trad' | 'boulder' | 'top-rope';
+  // Indoor vs outdoor — independent of style (you can boulder or sport climb
+  // either place). Optional: often not worth asking about, and unknown for
+  // most imports. Certain only where the source guarantees it (BoardLib rows
+  // are always a physical board, so the E5 importer sets this true).
+  indoor?: boolean;
   sends: Array<{
     grade: string;
     // Which sandbag scale the grade matched at log time (core/climbGrade.ts),
@@ -250,6 +262,11 @@ export type ClimbingBlock = {
     sent: boolean;
     outcome?: ClimbOutcome;
     route?: string;
+    // Multipitch count for outdoor routes (⚑ E-17, Dylan's call). Meaningful
+    // for sport/trad/top-rope; boulder problems have none. Never defaulted to
+    // 1 — a single-pitch route just carries no pitches key, same "don't
+    // assert what wasn't declared" rule as everything else on a send.
+    pitches?: number;
     // The original imported row, verbatim string cells, for audit (⚑ E-16 —
     // "frozen verbatim" per climbing-apps-research.md's convergent import
     // strategy). Import-only: never written by manual entry, absent on every

@@ -30,11 +30,16 @@ export const ENERGY_SYSTEMS: ChipOption<EnergySystem>[] = [
 ];
 
 export const CLIMB_STYLES: ChipOption<ClimbStyle>[] = [
-  { value: 'gym', label: 'Gym' },
   { value: 'boulder', label: 'Boulder' },
   { value: 'sport', label: 'Sport' },
   { value: 'top-rope', label: 'Top rope' },
   { value: 'trad', label: 'Trad' },
+];
+
+// Independent of style — you can boulder or sport climb either place (⚑ E-17).
+export const CLIMB_LOCATIONS: ChipOption<'indoor' | 'outdoor'>[] = [
+  { value: 'indoor', label: 'Indoor' },
+  { value: 'outdoor', label: 'Outdoor' },
 ];
 
 export const CLIMB_OUTCOMES: ChipOption<ClimbOutcome>[] = [

@@ -38,6 +38,7 @@ import {
   ENERGY_SYSTEMS,
   CLIMB_STYLES,
   CLIMB_OUTCOMES,
+  CLIMB_LOCATIONS,
   SWIM_MODES,
   SWIM_STROKES,
   EFFORT,
@@ -304,7 +305,7 @@ export default function LogSessionScreen() {
         ...f.climb,
         sends: [
           ...f.climb.sends,
-          { id: uuidv7(), grade: '', attempts: '', sent: false, outcome: null, route: '' },
+          { id: uuidv7(), grade: '', attempts: '', sent: false, outcome: null, route: '', pitches: '' },
         ],
       },
     }));
@@ -312,7 +313,13 @@ export default function LogSessionScreen() {
 
   function mutateSend(
     id: string,
-    patch: Partial<{ grade: string; attempts: string; outcome: ClimbOutcome | null; route: string }>
+    patch: Partial<{
+      grade: string;
+      attempts: string;
+      outcome: ClimbOutcome | null;
+      route: string;
+      pitches: string;
+    }>
   ) {
     setForm((f) => ({
       ...f,
@@ -785,41 +792,71 @@ export default function LogSessionScreen() {
               onChange={(style) => update({ climb: { ...form.climb, style } })}
             />
           </View>
-          {form.climb.sends.map((s) => (
-            <View key={s.id} style={{ gap: theme.spacing[2] }}>
-              <View style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
+          <View style={{ gap: theme.spacing[2] }}>
+            <Text variant="label">Location (optional)</Text>
+            <ChipSelect
+              options={CLIMB_LOCATIONS}
+              value={form.climb.indoor === true ? 'indoor' : form.climb.indoor === false ? 'outdoor' : null}
+              onChange={(loc) => update({ climb: { ...form.climb, indoor: loc === 'indoor' } })}
+            />
+          </View>
+          {form.climb.sends.map((s) => {
+            const outdoorRoute =
+              form.climb.style === 'sport' ||
+              form.climb.style === 'trad' ||
+              form.climb.style === 'top-rope';
+            return (
+              <View key={s.id} style={{ gap: theme.spacing[2] }}>
+                <View style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
+                  <Field
+                    label="Grade"
+                    value={s.grade}
+                    onChangeText={(grade) => mutateSend(s.id, { grade })}
+                    placeholder={
+                      form.climb.style === 'boulder'
+                        ? 'V4'
+                        : outdoorRoute
+                          ? '5.10a / 6a'
+                          : 'V4 / 5.10a'
+                    }
+                    keyboardType="default"
+                    style={{ flex: 1 }}
+                  />
+                  <Field
+                    label="Attempts"
+                    value={s.attempts}
+                    onChangeText={(attempts) => mutateSend(s.id, { attempts })}
+                    placeholder="1"
+                    keyboardType="number-pad"
+                    style={{ width: 80 }}
+                  />
+                  {outdoorRoute ? (
+                    <Field
+                      label="Pitches"
+                      value={s.pitches}
+                      onChangeText={(pitches) => mutateSend(s.id, { pitches })}
+                      placeholder="1"
+                      keyboardType="number-pad"
+                      style={{ width: 80 }}
+                    />
+                  ) : null}
+                  <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
+                </View>
                 <Field
-                  label="Grade"
-                  value={s.grade}
-                  onChangeText={(grade) => mutateSend(s.id, { grade })}
-                  placeholder="V4 / 6a"
+                  label="Route (optional)"
+                  value={s.route}
+                  onChangeText={(route) => mutateSend(s.id, { route })}
+                  placeholder="Route or problem name"
                   keyboardType="default"
-                  style={{ flex: 1 }}
                 />
-                <Field
-                  label="Attempts"
-                  value={s.attempts}
-                  onChangeText={(attempts) => mutateSend(s.id, { attempts })}
-                  placeholder="1"
-                  keyboardType="number-pad"
-                  style={{ width: 80 }}
+                <ChipSelect
+                  options={CLIMB_OUTCOMES}
+                  value={s.outcome}
+                  onChange={(outcome) => mutateSend(s.id, { outcome })}
                 />
-                <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
               </View>
-              <Field
-                label="Route (optional)"
-                value={s.route}
-                onChangeText={(route) => mutateSend(s.id, { route })}
-                placeholder="Route or problem name"
-                keyboardType="default"
-              />
-              <ChipSelect
-                options={CLIMB_OUTCOMES}
-                value={s.outcome}
-                onChange={(outcome) => mutateSend(s.id, { outcome })}
-              />
-            </View>
-          ))}
+            );
+          })}
           <Button label="+ Add send" variant="secondary" onPress={addSend} />
           <Field
             label="Total problems (optional)"

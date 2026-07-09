@@ -49,8 +49,9 @@ describe('parseClimbGrade', () => {
     expect(parseClimbGrade('5.10a', 'trad')).toBe('yds');
   });
 
-  it('tries boulder scales first with no style bias (gym)', () => {
-    expect(parseClimbGrade('V5', 'gym')).toBe('vscale');
+  it('tries boulder scales first with no style bias (unrecognized or absent style)', () => {
+    expect(parseClimbGrade('V5', 'not-a-real-style')).toBe('vscale');
+    expect(parseClimbGrade('V5')).toBe('vscale');
   });
 
   it('returns null for freeform, empty, or whitespace-only input', () => {

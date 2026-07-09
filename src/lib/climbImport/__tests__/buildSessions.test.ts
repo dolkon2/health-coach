@@ -1,14 +1,18 @@
 /**
  * The Proof — buildImportedClimbingSessions turns grouped rows into honest
  * session Observations:
- *   1. BoardLib sessions are always tagged 'boulder' (a certainty, not an
- *      inference — Aurora/Moon boards are exclusively bouldering).
+ *   1. BoardLib sessions are always tagged style 'boulder' and indoor:true
+ *      (certainties, not inferences — Aurora/Moon boards are exclusively
+ *      bouldering apparatus in a fixed location).
  *   2. 8a.nu style is inferred per session from unambiguous grade prefixes
  *      only (V-scale/YDS) — a genuine tie (including a group of ambiguous
- *      Font/French-shaped grades that cast no vote either way) resolves to
- *      'gym', the app's existing "mixed/unknown discipline" style, never a
- *      confident 'sport' or 'boulder' guess the data doesn't support.
- *   3. gradeSystem is tagged using the resolved style as the bias.
+ *      Font/French-shaped grades that cast no vote either way) leaves style
+ *      absent (⚑ E-17: 'gym' used to be this app's name for "mixed/unknown
+ *      discipline"; removed entirely, so the honest fallback is omitting the
+ *      field), never a confident 'sport' or 'boulder' guess the data doesn't
+ *      support.
+ *   3. gradeSystem is tagged using the resolved style (or no bias, when
+ *      style is absent) as the bias.
  *   4. A date already in existingDates is skipped whole and reported.
  *   5. Fidelity differs by platform (boardlib higher than 8a.nu).
  *   6. occurredAt is noon-local on the session's date; source carries format
@@ -50,6 +54,7 @@ describe('buildImportedClimbingSessions — boardlib', () => {
     expect(observations).toHaveLength(1);
     const obs = observations[0];
     expect(obs.payload.climbing?.style).toBe('boulder');
+    expect(obs.payload.climbing?.indoor).toBe(true); // a board is always indoor, a certainty (⚑ E-17)
     expect(obs.payload.climbing?.sends[0]).toMatchObject({
       grade: 'V5',
       gradeSystem: 'vscale',
@@ -79,7 +84,7 @@ describe('buildImportedClimbingSessions — boardlib', () => {
 });
 
 describe('buildImportedClimbingSessions — 8a.nu style inference', () => {
-  it('a group of ambiguous Font/French-shaped grades is a genuine tie -> honest "gym", never a confident guess', () => {
+  it('a group of ambiguous Font/French-shaped grades is a genuine tie -> style absent, never a confident guess', () => {
     const sessions: ImportedSession[] = [
       {
         date: '2026-05-10',
@@ -90,9 +95,10 @@ describe('buildImportedClimbingSessions — 8a.nu style inference', () => {
       },
     ];
     const { observations } = buildImportedClimbingSessions(sessions, '8a.nu', ctx());
-    expect(observations[0].payload.climbing?.style).toBe('gym');
-    // gym carries no bias, same as any other unbiased parse — this is the
-    // honest consequence of not fabricating a style, not a new guess.
+    expect('style' in (observations[0].payload.climbing ?? {})).toBe(false);
+    expect('indoor' in (observations[0].payload.climbing ?? {})).toBe(false);
+    // No style bias, same as any other unbiased parse — this is the honest
+    // consequence of not fabricating a style, not a new guess.
     expect(observations[0].payload.climbing?.sends[0].gradeSystem).toBe('font');
     expect(observations[0].fidelity).toBe(0.65);
   });
@@ -150,7 +156,8 @@ describe('end-to-end: real fixture file -> parse -> build', () => {
     const { sessions } = parse8aCsv(readFileSync(join(FX, 'eightA-sample.csv'), 'utf8'));
     const { observations } = buildImportedClimbingSessions(sessions, '8a.nu', ctx());
     expect(observations).toHaveLength(2);
-    expect(observations[0].payload.climbing?.style).toBe('gym'); // tie: all 3 grades are Font/French-ambiguous
+    // tie: all 3 grades are Font/French-ambiguous -> style honestly absent
+    expect('style' in (observations[0].payload.climbing ?? {})).toBe(false);
     expect(observations[1].payload.climbing?.style).toBe('boulder');
   });
 });

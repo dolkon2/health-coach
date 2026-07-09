@@ -214,16 +214,19 @@ function revealPractice(session: ObservationOf<'session'>): string {
 function revealClimbing(session: ObservationOf<'session'>): string {
   const c = session.payload.climbing;
   if (!c) return durationLine(session);
+  // ⚑ E-17: style is optional (an ambiguous import may genuinely lack one) —
+  // "climbing" is the honest generic label, never a guessed technique.
+  const label = c.style ?? 'climbing';
 
   if (c.sends.length > 0) {
     const sent = c.sends.filter((s) => s.sent).length;
-    return `${c.style} · ${sent} of ${c.sends.length} sent`;
+    return `${label} · ${sent} of ${c.sends.length} sent`;
   }
   if (c.totalProblems != null && c.totalProblems > 0) {
-    return `${c.style} · ${c.totalProblems} problems`;
+    return `${label} · ${c.totalProblems} problems`;
   }
   const dur = formatMinutes(session.payload.durationMin);
-  return dur ? `${c.style} · ${dur}` : c.style;
+  return dur ? `${label} · ${dur}` : label;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
