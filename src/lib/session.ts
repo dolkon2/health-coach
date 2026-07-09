@@ -392,10 +392,6 @@ export function validateSessionForm(form: SessionForm): string | null {
   return null;
 }
 
-export function canSaveSession(form: SessionForm): boolean {
-  return validateSessionForm(form) === null;
-}
-
 // ─── Build: form -> Observation ──────────────────────────────────────────────
 
 export type BuildContext = {

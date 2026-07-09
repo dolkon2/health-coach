@@ -23,7 +23,7 @@ import { energyBalanceKcalPerDay } from '@core/expenditure';
 import { isoWeekStart } from '@core/stimulus';
 import { weightTrendDelta } from '@core/trend';
 import { bucketByLocalDay } from '@core/timeline';
-import { computeE1rmSeries, type SessionSets } from '@core/gymAnalytics';
+import { computeE1rmSeries, exerciseKey as gymExerciseKey, type SessionSets } from '@core/gymAnalytics';
 import {
   captureTierShare,
   evaluateDaysWindow,
@@ -277,13 +277,9 @@ export type OutcomeStatus =
   // Body P6 — the most recent romReading for this test/side.
   | { kind: 'romMeasurement'; value: number; unit: string; targetValue?: number };
 
-/** Mirrors core/gymAnalytics.ts's own (private) exerciseKey derivation
- *  exactly, so a dimension's key can be compared directly against an
- *  E1rmPoint's `exerciseKey` — no need to reverse-engineer whether a given
- *  key string is an id or a normalized name. */
-function dimensionExerciseKey(dim: { exerciseId?: string; exercise: string }): string {
-  return dim.exerciseId ?? dim.exercise.trim().toLowerCase();
-}
+// dimension key vs E1rmPoint's exerciseKey both derive from core/gymAnalytics's
+// exported exerciseKey() — same shape (exerciseId, exercise), so it's reused
+// directly instead of re-deriving the same string elsewhere.
 
 /**
  * The observed movement of the outcome dimension. Bodyweight reads the same
@@ -314,7 +310,7 @@ export function outcomeStatus(
     const sessionSets: SessionSets[] = sessions
       .filter((s) => s.payload.lifting != null)
       .map((s) => ({ date: s.occurredAt.slice(0, 10), sets: s.payload.lifting!.sets }));
-    const wantKey = dimensionExerciseKey(dim);
+    const wantKey = gymExerciseKey(dim);
     const e1rmPoints = computeE1rmSeries(sessionSets).filter((p) => p.exerciseKey === wantKey);
     if (e1rmPoints.length === 0) return { kind: 'noData', what: 'exerciseLoad' };
     const latest = e1rmPoints[e1rmPoints.length - 1];

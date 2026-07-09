@@ -28,8 +28,10 @@ export const EPLEY_MAX_REPS = 12;
 // normalizers in exercisePicker.ts / useExercisePatternMemory.ts — the core/
 // app boundary, see file header). Fine here: this only needs to tell apart
 // exercises the app itself already typed consistently, not fuzzy-match
-// free text the way the picker's search does.
-function exerciseKey(s: { exercise: string; exerciseId?: string }): string {
+// free text the way the picker's search does. Exported so app-side callers
+// (e.g. benchmarkStatus.ts) key against the exact same derivation instead of
+// re-deriving it.
+export function exerciseKey(s: { exercise: string; exerciseId?: string }): string {
   return s.exerciseId ?? s.exercise.trim().toLowerCase();
 }
 
