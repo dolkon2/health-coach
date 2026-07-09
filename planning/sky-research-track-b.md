@@ -221,6 +221,22 @@ derived: wingLoading = sessionTakeoffWeightKg / flatAreaM2   // the operative pa
 
 ---
 
+## 5. Resolved — Dylan's decisions (2026-07-08)
+
+All 7 flags from §4 have a disposition. Build against these; don't re-litigate.
+
+1. **Merge window: ship the 30 s default**, tune later on real dune tracks. Not fully understood conceptually by Dylan yet (what "a touch" means operationally) but low-stakes — proceed with the default rather than blocking on it.
+2. **Ski-vs-air: (a), a simple per-session "this was on skis" tag.** No DEM/auto-detect fallback needed — confirmed.
+3. **Ground-kiting effort: show session duration and airtime as two separate numbers.** No conflation. Whether ground time counts as training "effort" (Body-dimension crossover) stays explicitly deferred — do not build any load/effort accounting for it.
+4. **Speedfly = materialized Flight records; parakite = segments inside one session.** Confirmed — the two activities are allowed to diverge on this.
+5. **Retrim nudge: ship across the whole Sky dimension** (not parakite-only), but **only when the user has explicitly logged a trim date** — never inferred or defaulted. Passive display only (hours-since-trim, "past your mark" style line, same pattern as Earth's `gearStatusLine`) — **never a push notification.**
+6. **Wind conditions: freeze a point-in-time snapshot at save (same pattern as Earth/Water's conditions freeze), editable after the fact.** The full multi-hour forecast-reference idea (letting a pilot see what was forecast across an hours-long flight window) is a real feature but **out of scope for this build** — it belongs to a separate forecasting spec still in brainstorming. Don't build toward it now; just do the standard freeze-and-edit.
+7. **Snow run-grouping: do not build the field at all this pass** — not even as a placeholder. This flag surfaced a deeper unresolved question that supersedes it: **flight category may need to key off flying style, not equipment** (a parakite wing flown point-to-point reads as speedflying, not parakiting; parakiting proper is dune/soaring-specific). For this build, category stays user-selected per session — no auto-classification. The style-vs-equipment classification question is now its own open item (see below), separate from run-grouping.
+
+**New open item spun off from #7 (not blocking, needs its own future pass):** should Sky's flight/session category be inferred from flying style rather than fixed by which gear category (wing) was used? E.g. a parakite wing flown as a point-to-point descent vs. dune-soaring are arguably different "activities" despite identical gear. No decision yet — flag for a future session once there's real usage data to look at.
+
+---
+
 ## Source index (fetched/verified primary sources only)
 
 **Detectors (source code):** [igc-xc-score flight.js](https://raw.githubusercontent.com/mmomtchev/igc-xc-score/main/src/flight.js) · [XCSoar FlyingComputer.cpp](https://raw.githubusercontent.com/XCSoar/XCSoar/master/src/Computer/FlyingComputer.cpp) · [XCSoar python/src/Flight](https://github.com/XCSoar/XCSoar/tree/master/python/src/Flight) · [igc_lib.py](https://raw.githubusercontent.com/marcin-osowski/igc_lib/master/igc_lib.py) · [LK8000 TakeoffLanding.cpp](https://raw.githubusercontent.com/LK8000/LK8000/master/Common/Source/Calc/TakeoffLanding.cpp) · [GliderSK USAGE](https://raw.githubusercontent.com/cedric-dufour/connectiq-app-glidersk/master/USAGE)
