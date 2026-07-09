@@ -1,0 +1,24 @@
+{
+  "latitude": 45.70327,
+  "longitude": -121.49506,
+  "generationtime_ms": 0.038504600524902344,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 22.0,
+  "current_units": {
+    "time": "iso8601",
+    "interval": "seconds",
+    "wind_speed_10m": "kn",
+    "wind_gusts_10m": "kn",
+    "wind_direction_10m": "\u00b0"
+  },
+  "current": {
+    "time": "2026-07-05T22:30",
+    "interval": 900,
+    "wind_speed_10m": 10.0,
+    "wind_gusts_10m": 13.6,
+    "wind_direction_10m": 288
+  },
+  "_probe_url": "https://api.open-meteo.com/v1/forecast?latitude=45.714&longitude=-121.505&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m&windspeed_unit=kn"
+}

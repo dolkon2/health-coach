@@ -12,7 +12,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getWearableSource } from '@/lib/healthkit';
 import { runBackfill, runDailyPoll } from '@/lib/healthkit/ingest';
-import { readState, setConnected as persistConnected } from '@/lib/healthkit/state';
+import {
+  readState,
+  setConnected as persistConnected,
+  getWorkoutPermsRequestedAt,
+  setWorkoutPermsRequestedAt,
+} from '@/lib/healthkit/state';
 
 const POLL_THROTTLE_MS = 60_000;
 
@@ -50,6 +55,28 @@ export function useWearableSync(onChange?: () => void): WearableSync {
     };
   }, []);
 
+  // One-shot workout-scope re-permission nudge (Water pass): requestPermissions
+  // now includes the four workout read scopes, but an already-connected user
+  // never re-runs connect(), so they'd never see the new sheet. When connected
+  // and the persisted flag is absent, request once and stamp the flag —
+  // idempotent across launches (HealthKit itself no-ops when everything shown
+  // before). A failure leaves the flag unset so the next launch retries.
+  const nudgeRan = useRef(false);
+  useEffect(() => {
+    if (!connected || nudgeRan.current) return;
+    nudgeRan.current = true;
+    (async () => {
+      try {
+        const requestedAt = await getWorkoutPermsRequestedAt();
+        if (requestedAt !== null) return;
+        await getWearableSource().requestPermissions();
+        await setWorkoutPermsRequestedAt(new Date().toISOString());
+      } catch {
+        nudgeRan.current = false;
+      }
+    })();
+  }, [connected]);
+
   const connect = useCallback(async () => {
     if (syncLock.current) return;
     syncLock.current = true;
@@ -58,6 +85,9 @@ export function useWearableSync(onChange?: () => void): WearableSync {
     try {
       const reader = getWearableSource();
       await reader.requestPermissions();
+      // A fresh connect already showed the full scope list (workout reads
+      // included) — stamp the nudge flag so the one-shot above never re-asks.
+      await setWorkoutPermsRequestedAt(new Date().toISOString());
       await persistConnected(true);
       setConnected(true);
       const state = await readState();

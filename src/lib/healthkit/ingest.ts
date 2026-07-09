@@ -20,31 +20,81 @@ import {
   normalizeSleep,
   normalizeSteps,
 } from './normalize';
+import { normalizeWorkouts } from './normalizeWorkout';
 import { setBackfillDone } from './state';
 
 const BACKFILL_DAYS = 90;
 const DAILY_LOOKBACK_HOURS = 18; // covers an overnight sleep window comfortably
+// Workouts poll a much wider trailing window than steps/sleep: UUID dedup makes
+// wide windows free, and an 18h lookback would permanently miss a workout that
+// synced late off the watch (multi-day paddle trip, phone left at home).
+const WORKOUT_LOOKBACK_DAYS = 7;
+// Dedup query padding around the candidates' occurredAt span — absorbs workouts
+// straddling the read-window edge (a session occurredAt can sit outside the
+// exact read range the same way a civil-day row can).
+const WORKOUT_DEDUP_PAD_MS = 48 * 3600_000;
 
 type IngestResult = {
   stepsInserted: number;
   sleepInserted: number;
+  workoutsInserted: number;
 };
+
+/** Insert normalized workout sessions, skipping any whose HK workout UUID is
+ *  already present. UUID-keyed, NOT civil-day-keyed: two workouts in one day
+ *  is normal, and re-imports must be exact no-ops. */
+async function insertWorkouts(
+  sessions: readonly Observation[],
+  db?: SqlDatabase
+): Promise<number> {
+  if (sessions.length === 0) return 0;
+
+  const occurred = sessions.map((o) => o.occurredAt).sort();
+  const from = new Date(Date.parse(occurred[0]) - WORKOUT_DEDUP_PAD_MS).toISOString();
+  const to = new Date(
+    Date.parse(occurred[occurred.length - 1]) + WORKOUT_DEDUP_PAD_MS
+  ).toISOString();
+  const existing = await listObservations({ from, to, kinds: ['session'] }, db);
+
+  const seenUuids = new Set<string>();
+  for (const o of existing) {
+    if (o.source.type === 'healthkit' && o.source.workoutUuid) {
+      seenUuids.add(o.source.workoutUuid);
+    }
+  }
+
+  let inserted = 0;
+  for (const obs of sessions) {
+    const uuid = obs.source.type === 'healthkit' ? obs.source.workoutUuid : undefined;
+    if (uuid && seenUuids.has(uuid)) continue;
+    await createObservation(obs, db);
+    if (uuid) seenUuids.add(uuid); // a duplicated read within one batch is still one insert
+    inserted++;
+  }
+  return inserted;
+}
 
 async function ingestRange(
   reader: WearableSource,
   fromUtc: string,
   toUtc: string,
+  workoutFromUtc: string,
   db?: SqlDatabase
 ): Promise<IngestResult> {
   const range = { fromUtc, toUtc };
-  const [rawSteps, rawSleep] = await Promise.all([
+  const [rawSteps, rawSleep, rawWorkouts] = await Promise.all([
     reader.readSteps(range),
     reader.readSleep(range),
+    // A workout-read failure must not take down steps/sleep ingestion (which
+    // predates workouts and used to succeed alone) — degrade to an empty batch;
+    // the next poll retries.
+    reader.readActivities({ fromUtc: workoutFromUtc, toUtc }).catch(() => [] as const),
   ]);
 
   const ctx = { tz: deviceTz(), nowUtc: new Date().toISOString() };
   const steps = normalizeSteps(rawSteps, ctx);
   const sleep = normalizeSleep(rawSleep, ctx);
+  const workouts = normalizeWorkouts(rawWorkouts, ctx);
 
   // Dedup query: cover the actual occurredAt range of the candidate
   // observations, not the read window. A civil day's observation lands at
@@ -77,7 +127,8 @@ async function ingestRange(
     await createObservation(obs as Observation, db);
     sleepInserted++;
   }
-  return { stepsInserted, sleepInserted };
+  const workoutsInserted = await insertWorkouts(workouts, db);
+  return { stepsInserted, sleepInserted, workoutsInserted };
 }
 
 export async function runBackfill(
@@ -86,7 +137,8 @@ export async function runBackfill(
 ): Promise<IngestResult> {
   const fromUtc = daysAgoUtc(BACKFILL_DAYS);
   const toUtc = new Date().toISOString();
-  const result = await ingestRange(reader, fromUtc, toUtc, db);
+  // Backfill reads workouts over the same 90-day span as steps/sleep.
+  const result = await ingestRange(reader, fromUtc, toUtc, fromUtc, db);
   await setBackfillDone(true, db);
   return result;
 }
@@ -97,5 +149,6 @@ export async function runDailyPoll(
 ): Promise<IngestResult> {
   const fromUtc = new Date(Date.now() - DAILY_LOOKBACK_HOURS * 3600_000).toISOString();
   const toUtc = new Date().toISOString();
-  return ingestRange(reader, fromUtc, toUtc, db);
+  const workoutFromUtc = daysAgoUtc(WORKOUT_LOOKBACK_DAYS);
+  return ingestRange(reader, fromUtc, toUtc, workoutFromUtc, db);
 }

@@ -1,0 +1,74 @@
+{
+  "latitude": 45.70327,
+  "longitude": -121.49506,
+  "generationtime_ms": 0.11205673217773438,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 22.0,
+  "minutely_15_units": {
+    "time": "unixtime",
+    "wind_speed_10m": "kn",
+    "wind_gusts_10m": "kn",
+    "wind_direction_10m": "\u00b0"
+  },
+  "minutely_15": {
+    "time": [
+      1783287000,
+      1783287900,
+      1783288800,
+      1783289700,
+      1783290600,
+      1783291500,
+      1783292400,
+      1783293300,
+      1783294200,
+      1783295100,
+      1783296000,
+      1783296900
+    ],
+    "wind_speed_10m": [
+      9.8,
+      10.0,
+      10.1,
+      10.1,
+      10.0,
+      10.1,
+      10.0,
+      10.0,
+      9.9,
+      9.9,
+      9.8,
+      9.8
+    ],
+    "wind_gusts_10m": [
+      13.4,
+      13.6,
+      14.0,
+      14.0,
+      13.6,
+      13.8,
+      13.8,
+      14.0,
+      14.0,
+      14.2,
+      14.2,
+      14.2
+    ],
+    "wind_direction_10m": [
+      287,
+      287,
+      289,
+      289,
+      288,
+      289,
+      291,
+      291,
+      290,
+      290,
+      291,
+      291
+    ]
+  },
+  "_probe_url": "https://api.open-meteo.com/v1/forecast?latitude=45.714&longitude=-121.505&minutely_15=wind_speed_10m,wind_gusts_10m,wind_direction_10m&past_minutely_15=4&forecast_minutely_15=8&windspeed_unit=kn&timeformat=unixtime&timezone=UTC"
+}

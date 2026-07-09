@@ -1,0 +1,66 @@
+{
+  "type": "Feature",
+  "properties": {
+    "id": "USGS-14123500",
+    "agency_code": "USGS",
+    "agency_name": "U.S. Geological Survey",
+    "monitoring_location_number": "14123500",
+    "monitoring_location_name": "WHITE SALMON RIVER NEAR UNDERWOOD, WA",
+    "district_code": "53",
+    "country_code": "US",
+    "country_name": "United States of America",
+    "state_code": "53",
+    "state_name": "Washington",
+    "county_code": "059",
+    "county_name": "Skamania County",
+    "minor_civil_division_code": null,
+    "site_type_code": "ST",
+    "site_type": "Stream",
+    "hydrologic_unit_code": "170701050811",
+    "basin_code": null,
+    "altitude": 112.96,
+    "altitude_accuracy": 10.0,
+    "altitude_method_code": "M",
+    "altitude_method_name": "Interpolated from topographic map.",
+    "vertical_datum": "NGVD29",
+    "vertical_datum_name": "National Geodetic Vertical Datum of 1929",
+    "horizontal_positional_accuracy_code": "S",
+    "horizontal_positional_accuracy": "Accurate to + or - 1 sec.",
+    "horizontal_position_method_code": "M",
+    "horizontal_position_method_name": "Interpolated from map",
+    "original_horizontal_datum": "NAD27",
+    "original_horizontal_datum_name": "North American Datum of 1927",
+    "drainage_area": 386.0,
+    "contributing_drainage_area": null,
+    "time_zone_abbreviation": "PST",
+    "uses_daylight_savings": "Y",
+    "construction_date": null,
+    "aquifer_code": null,
+    "national_aquifer_code": null,
+    "aquifer_type_code": null,
+    "well_constructed_depth": null,
+    "hole_constructed_depth": null,
+    "depth_source_code": null,
+    "revision_note": "&ltp&gtWSP 484: 1915-17. WSP: 1348 1936-41(M). WSP 1638: Drainage area.&lt/p&gt\n&ltp&gtRevision: Annual maximum gage-height for water year 1917 was revised on Dec. 13, 2023, based on further review of the annual peak gage-height record.&lt/p&gt",
+    "revision_created": "2017-11-13T06:00:00+00:00",
+    "revision_modified": "2023-12-14T13:23:06.540000+00:00"
+  },
+  "id": "USGS-14123500",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [
+      -121.527017643798,
+      45.752063720448
+    ]
+  },
+  "prev": "USGS-14123000",
+  "next": "USGS-14123600",
+  "links": [
+    {
+      "rel": "self",
+      "type": "application/geo+json",
+      "title": "This document as JSON",
+      "href": "https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items/USGS-14123500?f=json"
+    }
+  ]
+}

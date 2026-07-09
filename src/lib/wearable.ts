@@ -7,7 +7,7 @@
  * pure-TS, jest-friendly module — and the engine never learns which platform a
  * number came from. See planning/wearable-ingestion-spec.md § Architecture.
  */
-import type { IANATimezone, ISOInstant, LocalDate } from '@core/observation';
+import type { GeoPoint, IANATimezone, ISOInstant, LocalDate } from '@core/observation';
 
 export type DateRange = { fromUtc: ISOInstant; toUtc: ISOInstant };
 
@@ -43,13 +43,47 @@ export type RawSleepSample = {
   tz: IANATimezone; // device tz at read time — used to attribute the wake day
 };
 
-/** The four operations every wearable adapter must implement. Pass 2 wires up
- *  the first three; readActivities is a Pass 3 stub. */
+/** One pool length as the wearable recorded it. Absolute instants here (the
+ *  reader owns the join with lap events); the normalizer converts to offsets
+ *  from session start. `hkStrokeStyle` is the raw HK SwimmingStrokeStyle enum
+ *  value — kept numeric so this shape stays platform-descriptive and the
+ *  normalizer owns the mapping to the SwimLength stroke union. */
+export type RawSwimLength = {
+  startUtc: ISOInstant;
+  endUtc: ISOInstant;
+  distanceM?: number;
+  strokes?: number;
+  hkStrokeStyle?: number;
+};
+
+/** One workout as read from the wearable, units already normalized (metres,
+ *  kcal, seconds) by the reader — HK returns Quantity {unit, quantity} and the
+ *  unit varies by device locale (yd, mi, km all occur), so conversion happens
+ *  at the platform boundary and the normalizer never sees a unit string. */
+export type RawWorkout = {
+  uuid: string; // HK workout UUID — the dedup key for ingested sessions
+  hkActivityType: number; // WorkoutActivityType enum value
+  startUtc: ISOInstant;
+  endUtc: ISOInstant;
+  durationS: number;
+  distanceM?: number;
+  energyKcal?: number;
+  sourceBundleId: string;
+  sourceName: string;
+  route?: GeoPoint[]; // flattened from the workout's routes, storage-thinned
+  swim?: {
+    locationType: 'pool' | 'open';
+    lapLengthM?: number; // pool length, converted (US pools are commonly 25 yd)
+    lengths: RawSwimLength[];
+  };
+};
+
+/** The four operations every wearable adapter must implement. */
 export interface WearableSource {
   /** Asks the OS for read scopes. Resolves true if the system sheet was shown
    *  (or already decided); never tells us *what* was granted (Apple privacy). */
   requestPermissions(): Promise<boolean>;
   readSteps(range: DateRange): Promise<RawDailyStepSample[]>;
   readSleep(range: DateRange): Promise<RawSleepSample[]>;
-  readActivities(range: DateRange): Promise<never>;
+  readActivities(range: DateRange): Promise<RawWorkout[]>;
 }

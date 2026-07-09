@@ -38,7 +38,12 @@ export async function runMigrations(db: SqlDatabase): Promise<void> {
 
   for (const m of migrations) {
     if (applied.has(m.version)) continue;
-    await db.execAsync(m.sql);
+    // sql or run — exactly one is set (run: schema-dependent code migrations, e.g. 014).
+    if (m.run) {
+      await m.run(db);
+    } else if (m.sql) {
+      await db.execAsync(m.sql);
+    }
     await db.runAsync(
       'INSERT INTO migrations (version, name, appliedAt) VALUES (?, ?, ?);',
       [m.version, m.name, new Date().toISOString()]

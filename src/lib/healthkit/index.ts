@@ -20,7 +20,7 @@ function makeStubReader(): WearableSource {
       return [];
     },
     async readActivities() {
-      throw new Error('readActivities is not implemented on this platform');
+      return [];
     },
   };
 }

@@ -1,5 +1,12 @@
 /**
- * gear.ts — typed CRUD for the gear table (migration 010, quiver entity E1).
+ * gear.ts — typed CRUD for the gear + kits tables (canonical schema, 014).
+ *
+ * Two APIs over the same gear table, one per dimension heritage: Earth's
+ * (createGear/getGearById/updateGear/retireGear/deleteGear, GearRecord) and
+ * Water's (createGearItem/updateGearItem/retireGearItem/getGearItem, GearItem
+ * — plus the Kit CRUD only Water has). Kept side by side at the 2026-07-09
+ * dimension merge so neither branch's tested surface changed; both read and
+ * write the SAME canonical camelCase columns. `listGear` is shared.
  *
  * Gear rows are mutable in place like session templates: edits overwrite,
  * retire sets `retiredOn` (the honest end of service — the accrued history
@@ -12,7 +19,7 @@
  * Every function accepts an optional `db` for tests; the app uses the
  * expo-sqlite singleton by default (matches observations.ts / settings.ts).
  */
-import type { Gear, GearCategory } from '@core/gear';
+import type { Gear, GearCategory, GearItem, GearSpec, Kit } from '@core/gear';
 import type { ISOInstant } from '@core/observation';
 import { getDb, type SqlDatabase } from './db';
 
@@ -154,4 +161,146 @@ export async function deleteGear(id: string, db?: SqlDatabase): Promise<boolean>
   if (!existed) return false;
   await d.runAsync('DELETE FROM gear WHERE id = ?;', [id]);
   return true;
+}
+
+// ─── Water's gear API (GearItem view over the same table) ───────────────────
+
+function rowToGearItem(r: GearRow): GearItem {
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category as GearCategory,
+    // Omit-when-absent: an absent spec/date/note stays absent, never null-filled.
+    ...(r.spec ? { spec: JSON.parse(r.spec) as GearSpec } : {}),
+    ...(r.acquiredOn ? { acquiredOn: r.acquiredOn } : {}),
+    ...(r.retiredOn ? { retiredOn: r.retiredOn } : {}),
+    ...(r.notes ? { notes: r.notes } : {}),
+    createdAt: r.createdAt,
+  };
+}
+
+export async function createGearItem(g: GearItem, db?: SqlDatabase): Promise<GearItem> {
+  const d = db ?? (await getDb());
+  await d.runAsync(
+    `INSERT INTO gear (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    [
+      g.id,
+      g.name,
+      g.category,
+      null, // parentId — Water gear has no component hierarchy
+      g.acquiredOn ?? null,
+      g.retiredOn ?? null,
+      g.spec ? JSON.stringify(g.spec) : null,
+      g.notes ?? null,
+      g.createdAt,
+    ]
+  );
+  return g;
+}
+
+export async function updateGearItem(g: GearItem, db?: SqlDatabase): Promise<GearItem> {
+  const d = db ?? (await getDb());
+  await d.runAsync(
+    `UPDATE gear
+        SET name = ?, category = ?, spec = ?, acquiredOn = ?, retiredOn = ?, notes = ?
+      WHERE id = ?;`,
+    [
+      g.name,
+      g.category,
+      g.spec ? JSON.stringify(g.spec) : null,
+      g.acquiredOn ?? null,
+      g.retiredOn ?? null,
+      g.notes ?? null,
+      g.id,
+    ]
+  );
+  return g;
+}
+
+/**
+ * Soft delete — the ONLY removal Water gear has. Sessions keep the ref; a
+ * retired wing still explains an old session.
+ */
+export async function retireGearItem(
+  id: string,
+  retiredOn: string,
+  db?: SqlDatabase
+): Promise<void> {
+  const d = db ?? (await getDb());
+  await d.runAsync(`UPDATE gear SET retiredOn = ? WHERE id = ?;`, [retiredOn, id]);
+}
+
+/** Resolves retired items too — session history must always resolve. */
+export async function getGearItem(id: string, db?: SqlDatabase): Promise<GearItem | null> {
+  const d = db ?? (await getDb());
+  const row = await d.getFirstAsync<GearRow>(
+    `SELECT ${COLUMNS} FROM gear WHERE id = ?;`,
+    [id]
+  );
+  return row ? rowToGearItem(row) : null;
+}
+
+/** Water's list view over the shared table — GearItem rows, newest first. */
+export async function listGearItems(
+  opts: { includeRetired?: boolean } = {},
+  db?: SqlDatabase
+): Promise<GearItem[]> {
+  const d = db ?? (await getDb());
+  const where = opts.includeRetired ? '' : 'WHERE retiredOn IS NULL';
+  const rows = await d.getAllAsync<GearRow>(
+    `SELECT ${COLUMNS} FROM gear ${where} ORDER BY createdAt DESC;`
+  );
+  return rows.map(rowToGearItem);
+}
+
+// ─── Kits (Water only) ───────────────────────────────────────────────────────
+
+const KIT_COLUMNS = 'id, name, gearIds, createdAt';
+
+interface KitRow {
+  id: string;
+  name: string;
+  gearIds: string;
+  createdAt: string;
+}
+
+function rowToKit(r: KitRow): Kit {
+  return {
+    id: r.id,
+    name: r.name,
+    gearIds: JSON.parse(r.gearIds) as string[],
+    createdAt: r.createdAt,
+  };
+}
+
+export async function createKit(k: Kit, db?: SqlDatabase): Promise<Kit> {
+  const d = db ?? (await getDb());
+  await d.runAsync(
+    `INSERT INTO kits (${KIT_COLUMNS}) VALUES (?, ?, ?, ?);`,
+    [k.id, k.name, JSON.stringify(k.gearIds), k.createdAt]
+  );
+  return k;
+}
+
+/** Hard delete IS allowed — WindBlock denormalizes resolved gearIds. */
+export async function deleteKit(id: string, db?: SqlDatabase): Promise<void> {
+  const d = db ?? (await getDb());
+  await d.runAsync(`DELETE FROM kits WHERE id = ?;`, [id]);
+}
+
+export async function listKits(db?: SqlDatabase): Promise<Kit[]> {
+  const d = db ?? (await getDb());
+  const rows = await d.getAllAsync<KitRow>(
+    `SELECT ${KIT_COLUMNS} FROM kits ORDER BY createdAt DESC;`
+  );
+  return rows.map(rowToKit);
+}
+
+export async function getKit(id: string, db?: SqlDatabase): Promise<Kit | null> {
+  const d = db ?? (await getDb());
+  const row = await d.getFirstAsync<KitRow>(
+    `SELECT ${KIT_COLUMNS} FROM kits WHERE id = ?;`,
+    [id]
+  );
+  return row ? rowToKit(row) : null;
 }

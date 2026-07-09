@@ -1,0 +1,28 @@
+{
+  "latitude": 45.70327,
+  "longitude": -121.49506,
+  "generationtime_ms": 0.04315376281738281,
+  "utc_offset_seconds": -25200,
+  "timezone": "America/Los_Angeles",
+  "timezone_abbreviation": "GMT-7",
+  "elevation": 22.0,
+  "daily_units": {
+    "time": "iso8601",
+    "precipitation_sum": "mm"
+  },
+  "daily": {
+    "time": [
+      "2026-07-02",
+      "2026-07-03",
+      "2026-07-04",
+      "2026-07-05"
+    ],
+    "precipitation_sum": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "_probe_url": "https://api.open-meteo.com/v1/forecast?latitude=45.714&longitude=-121.505&daily=precipitation_sum&past_days=3&forecast_days=1&timezone=America/Los_Angeles"
+}

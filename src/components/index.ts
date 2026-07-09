@@ -30,3 +30,15 @@ export {
   Checkbox,
   type GymExerciseEditorProps,
 } from './surface/GymExerciseEditor';
+export { SpotPicker, type SpotPickerProps } from './surface/SpotPicker';
+export {
+  WhitewaterSection,
+  manualGaugeSnapshot,
+  type WhitewaterSectionProps,
+} from './surface/WhitewaterSection';
+export {
+  WindSection,
+  manualWindSnapshot,
+  kitPickPatch,
+  type WindSectionProps,
+} from './surface/WindSection';

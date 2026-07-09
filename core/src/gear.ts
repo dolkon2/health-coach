@@ -19,10 +19,13 @@
 import type { IANATimezone, ISOInstant, LocalDate } from './observation';
 import { localDayOf } from './timeline';
 
-// Earth's arms of the union. Other dimensions extend this union on their own
-// branches (Water adds 'board'/'wetsuit', Sky adds 'wing'…) — additive arms,
-// same low-conflict pattern as SessionPayload's sport blocks.
-export type GearCategory = 'shoes' | 'boots' | 'bike' | 'bike-component' | 'skis';
+// The merged category union — one arm-set per dimension (Earth land gear,
+// Water wind/paddle gear; Sky's air gear joins at its merge). Water's 'wing'
+// is the kiteboard/wingfoil wing — Sky's paraglider was renamed 'paraglider'
+// on 2026-07-08 precisely so these never collide.
+export type EarthGearCategory = 'shoes' | 'boots' | 'bike' | 'bike-component' | 'skis';
+export type WaterGearCategory = 'kayak' | 'wing' | 'kite' | 'board' | 'foil' | 'parawing';
+export type GearCategory = EarthGearCategory | WaterGearCategory;
 
 export type BikeComponentType =
   | 'chain'
@@ -45,6 +48,18 @@ export type BikeComponentSpec = {
 };
 export type SkiSpec = { targetDays?: number };
 
+/** Water's flat all-optional spec; which fields are meaningful is keyed by
+ * category. wing/kite/parawing: sizeM2 · board: volumeL, boardLengthCm ·
+ * foil (front wing): areaCm2, mastLengthCm · kayak: none (Dylan: the boat
+ * itself is the whole story — no paddle tracking, no spec). */
+export interface GearSpec {
+  sizeM2?: number;
+  volumeL?: number;
+  boardLengthCm?: number;
+  areaCm2?: number;
+  mastLengthCm?: number;
+}
+
 type GearBase = {
   id: string;
   name: string; // the user's own label ("Speedgoats", "SRAM chain")
@@ -61,7 +76,37 @@ export type Gear = GearBase &
     | { category: 'bike'; spec?: BikeSpec }
     | { category: 'bike-component'; spec?: BikeComponentSpec }
     | { category: 'skis'; spec?: SkiSpec }
+    | { category: WaterGearCategory; spec?: GearSpec }
   );
+
+/**
+ * Water's loose gear record — the same rows the `Gear` union describes, seen
+ * through Water's storage API (createGearItem & co). Kept alongside `Gear`
+ * so neither dimension's tested surface changed at merge time.
+ */
+export interface GearItem {
+  id: string;
+  name: string; // "9m Duotone Unit", "Jackson Antix 2.0"
+  category: GearCategory;
+  spec?: GearSpec;
+  acquiredOn?: string; // ISO date
+  retiredOn?: string; // set = retired (soft delete; sessions keep the ref)
+  notes?: string;
+  createdAt: string; // ISO instant
+}
+
+/**
+ * A named gear combo — the wind rider's "kit" ("Light-wind setup" = board +
+ * 9m wing + foil). Picking a kit expands to gearIds on the session block
+ * (with kitId kept as provenance), so kits MAY be hard-deleted without
+ * orphaning history.
+ */
+export interface Kit {
+  id: string;
+  name: string;
+  gearIds: string[];
+  createdAt: string;
+}
 
 // ─── Derived totals ─────────────────────────────────────────────────────────
 

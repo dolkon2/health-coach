@@ -53,3 +53,33 @@ export async function setBackfillDone(value: boolean, db?: SqlDatabase): Promise
   const d = db ?? (await getDb());
   await setFlag(K_BACKFILL_DONE, value, d);
 }
+
+// ─── Workout-scope re-permission nudge (Water pass) ─────────────────────────
+// reader.requestPermissions() gained four workout read scopes AFTER users may
+// have already connected — and a connected user never re-runs connect(), so
+// they'd never see the new permission sheet. useWearableSync re-requests ONCE
+// when this key is absent, then stamps the request time here. A timestamp
+// (not a boolean) so a future scope addition can compare against a cutoff.
+
+const K_WORKOUT_PERMS_REQUESTED_AT = 'workoutPermsRequestedAt';
+
+export async function getWorkoutPermsRequestedAt(db?: SqlDatabase): Promise<string | null> {
+  const d = db ?? (await getDb());
+  const row = await d.getFirstAsync<{ value: string }>(
+    'SELECT value FROM wearable_state WHERE key = ?;',
+    [K_WORKOUT_PERMS_REQUESTED_AT]
+  );
+  return row?.value ?? null;
+}
+
+export async function setWorkoutPermsRequestedAt(
+  value: string,
+  db?: SqlDatabase
+): Promise<void> {
+  const d = db ?? (await getDb());
+  await d.runAsync(
+    `INSERT INTO wearable_state (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+    [K_WORKOUT_PERMS_REQUESTED_AT, value]
+  );
+}
