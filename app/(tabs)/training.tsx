@@ -130,6 +130,16 @@ export default function TrainingScreen() {
               Progress →
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => router.push('/import-csv')}
+            accessibilityRole="button"
+            accessibilityLabel="Import training history"
+            hitSlop={8}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Import →
+            </Text>
+          </Pressable>
         </View>
       </View>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>

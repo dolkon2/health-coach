@@ -144,7 +144,16 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
-  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
+  | {
+      type: 'fileimport';
+      format: 'gpx' | 'fit' | 'tcx' | 'strong-csv' | 'hevy-csv'; // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2); strong-csv/hevy-csv are Body P5
+      filename?: string;
+      // Strong/Hevy only: hash(date, workout name, exercise, set order,
+      // weight, reps) per source row this session was built from — lets a
+      // re-import of an overlapping export skip already-stored rows without
+      // a new table (payload/source JSON is the only place this lives).
+      rowHashes?: string[];
+    }
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
