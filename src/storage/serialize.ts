@@ -172,11 +172,11 @@ export function rowToSessionTemplate(r: SessionTemplateRow): SessionTemplate {
 
 export type GearRow = {
   id: string;
-  category: string; // queryable copy of spec.category (the discriminator)
+  category: string; // top-level discriminator (column name unchanged by the flatten)
   name: string;
-  spec: string; // JSON
-  acquiredAt: string | null;
-  retiredAt: string | null;
+  spec: string; // JSON — bespoke fields only; category no longer duplicated inside
+  acquiredOn: string | null;
+  retiredOn: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -185,15 +185,17 @@ export type GearRow = {
 /**
  * createdAt/updatedAt are storage bookkeeping, not entity fields — GearItem
  * carries no timestamps — so the storage layer passes them in alongside.
+ * `spec` is optional on GearItem now (matches earth/water); the column stays
+ * NOT NULL, so an absent spec serializes to '{}'.
  */
 export function gearToRow(g: GearItem, createdAt: string, updatedAt: string): GearRow {
   return {
     id: g.id,
-    category: g.spec.category,
+    category: g.category,
     name: g.name,
-    spec: JSON.stringify(g.spec),
-    acquiredAt: g.acquiredAt ?? null,
-    retiredAt: g.retiredAt ?? null,
+    spec: JSON.stringify(g.spec ?? {}),
+    acquiredOn: g.acquiredOn ?? null,
+    retiredOn: g.retiredOn ?? null,
     notes: g.notes ?? null,
     createdAt,
     updatedAt,
@@ -201,14 +203,17 @@ export function gearToRow(g: GearItem, createdAt: string, updatedAt: string): Ge
 }
 
 export function rowToGear(r: GearRow): GearItem {
+  const parsed = JSON.parse(r.spec) as GearSpec;
+  const hasSpec = parsed !== null && typeof parsed === 'object' && Object.keys(parsed).length > 0;
   return {
     id: r.id,
     name: r.name,
-    ...(r.acquiredAt != null ? { acquiredAt: r.acquiredAt } : {}),
-    ...(r.retiredAt != null ? { retiredAt: r.retiredAt } : {}),
+    category: r.category as GearItem['category'],
+    ...(hasSpec ? { spec: parsed } : {}),
+    ...(r.acquiredOn != null ? { acquiredOn: r.acquiredOn } : {}),
+    ...(r.retiredOn != null ? { retiredOn: r.retiredOn } : {}),
     ...(r.notes != null ? { notes: r.notes } : {}),
-    spec: JSON.parse(r.spec) as GearSpec,
-  };
+  } as GearItem;
 }
 
 // ─── Spot ───────────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { migration009 } from './009_settings';
 import { migration010 } from './010_gear';
 import { migration011 } from './011_spots';
 import { migration012 } from './012_conditions';
+import { migration013 } from './013_gear_date_field_rename';
 
 export type Migration = {
   version: number;
@@ -35,4 +36,5 @@ export const migrations: Migration[] = [
   migration010,
   migration011,
   migration012,
+  migration013,
 ];

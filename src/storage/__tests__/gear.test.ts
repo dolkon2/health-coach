@@ -3,10 +3,11 @@
  *
  * Real SQL via better-sqlite3 in-memory — exercises migration 010, the
  * serializer, and the CRUD module. One round-trip per category confirms each
- * spec variant survives JSON.stringify/parse with its discriminator intact.
+ * spec variant survives JSON.stringify/parse, with `category` (now top-level
+ * on GearItem, not nested in spec) intact.
  */
 import { describe, it, expect } from '@jest/globals';
-import type { GearItem, HarnessSpec, ReserveSpec, WingSpec } from '@core/gear';
+import type { GearItem, ReserveSpec, ParagliderSpec } from '@core/gear';
 import { runMigrations } from '../db';
 import {
   createGear,
@@ -19,8 +20,7 @@ import {
 import { makeTestDb } from './sqliteTestDb';
 
 function wingItem(id: string, overrides: Partial<GearItem> = {}): GearItem {
-  const spec: WingSpec = {
-    category: 'wing',
+  const spec: ParagliderSpec = {
     style: 'xc',
     sizeM2: 23,
     certClass: 'EN B',
@@ -29,25 +29,24 @@ function wingItem(id: string, overrides: Partial<GearItem> = {}): GearItem {
   return {
     id,
     name: 'Ozone Rush 6',
-    acquiredAt: '2024-05-10',
+    category: 'paraglider',
+    acquiredOn: '2024-05-10',
     notes: 'Bought used, one previous owner',
     spec,
     ...overrides,
-  };
+  } as GearItem;
 }
 
 function harnessItem(id: string): GearItem {
-  const spec: HarnessSpec = { category: 'harness' };
-  return { id, name: 'Advance Lightness 3', spec };
+  return { id, name: 'Advance Lightness 3', category: 'harness' };
 }
 
 function reserveItem(id: string): GearItem {
   const spec: ReserveSpec = {
-    category: 'reserve',
     lastRepackAt: '2026-02-01',
     repackIntervalMonths: 6,
   };
-  return { id, name: 'Companion SQR 120', acquiredAt: '2024-05-10', spec };
+  return { id, name: 'Companion SQR 120', category: 'reserve', acquiredOn: '2024-05-10', spec };
 }
 
 describe('gear storage', () => {
@@ -61,8 +60,8 @@ describe('gear storage', () => {
     const back = await getGearById('g-wing-1', db);
     expect(back).not.toBeNull();
     expect(back).toEqual(original);
-    const spec = back!.spec as WingSpec;
-    expect(spec.category).toBe('wing');
+    expect(back!.category).toBe('paraglider');
+    const spec = back!.spec as ParagliderSpec;
     expect(spec.style).toBe('xc');
     expect(spec.sizeM2).toBe(23);
     expect(spec.certClass).toBe('EN B');
@@ -80,10 +79,10 @@ describe('gear storage', () => {
     const list = await listGear({}, db);
     expect(list).toHaveLength(3);
 
-    const byCategory = Object.fromEntries(list.map((g) => [g.spec.category, g]));
-    expect(byCategory.wing.spec.category).toBe('wing');
-    expect(byCategory.harness.spec.category).toBe('harness');
-    expect(byCategory.reserve.spec.category).toBe('reserve');
+    const byCategory = Object.fromEntries(list.map((g) => [g.category, g]));
+    expect(byCategory.paraglider.category).toBe('paraglider');
+    expect(byCategory.harness.category).toBe('harness');
+    expect(byCategory.reserve.category).toBe('reserve');
     expect((byCategory.reserve.spec as ReserveSpec).lastRepackAt).toBe('2026-02-01');
   });
 
@@ -91,13 +90,14 @@ describe('gear storage', () => {
     const db = makeTestDb();
     await runMigrations(db);
 
-    await createGear(harnessItem('g-h'), db); // no acquiredAt/retiredAt/notes
+    await createGear(harnessItem('g-h'), db); // no acquiredOn/retiredOn/notes/spec
 
     const back = await getGearById('g-h', db);
-    expect(back!.acquiredAt).toBeUndefined();
-    expect(back!.retiredAt).toBeUndefined();
+    expect(back!.acquiredOn).toBeUndefined();
+    expect(back!.retiredOn).toBeUndefined();
     expect(back!.notes).toBeUndefined();
-    expect('acquiredAt' in back!).toBe(false);
+    expect('acquiredOn' in back!).toBe(false);
+    expect('spec' in back!).toBe(false);
   });
 
   it('lists newest-created first', async () => {
@@ -119,7 +119,7 @@ describe('gear storage', () => {
     await createGear(harnessItem('g-harness'), db);
     await createGear(reserveItem('g-reserve'), db);
 
-    const wings = await listGear({ category: 'wing' }, db);
+    const wings = await listGear({ category: 'paraglider' }, db);
     expect(wings.map((g) => g.id)).toEqual(['g-wing']);
     const reserves = await listGear({ category: 'reserve' }, db);
     expect(reserves.map((g) => g.id)).toEqual(['g-reserve']);
@@ -139,21 +139,21 @@ describe('gear storage', () => {
     const all = await listGear({ includeRetired: true }, db);
     expect(all.map((g) => g.id)).toEqual(['g-retired', 'g-active']);
 
-    const retiredWings = await listGear({ category: 'wing', includeRetired: true }, db);
+    const retiredWings = await listGear({ category: 'paraglider', includeRetired: true }, db);
     expect(retiredWings).toHaveLength(2);
   });
 
-  it('retireGear stamps retiredAt and keeps the row; get still returns it', async () => {
+  it('retireGear stamps retiredOn and keeps the row; get still returns it', async () => {
     const db = makeTestDb();
     await runMigrations(db);
 
     await createGear(wingItem('g-1'), db);
     const retired = await retireGear('g-1', '2026-07-03', db);
-    expect(retired.retiredAt).toBe('2026-07-03');
+    expect(retired.retiredOn).toBe('2026-07-03');
 
     const back = await getGearById('g-1', db);
     expect(back).not.toBeNull();
-    expect(back!.retiredAt).toBe('2026-07-03');
+    expect(back!.retiredOn).toBe('2026-07-03');
     expect(back!.name).toBe('Ozone Rush 6'); // rest of the row untouched
   });
 
@@ -164,25 +164,26 @@ describe('gear storage', () => {
     const original = wingItem('g-1');
     await createGear(original, db);
 
-    const spec: WingSpec = { ...(original.spec as WingSpec), hoursBaseline: 155 };
+    const spec: ParagliderSpec = { ...(original.spec as ParagliderSpec), hoursBaseline: 155 };
     await updateGear('g-1', { name: 'Rush 6 (23m)', spec }, db);
 
     const back = await getGearById('g-1', db);
     expect(back!.name).toBe('Rush 6 (23m)');
-    expect((back!.spec as WingSpec).hoursBaseline).toBe(155);
-    expect(back!.acquiredAt).toBe(original.acquiredAt);
+    expect((back!.spec as ParagliderSpec).hoursBaseline).toBe(155);
+    expect(back!.acquiredOn).toBe(original.acquiredOn);
     expect(back!.notes).toBe(original.notes);
   });
 
-  it('updateGear keeps the category column in sync with spec.category', async () => {
+  it('updateGear changes the category column when category + spec are both patched', async () => {
     const db = makeTestDb();
     await runMigrations(db);
 
     await createGear(wingItem('g-1'), db);
-    const harnessSpec: HarnessSpec = { category: 'harness' };
-    await updateGear('g-1', { spec: harnessSpec }, db);
+    // `category` is top-level now — changing what kind of gear a row is means
+    // patching category and spec together, not spec alone.
+    await updateGear('g-1', { category: 'harness', spec: undefined } as Partial<GearItem>, db);
 
-    expect(await listGear({ category: 'wing' }, db)).toHaveLength(0);
+    expect(await listGear({ category: 'paraglider' }, db)).toHaveLength(0);
     const harnesses = await listGear({ category: 'harness' }, db);
     expect(harnesses.map((g) => g.id)).toEqual(['g-1']);
   });
