@@ -35,5 +35,15 @@ Three review passes (one per numbered item) surfaced and fixed real bugs before 
 - **Snow run-grouping** (`runGroupId`) was deliberately NOT built, not even as a placeholder field — per Dylan's resolved decision (research §5, flag 7).
 - **WeGlide read integration** — still deferred, skipped per this pass's instructions (low priority).
 
+## Update — real on-device smoke test (native sim build, 2026-07-08 evening)
+
+Built a real native dev-client (fresh worktree had no `ios/` yet — hit and fixed the known CocoaPods UTF-8-locale gotcha), installed on iPhone 17 Pro sim, ran Sky's own Metro on port 8096 (five other dimension dev servers were running concurrently on 8081/8082/8090/8094 — all left untouched), and Dylan tested with his own real IGC file.
+
+**Confirmed working end-to-end on-device:** IGC import reads a real file + runs the detector (the step the web preview couldn't reach); route preview + elevation profile + stats (1922 pts · 60 km/h top · 3373 m max) render; segment list with editable Air/Ground chips; Save → appears in Today + Training history with route thumbnail; edit-reopen round-trips track/segments; USHPA ledger accumulates across two real saves (2 flights / 2.8 h / 2 days) with the "no site" honesty note intact.
+
+**⚑ OPEN — XC segmentation accuracy, NOT RESOLVED:** Dylan's real XC paraglide file (2141–3373 m) segmented into **4 air segments** (11:00 / 1:36:34 / 23:42 / 30:07, 2:41:23 total) not the single continuous flight he expected. He flagged it himself ("not sure about the whole ground x air thing especially for xc") and deferred. Two hypotheses: (1) real — genuine top-landings/relaunches, detector correct; (2) over-segmentation — a long calm inter-thermal glide trips the ground-trigger (`h<2.5 AND |v|<0.1` for 20s) mid-flight. Detector thresholds only validated on clean synthetic tracks before this; first real-XC data point. **Needs Dylan's read on whether 4 matches the actual flight before treating as bug vs fact.** If bug → threshold/merge-window tuning against real tracks (add real-track fixtures to flightDetector.test.ts), not a rewrite.
+
+**Also noticed (cosmetic):** sky surface renders `RoutePreview` AND `RouteMap` back-to-back; with no MapTiler key, RouteMap degrades to the same SVG trace, so two near-identical squiggles stack. Collapse to one when picked back up.
+
 ## Next
-Everything except the actual IGC/GPX file-read step is now proven live (hand-logged save → Today display → USHPA ledger, all confirmed on real data in the browser preview). A real device build would confirm the file-import step specifically. Otherwise: gear/spot/conditions UI (cross-dimension, not Sky-specific) unlocks the three deferred items above (gearRefs, spotId, retrim nudge).
+Pipeline proven end-to-end on real device. The one real open question is the XC segmentation flag above — natural starting point next session, once Dylan says whether 4 segments matches reality. Otherwise: gear/spot/conditions UI (cross-dimension, not Sky-specific) unlocks gearRefs/spotId/retrim-nudge.
