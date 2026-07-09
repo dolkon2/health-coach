@@ -120,6 +120,16 @@ export default function TrainingScreen() {
               Library →
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => router.push('/training-progress')}
+            accessibilityRole="button"
+            accessibilityLabel="Open training progress"
+            hitSlop={8}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Progress →
+            </Text>
+          </Pressable>
         </View>
       </View>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
