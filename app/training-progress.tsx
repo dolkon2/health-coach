@@ -8,7 +8,7 @@
  */
 import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card } from '@/components';
+import { Screen, Text, Card, Button } from '@/components';
 import { useTheme } from '@/theme';
 import { useLadderProgress } from '@/hooks/useLadderProgress';
 import { useGymAnalytics } from '@/hooks/useGymAnalytics';
@@ -29,6 +29,12 @@ export default function TrainingProgressScreen() {
   return (
     <Screen scroll>
       <Text variant="displayLg">Progress</Text>
+
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[2], marginTop: theme.spacing[4] }}>
+        <Button label="Log ROM check-in" variant="outline" size="sm" onPress={() => router.push('/log-rom')} />
+        <Button label="Log pain" variant="outline" size="sm" onPress={() => router.push('/log-pain')} />
+        <Button label="Plans" variant="outline" size="sm" onPress={() => router.push('/protocols')} />
+      </View>
 
       <Text
         variant="label"

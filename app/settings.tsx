@@ -87,6 +87,15 @@ export default function SettingsScreen() {
       </Card>
 
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Plans</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Your own home-exercise plans — define them here, tick them off daily
+          from the same screen.
+        </Text>
+        <Button label="Open plans" variant="outline" onPress={() => router.push('/protocols')} />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
         <Text variant="label">Units</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           How weights and distances read. Storage stays kg and metres — this
