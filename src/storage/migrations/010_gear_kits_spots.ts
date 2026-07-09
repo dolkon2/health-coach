@@ -6,9 +6,20 @@
  * columns — the flat category-keyed GearSpec and the kit's gear-id list ride
  * whole, so shapes can evolve without DDL.
  *
- * Version 10 is Water's cross-branch reservation (contract §0.10:
- * Water=010, Earth=011, Sky=012, Body=013); CREATE TABLE IF NOT EXISTS is
- * the defensive belt for that coordination.
+ * Cross-branch reconciliation (2026-07-08): the original "Water=010,
+ * Earth=011, Sky=012, Body=013" contract didn't hold in practice — earth and
+ * sky each independently shipped their own migration 010 too. Real
+ * migration-number renumbering happens at actual merge time (rewriting an
+ * already-applied migration's SQL would silently miss already-migrated
+ * devices, since the runner tracks applied versions by number, not content).
+ * This reconciliation pass instead aligned the TypeScript shapes across
+ * branches — water's `category` (top-level), `acquiredOn`/`retiredOn` naming,
+ * and `Kit` all won as the cross-branch convention; earth and sky ported
+ * onto them. `spot.ts`'s shape (typed columns here vs. sky's flexible
+ * kind+meta bag) is intentionally left unreconciled — deferred to the real
+ * merge, given Water's spot-picker UI is still under active revision.
+ * CREATE TABLE IF NOT EXISTS remains the defensive belt for whatever merge
+ * ordering actually happens.
  */
 import type { Migration } from './index';
 
