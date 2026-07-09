@@ -58,17 +58,30 @@ export type ImportReport = {
   rirDerivedFromRpeCount: number;
 };
 
-/** \u0001-separated so field values can't accidentally merge into a
- *  colliding key (same convention as session.ts's exercise-group key). */
+/**
+ * \u0001-separated so field values can't accidentally merge into a colliding
+ * key (same convention as session.ts's exercise-group key).
+ *
+ * `occurrence` (0-based: the nth set of this exact exercise within this
+ * session, counting only rows that actually became sets) is what makes the
+ * key unique -- NOT the source file's own Set Order/set_type column. Strong's
+ * warm-up/drop/failure rows reuse the LETTER with no index ("Set Order
+ * replaces the number" -- format-spec.md), and Hevy's set_type is a coarse
+ * word (normal/warmup/failure/dropset) shared by every ordinary working set.
+ * An ordinary "3x5 same weight" -- extremely common -- would collide on
+ * anything keyed off those columns alone (a code-review catch: two identical
+ * sets logged back to back would incorrectly dedupe as "the same row" on a
+ * later re-import, silently dropping the genuinely new one).
+ */
 export function rowKey(fields: {
   date: string;
   workoutName: string;
   exercise: string;
-  setOrder: string;
+  occurrence: number;
   weightKg: number;
   reps: number;
 }): string {
-  return [fields.date, fields.workoutName, fields.exercise, fields.setOrder, fields.weightKg, fields.reps].join(
+  return [fields.date, fields.workoutName, fields.exercise, fields.occurrence, fields.weightKg, fields.reps].join(
     '\u0001'
   );
 }

@@ -153,3 +153,52 @@ describe('heuristicWeightUnit', () => {
     expect(heuristicWeightUnit([], 'lb')).toBe('lb');
   });
 });
+
+describe('dedupe keys — repeated identical sets never collide', () => {
+  it('three identical "100kg x5" working sets get three distinct row keys', () => {
+    const csv =
+      'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",1,100.0,5,0,0,,,\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",2,100.0,5,0,0,,,\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",3,100.0,5,0,0,,,\n';
+    const r = parseStrongCsv(csv, { appDefaultWeightUnit: 'kg', weightUnit: 'kg' });
+    if (r.status !== 'ok') throw new Error('expected ok');
+    const keys = r.sessions[0].sets.map((s) => s.rowKey);
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('two identical warm-up ("W") rows on the same exercise get distinct row keys', () => {
+    const csv =
+      'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",W,40.0,10,0,0,,,\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",W,40.0,10,0,0,,,\n';
+    const r = parseStrongCsv(csv, { appDefaultWeightUnit: 'kg', weightUnit: 'kg' });
+    if (r.status !== 'ok') throw new Error('expected ok');
+    const keys = r.sessions[0].sets.map((s) => s.rowKey);
+    expect(new Set(keys).size).toBe(2);
+  });
+});
+
+describe('RPE clamping', () => {
+  it('an out-of-range RPE is dropped rather than producing a nonsensical rir', () => {
+    const csv =
+      'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE\n' +
+      '2026-06-29 07:12:41,"Push Day",45m,"Squat (Barbell)",1,100.0,5,0,0,,,15\n';
+    const r = parseStrongCsv(csv, { appDefaultWeightUnit: 'kg', weightUnit: 'kg' });
+    if (r.status !== 'ok') throw new Error('expected ok');
+    expect(r.sessions[0].sets[0].rir).toBeUndefined();
+    expect(r.report.rirDerivedFromRpeCount).toBe(0);
+  });
+});
+
+describe('Variant B unit fallback', () => {
+  it('a blank Weight Unit cell falls back to the app default, never a silent kg guess', () => {
+    const csv =
+      'Date;Workout Name;Exercise Name;Set Order;Weight;Weight Unit;Reps;RPE;Distance;Distance Unit;Seconds;Notes;Workout Notes;Workout Duration\n' +
+      '2026-06-29 07:12:41;Push Day;Squat (Barbell);1;100.0;;5;;0;km;0;;;45m\n';
+    const r = parseStrongCsv(csv, { appDefaultWeightUnit: 'lb' });
+    if (r.status !== 'ok') throw new Error('expected ok');
+    // 100 in the app's lb default -> ~45.36 kg, NOT 100 (which a silent kg guess would produce).
+    expect(r.sessions[0].sets[0].weightKg).toBeCloseTo(45.359, 2);
+  });
+});

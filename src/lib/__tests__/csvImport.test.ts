@@ -28,7 +28,7 @@ function session(overrides: Partial<ImportedSession> = {}): ImportedSession {
           date: '2026-06-29 07:12:41',
           workoutName: 'Push Day',
           exercise: 'Bench Press (Barbell)',
-          setOrder: '1',
+          occurrence: 0,
           weightKg: 100,
           reps: 5,
         }),
@@ -81,7 +81,7 @@ describe('applyCsvImport', () => {
             date: '2026-06-29 07:12:41',
             workoutName: 'Push Day',
             exercise: 'Bench Press (Barbell)',
-            setOrder: '2', // a genuinely different row
+            occurrence: 1, // a genuinely different row
             weightKg: 100,
             reps: 5,
           }),

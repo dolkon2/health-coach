@@ -96,6 +96,10 @@ export function parseStrongCsv(
   const fileWideUnit: WeightUnit = opts.weightUnit ?? 'kg';
 
   const sessionsByKey = new Map<string, ImportedSession>();
+  // (date, workout, exercise) -> how many sets of it we've built so far —
+  // the dedupe key's uniqueness relies on this, not Set Order (see
+  // csvImport.ts's rowKey doc: W/D/F rows share a letter with no index).
+  const occurrenceByExercise = new Map<string, number>();
   const report: ImportReport = {
     sessionsFound: 0,
     setsImported: 0,
@@ -116,11 +120,19 @@ export function parseStrongCsv(
 
     const workoutName = workoutNameIdx !== -1 ? row[workoutNameIdx]?.trim() || 'Workout' : 'Workout';
     const weight = weightIdx !== -1 ? num(row[weightIdx]) : 0;
-    const weightUnit: WeightUnit = isVariantB
-      ? row[weightUnitIdx]?.trim().toLowerCase() === 'lbs' || row[weightUnitIdx]?.trim().toLowerCase() === 'lb'
+    // Variant B trusts the per-row cell; a blank/unrecognized cell (a gap in
+    // an otherwise unit-columned file) falls back to the app's own display
+    // unit rather than silently assuming kg — 'kg' isn't a more honest
+    // default than any other unit for a cell that just doesn't say.
+    const rawWeightUnit = isVariantB ? row[weightUnitIdx]?.trim().toLowerCase() : undefined;
+    const weightUnit: WeightUnit =
+      rawWeightUnit === 'lbs' || rawWeightUnit === 'lb'
         ? 'lb'
-        : 'kg'
-      : fileWideUnit;
+        : rawWeightUnit === 'kg' || rawWeightUnit === 'kgs'
+          ? 'kg'
+          : isVariantB
+            ? opts.appDefaultWeightUnit
+            : fileWideUnit;
     const reps = repsIdx !== -1 ? Math.round(num(row[repsIdx])) : 0;
     const distance = distanceIdx !== -1 ? num(row[distanceIdx]) : 0;
     const seconds = secondsIdx !== -1 ? Math.round(num(row[secondsIdx])) : 0;
@@ -170,11 +182,18 @@ export function parseStrongCsv(
     let rir: number | undefined;
     if (rpeRaw) {
       const rpe = num(rpeRaw);
-      if (rpe > 0) {
+      // format-spec.md: RPE is logged 6-10 in 0.5 steps. Out-of-range input
+      // (a typo, or a garbage cell) is dropped rather than converted into a
+      // nonsensical or negative rir that would get written as fact.
+      if (rpe >= 1 && rpe <= 10) {
         rir = 10 - rpe;
         report.rirDerivedFromRpeCount++;
       }
     }
+
+    const occKey = `${date}\u0001${workoutName}\u0001${rawExercise}`;
+    const occurrence = occurrenceByExercise.get(occKey) ?? 0;
+    occurrenceByExercise.set(occKey, occurrence + 1);
 
     const set: ImportedSet = {
       exercise: rawExercise,
@@ -187,7 +206,7 @@ export function parseStrongCsv(
       ...(seconds > 0 && reps === 0 ? { holdSec: seconds } : {}),
       ...(rir != null ? { rir } : {}),
       ...(isWarmup ? { isWarmup: true } : {}),
-      rowKey: rowKey({ date, workoutName, exercise: rawExercise, setOrder, weightKg, reps }),
+      rowKey: rowKey({ date, workoutName, exercise: rawExercise, occurrence, weightKg, reps }),
       ...(marker ? { marker } : {}),
     };
     session.sets.push(set);

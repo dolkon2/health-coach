@@ -78,6 +78,10 @@ export function parseHevyCsv(raw: string): HevyParseResult {
   const distanceIdx = distanceKmIdx !== -1 ? distanceKmIdx : distanceMiIdx;
 
   const sessionsByKey = new Map<string, ImportedSession>();
+  // (start, title, exercise) -> how many sets of it we've built so far — the
+  // dedupe key's uniqueness relies on this, not set_type (a coarse word
+  // shared by every ordinary working set; see csvImport.ts's rowKey doc).
+  const occurrenceByExercise = new Map<string, number>();
   const report: ImportReport = {
     sessionsFound: 0,
     setsImported: 0,
@@ -145,11 +149,17 @@ export function parseHevyCsv(raw: string): HevyParseResult {
     let rir: number | undefined;
     if (rpeRaw) {
       const rpe = num(rpeRaw);
-      if (rpe > 0) {
+      // Out-of-range RPE (a typo, or a garbage cell) is dropped rather than
+      // converted into a nonsensical or negative rir written as fact.
+      if (rpe >= 1 && rpe <= 10) {
         rir = 10 - rpe;
         report.rirDerivedFromRpeCount++;
       }
     }
+
+    const occKey = `${start}\u0001${title}\u0001${rawExercise}`;
+    const occurrence = occurrenceByExercise.get(occKey) ?? 0;
+    occurrenceByExercise.set(occKey, occurrence + 1);
 
     const set: ImportedSet = {
       exercise: rawExercise,
@@ -164,7 +174,7 @@ export function parseHevyCsv(raw: string): HevyParseResult {
         date: start,
         workoutName: title,
         exercise: rawExercise,
-        setOrder: setType || '',
+        occurrence,
         weightKg,
         reps,
       }),

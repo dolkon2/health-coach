@@ -65,4 +65,26 @@ describe('parseHevyCsv', () => {
     const r = parseHevyCsv('foo,bar\n1,2\n');
     expect(r.status).toBe('header-error');
   });
+
+  it('three identical "normal" working sets on the same lift get three distinct row keys', () => {
+    const csv =
+      '"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n' +
+      '"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Squat (Barbell)",,"",0,"normal",100,5,,0,\n' +
+      '"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Squat (Barbell)",,"",1,"normal",100,5,,0,\n' +
+      '"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Squat (Barbell)",,"",2,"normal",100,5,,0,\n';
+    const r = parseHevyCsv(csv);
+    if (r.status !== 'ok') throw new Error('expected ok');
+    const keys = r.sessions[0].sets.map((s) => s.rowKey);
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('an out-of-range RPE is dropped rather than producing a nonsensical rir', () => {
+    const csv =
+      '"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n' +
+      '"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Squat (Barbell)",,"",0,"normal",100,5,,0,15\n';
+    const r = parseHevyCsv(csv);
+    if (r.status !== 'ok') throw new Error('expected ok');
+    expect(r.sessions[0].sets[0].rir).toBeUndefined();
+    expect(r.report.rirDerivedFromRpeCount).toBe(0);
+  });
 });
