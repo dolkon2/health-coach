@@ -175,6 +175,16 @@ export function emptyBodyAreaDraft(id: string): BodyAreaDraft {
   return { id, zoneId: '', tightness: '' };
 }
 
+/** Body P7b: a fresh breathwork round — not captured yet. */
+export function emptyRoundDraft(id: string): BreathworkRoundDraft {
+  return { id, retentionSec: '', breaths: '' };
+}
+
+/** Body P7b: a fresh standalone pain entry (any surface) — no zone yet. */
+export function emptyPainAreaDraft(id: string): PainAreaDraft {
+  return { id, zoneId: '', pain: '' };
+}
+
 /**
  * Applies an entry-mode switch (reps ↔ hold-seconds) to an exercise draft:
  * sets the mode and clears whichever field the switch just hid on every set.

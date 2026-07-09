@@ -61,6 +61,8 @@ import {
   emptyExerciseDraft,
   emptySetDraft,
   emptyBodyAreaDraft,
+  emptyRoundDraft,
+  emptyPainAreaDraft,
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
@@ -71,12 +73,14 @@ import {
   type ExerciseDraft,
   type SetDraft,
   type BodyAreaDraft,
+  type PainAreaDraft,
   type ClimbStyle,
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker';
 import { yogaStyles, danceFamilies, danceContextTags, mobilityZones, ZONE_SIDES } from '@/data/taxonomies';
+import { breathPatterns, breathPatternById } from '@/data/breathwork';
 import type { MovementPattern, ObservationOf, PracticeContextTag } from '@core/observation';
 
 /**
@@ -136,6 +140,18 @@ export default function LogSessionScreen() {
   // contains the loaded/typed styleId, so editing a dance session opens on
   // the right family without a separate sync effect.
   const [danceFamilyId, setDanceFamilyId] = useState<string | null>(null);
+  // WHM tap-to-stop stopwatch for the current breath hold — null while idle.
+  // No pacer animation v1 (spec): this only times the retention, nothing else.
+  const [holdStartedAt, setHoldStartedAt] = useState<number | null>(null);
+  const [holdElapsedSec, setHoldElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (holdStartedAt == null) return;
+    const id = setInterval(() => {
+      setHoldElapsedSec(Math.round((Date.now() - holdStartedAt) / 1000));
+    }, 250);
+    return () => clearInterval(id);
+  }, [holdStartedAt]);
 
   // The picker dataset for the current activity — memoized once per activity
   // change, not re-filtered per keystroke (each GymExerciseEditor row does its
@@ -209,8 +225,20 @@ export default function LogSessionScreen() {
         f.activity !== a.id
           ? { style: '', styleId: '', contextTag: null, bodyAreas: [] }
           : f.practice,
+      // Same reasoning for breathwork (P7b code-review catch): stale rounds
+      // from a prior Breathwork visit must not resurface, and — since a hold
+      // in progress is timed off wall-clock state outside this form — the
+      // stopwatch itself needs its own reset below, not just the draft data.
+      breathwork:
+        f.activity !== a.id
+          ? { patternId: '', cycles: '', capture: null, rounds: [] }
+          : f.breathwork,
     }));
     setDanceFamilyId(null);
+    if (form.activity !== a.id) {
+      setHoldStartedAt(null);
+      setHoldElapsedSec(0);
+    }
     setStep('detail');
   }
 
@@ -367,6 +395,71 @@ export default function LogSessionScreen() {
 
   function mutateBodyArea(id: string, fn: (a: BodyAreaDraft) => BodyAreaDraft) {
     updatePractice({ bodyAreas: form.practice.bodyAreas.map((a) => (a.id === id ? fn(a) : a)) });
+  }
+
+  // ─── Breathwork rounds (Body P7b) — WHM-style tap-to-stop stopwatch, no
+  // pacer animation v1: the app times the retention hold, nothing else. ────
+
+  function pickPattern(patternId: string) {
+    update({ breathwork: { ...form.breathwork, patternId } });
+  }
+
+  function updateBreathwork(patch: Partial<SessionForm['breathwork']>) {
+    update({ breathwork: { ...form.breathwork, ...patch } });
+  }
+
+  /** Appends a captured round and marks the block's provenance 'stopwatch' —
+   *  the higher-fidelity method wins if a session mixes stopwatch + manual
+   *  rounds (capture is one flag for the whole block, not per round). */
+  function appendRound(retentionSec: number) {
+    updateBreathwork({
+      capture: 'stopwatch',
+      rounds: [...form.breathwork.rounds, { id: uuidv7(), retentionSec: String(retentionSec), breaths: '' }],
+    });
+  }
+
+  function startHold() {
+    setHoldStartedAt(Date.now());
+    setHoldElapsedSec(0);
+  }
+
+  /** An aborted hold (tapped stop at 0s) records nothing — null ≠ 0. */
+  function stopHold() {
+    if (holdStartedAt == null) return;
+    const sec = Math.round((Date.now() - holdStartedAt) / 1000);
+    setHoldStartedAt(null);
+    if (sec > 0) appendRound(sec);
+  }
+
+  function addManualRound() {
+    updateBreathwork({
+      capture: form.breathwork.capture === 'stopwatch' ? 'stopwatch' : 'manual',
+      rounds: [...form.breathwork.rounds, emptyRoundDraft(uuidv7())],
+    });
+  }
+
+  function mutateRound(id: string, fn: (r: SessionForm['breathwork']['rounds'][number]) => SessionForm['breathwork']['rounds'][number]) {
+    updateBreathwork({ rounds: form.breathwork.rounds.map((r) => (r.id === id ? fn(r) : r)) });
+  }
+
+  function removeRound(id: string) {
+    updateBreathwork({ rounds: form.breathwork.rounds.filter((r) => r.id !== id) });
+  }
+
+  // ─── Pain (Body P7b, PT) — any surface, attached to whatever session was
+  // being logged when it hurt (pt-model.md: a knee can hurt on a run or
+  // under a bar, not just on a practice surface). ────────────────────────────
+
+  function addPainArea() {
+    setForm((f) => ({ ...f, painAreas: [...f.painAreas, emptyPainAreaDraft(uuidv7())] }));
+  }
+
+  function removePainArea(id: string) {
+    setForm((f) => ({ ...f, painAreas: f.painAreas.filter((a) => a.id !== id) }));
+  }
+
+  function mutatePainArea(id: string, fn: (a: PainAreaDraft) => PainAreaDraft) {
+    setForm((f) => ({ ...f, painAreas: f.painAreas.map((a) => (a.id === id ? fn(a) : a)) }));
   }
 
   // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
@@ -954,13 +1047,103 @@ export default function LogSessionScreen() {
             </View>
           ) : null}
 
-          <Field
-            label="Style (optional)"
-            value={form.practice.style}
-            onChangeText={setPracticeStyleText}
-            placeholder="e.g. vinyasa, hatha, mobility"
-            keyboardType="default"
-          />
+          {form.activity === 'breathwork'
+            ? (() => {
+                const pattern = breathPatternById(form.breathwork.patternId);
+                const isRetention = pattern?.phases.some((p) => p.capture === 'retention') ?? false;
+                const seconds = form.breathwork.rounds
+                  .map((r) => Number(r.retentionSec))
+                  .filter((n) => Number.isFinite(n) && n > 0);
+                const best = seconds.length > 0 ? Math.max(...seconds) : null;
+                const avg =
+                  seconds.length > 0 ? Math.round(seconds.reduce((a, b) => a + b, 0) / seconds.length) : null;
+                return (
+                  <>
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Pattern (optional)</Text>
+                      <ChipSelect
+                        options={breathPatterns().map((p) => ({ value: p.id, label: p.name }))}
+                        value={form.breathwork.patternId || null}
+                        onChange={pickPattern}
+                      />
+                    </View>
+                    {pattern && pattern.cautions.length > 0 ? (
+                      <Card style={{ gap: theme.spacing[1] }}>
+                        {pattern.cautions.map((c, i) => (
+                          <Text key={i} variant="dataSm" color={theme.colors.sandstone}>
+                            {c}
+                          </Text>
+                        ))}
+                      </Card>
+                    ) : null}
+
+                    {isRetention ? (
+                      <View style={{ gap: theme.spacing[3] }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] }}>
+                          <Button
+                            label={holdStartedAt != null ? `Stop hold — ${holdElapsedSec}s` : 'Start hold'}
+                            variant={holdStartedAt != null ? 'primary' : 'secondary'}
+                            onPress={holdStartedAt != null ? stopHold : startHold}
+                          />
+                        </View>
+                        {form.breathwork.rounds.map((r, i) => (
+                          <View
+                            key={r.id}
+                            style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[3] }}
+                          >
+                            <Text variant="dataSm" color={theme.colors.textMuted} style={{ width: 20 }}>
+                              {i + 1}
+                            </Text>
+                            <Field
+                              label="Seconds"
+                              value={r.retentionSec}
+                              onChangeText={(retentionSec) => mutateRound(r.id, (prev) => ({ ...prev, retentionSec }))}
+                              placeholder="0"
+                              keyboardType="number-pad"
+                              style={{ flex: 1 }}
+                            />
+                            <Field
+                              label="Breaths"
+                              value={r.breaths}
+                              onChangeText={(breaths) => mutateRound(r.id, (prev) => ({ ...prev, breaths }))}
+                              placeholder="—"
+                              keyboardType="number-pad"
+                              style={{ width: 64 }}
+                            />
+                            <RemoveButton label="Remove round" onPress={() => removeRound(r.id)} />
+                          </View>
+                        ))}
+                        <Button label="+ Add round manually" variant="secondary" onPress={addManualRound} />
+                        {best != null && avg != null ? (
+                          <Text variant="dataSm" color={theme.colors.textMuted}>
+                            Best {best}s · average {avg}s over {seconds.length} round
+                            {seconds.length === 1 ? '' : 's'}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Field
+                        label="Cycles (optional)"
+                        value={form.breathwork.cycles}
+                        onChangeText={(cycles) => updateBreathwork({ cycles })}
+                        placeholder="0"
+                        keyboardType="number-pad"
+                      />
+                    )}
+                  </>
+                );
+              })()
+            : null}
+
+          {form.activity !== 'breathwork' ? (
+            <Field
+              label="Style (optional)"
+              value={form.practice.style}
+              onChangeText={setPracticeStyleText}
+              placeholder="e.g. vinyasa, hatha, mobility"
+              keyboardType="default"
+            />
+          ) : null}
         </Card>
       ) : null}
 
@@ -989,6 +1172,48 @@ export default function LogSessionScreen() {
             onChange={(perceivedEffort) => update({ perceivedEffort })}
           />
         </View>
+
+        {/* Pain — any surface, informational only (pt-model.md: a knee can
+            hurt on a run or under a bar, not just on a practice surface). */}
+        <View style={{ gap: theme.spacing[3] }}>
+          <Text variant="label">Pain (optional)</Text>
+          {form.painAreas.map((a) => {
+            const zone = mobilityZones().find((z) => z.id === a.zoneId);
+            return (
+              <View key={a.id} style={{ gap: theme.spacing[2] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing[2] }}>
+                  <View style={{ flex: 1 }}>
+                    <ChipSelect
+                      options={mobilityZones().map((z) => ({ value: z.id, label: z.label }))}
+                      value={a.zoneId || null}
+                      onChange={(zoneId) =>
+                        mutatePainArea(a.id, (prev) => ({ ...prev, zoneId, side: undefined }))
+                      }
+                    />
+                  </View>
+                  <RemoveButton label="Remove pain entry" onPress={() => removePainArea(a.id)} />
+                </View>
+                {zone?.sided ? (
+                  <ChipSelect
+                    options={ZONE_SIDES.map((s) => ({ value: s, label: s }))}
+                    value={a.side ?? null}
+                    onChange={(side) => mutatePainArea(a.id, (prev) => ({ ...prev, side }))}
+                  />
+                ) : null}
+                <Field
+                  label="Pain (0–10)"
+                  value={a.pain}
+                  onChangeText={(pain) => mutatePainArea(a.id, (prev) => ({ ...prev, pain }))}
+                  placeholder="—"
+                  keyboardType="number-pad"
+                  style={{ width: 96 }}
+                />
+              </View>
+            );
+          })}
+          <Button label="+ Add pain entry" variant="secondary" onPress={addPainArea} />
+        </View>
+
         <Field
           // Body P7a: no new schema — the practice surface just prompts the
           // EXISTING notes field more prominently ("how did it feel?"),
