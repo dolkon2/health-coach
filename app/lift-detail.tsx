@@ -7,6 +7,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Screen, Text, Card } from '@/components';
 import { useTheme } from '@/theme';
 import { useGymAnalytics } from '@/hooks/useGymAnalytics';
+import { PR_KIND_LABELS } from '@/lib/gymAnalyticsLabels';
 
 export default function LiftDetailScreen() {
   const theme = useTheme();
@@ -40,6 +41,13 @@ export default function LiftDetailScreen() {
   return (
     <Screen scroll>
       <Text variant="displayLg">{lift.exercise}</Text>
+      {lift.newPrKinds.length > 0 ? (
+        <Card style={{ marginTop: theme.spacing[6] }}>
+          <Text variant="body">
+            New PR this session: {lift.newPrKinds.map((k) => PR_KIND_LABELS[k]).join(', ')}
+          </Text>
+        </Card>
+      ) : null}
       <Text
         variant="label"
         style={{ marginTop: theme.spacing[6], marginBottom: theme.spacing[2] }}
@@ -51,7 +59,7 @@ export default function LiftDetailScreen() {
           <Card key={`${p.date}-${i}`} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Text variant="body">{p.date}</Text>
             <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
-              {i === 0 && lift.isPR ? (
+              {i === 0 && lift.newPrKinds.includes('e1rm') ? (
                 <Text variant="dataSm" color={theme.colors.sandstone}>
                   PR
                 </Text>

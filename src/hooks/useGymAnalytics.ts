@@ -34,7 +34,11 @@ export type LiftSummary = {
   exerciseKey: string;
   exercise: string;
   points: E1rmPoint[]; // date-ascending
-  isPR: boolean; // flagged in the most recent session's PRs
+  // Which PR kind(s) the most recent session earned for this exercise, if
+  // any — NOT a single boolean. A reps-at-weight or set-volume PR doesn't
+  // mean the displayed e1RM number improved; conflating them into one badge
+  // would mislabel the wrong figure as a new best (a code-review catch).
+  newPrKinds: PrFlag['kind'][];
 };
 
 export type GymAnalytics = {
@@ -69,7 +73,7 @@ export function useGymAnalytics(): GymAnalytics {
         for (const p of computeE1rmSeries(sessionSets)) {
           const cur = byKey.get(p.exerciseKey);
           if (cur) cur.points.push(p);
-          else byKey.set(p.exerciseKey, { exerciseKey: p.exerciseKey, exercise: p.exercise, points: [p], isPR: false });
+          else byKey.set(p.exerciseKey, { exerciseKey: p.exerciseKey, exercise: p.exercise, points: [p], newPrKinds: [] });
         }
 
         // PRs: the most recent session vs. everything before it.
@@ -80,7 +84,7 @@ export function useGymAnalytics(): GymAnalytics {
           prs = detectPRs(sorted.slice(0, -1), latest);
           for (const flag of prs) {
             const lift = byKey.get(flag.exerciseKey);
-            if (lift) lift.isPR = true;
+            if (lift) lift.newPrKinds.push(flag.kind);
           }
         }
 

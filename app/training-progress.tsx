@@ -12,7 +12,7 @@ import { Screen, Text, Card } from '@/components';
 import { useTheme } from '@/theme';
 import { useLadderProgress } from '@/hooks/useLadderProgress';
 import { useGymAnalytics } from '@/hooks/useGymAnalytics';
-import { MUSCLE_GROUP_LABELS } from '@/lib/gymAnalyticsLabels';
+import { MUSCLE_GROUP_LABELS, PR_KIND_LABELS } from '@/lib/gymAnalyticsLabels';
 
 export default function TrainingProgressScreen() {
   const theme = useTheme();
@@ -55,7 +55,7 @@ export default function TrainingProgressScreen() {
                   <Text variant="label" color={theme.colors.sandstone}>
                     {lift.exercise}
                   </Text>
-                  {lift.isPR ? (
+                  {lift.newPrKinds.includes('e1rm') ? (
                     <Text variant="dataSm" color={theme.colors.sandstone}>
                       PR
                     </Text>
@@ -64,6 +64,15 @@ export default function TrainingProgressScreen() {
                 <Text variant="dataSm" color={theme.colors.textMuted}>
                   e1RM {lift.points[lift.points.length - 1]?.e1rmKg.toFixed(1)} kg
                 </Text>
+                {lift.newPrKinds.filter((k) => k !== 'e1rm').length > 0 ? (
+                  <Text variant="dataSm" color={theme.colors.textMuted}>
+                    Also a PR:{' '}
+                    {lift.newPrKinds
+                      .filter((k) => k !== 'e1rm')
+                      .map((k) => PR_KIND_LABELS[k])
+                      .join(', ')}
+                  </Text>
+                ) : null}
               </Card>
             </Pressable>
           ))}
