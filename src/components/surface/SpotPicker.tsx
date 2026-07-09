@@ -37,10 +37,39 @@ export type SpotPickerProps = {
   label: string; // "Spot" / "Landing spot"
   /** Denormalized name already on the form — shown while collapsed. */
   selectedName?: string;
+  /** River/section already typed on the form — only read when kind==='river-section'. */
+  prefillRiverName?: string;
+  prefillSectionName?: string;
   onPick: (spot: Spot, gaugeSite?: GaugeSite) => void;
 };
 
-export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProps) {
+/** Separator shared by the derived new-spot name and the saved-spot subtitle, so they read consistently. */
+function joinRiverSection(riverName?: string, sectionName?: string): string {
+  return [riverName, sectionName].filter(Boolean).join(' · ');
+}
+
+/** A river-section spot's name is derived from river/section, never typed separately. */
+export function deriveRiverSectionSpot(
+  riverName?: string,
+  sectionName?: string
+): { name: string; riverName?: string; sectionName?: string } {
+  const r = riverName?.trim();
+  const s = sectionName?.trim();
+  return {
+    name: joinRiverSection(r, s),
+    ...(r ? { riverName: r } : {}),
+    ...(s ? { sectionName: s } : {}),
+  };
+}
+
+export function SpotPicker({
+  kind,
+  label,
+  selectedName,
+  prefillRiverName,
+  prefillSectionName,
+  onPick,
+}: SpotPickerProps) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [spots, setSpots] = useState<Spot[] | null>(null);
@@ -48,8 +77,6 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
   const [busy, setBusy] = useState(false);
   // New-spot draft (string-typed, parsed at create).
   const [name, setName] = useState('');
-  const [riverName, setRiverName] = useState('');
-  const [sectionName, setSectionName] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   // Gauge search (river-section only).
@@ -81,8 +108,11 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
     setSearching(false);
   }
 
+  const derivedRiverSection =
+    kind === 'river-section' ? deriveRiverSectionSpot(prefillRiverName, prefillSectionName) : null;
+
   async function create() {
-    const n = name.trim();
+    const n = kind === 'river-section' ? derivedRiverSection!.name : name.trim();
     if (n === '' || busy) return;
     setBusy(true);
     const latN = Number(lat);
@@ -93,8 +123,8 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
       kind,
       ...(kind === 'river-section'
         ? {
-            ...(riverName.trim() ? { riverName: riverName.trim() } : {}),
-            ...(sectionName.trim() ? { sectionName: sectionName.trim() } : {}),
+            ...(derivedRiverSection!.riverName ? { riverName: derivedRiverSection!.riverName } : {}),
+            ...(derivedRiverSection!.sectionName ? { sectionName: derivedRiverSection!.sectionName } : {}),
             ...(gaugeSite ? { gaugeSiteId: gaugeSite.siteId } : {}),
             // The gauge's coords stand in for the section's (see header note).
             ...(gaugeSite?.lat != null ? { lat: gaugeSite.lat } : {}),
@@ -118,7 +148,7 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
 
   function spotSubtitle(s: Spot): string {
     if (s.kind === 'river-section') {
-      return [s.riverName, s.sectionName].filter(Boolean).join(' · ');
+      return joinRiverSection(s.riverName, s.sectionName);
     }
     return s.lat != null && s.lng != null ? `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}` : '';
   }
@@ -188,31 +218,13 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
             </Pressable>
           ) : (
             <View style={{ gap: theme.spacing[3] }}>
-              <Field
-                label="Name"
-                value={name}
-                onChangeText={setName}
-                placeholder={
-                  kind === 'river-section' ? 'e.g. Green Truss' : 'e.g. Hood River sandbar'
-                }
-                keyboardType="default"
-              />
               {kind === 'river-section' ? (
                 <>
-                  <Field
-                    label="River (optional)"
-                    value={riverName}
-                    onChangeText={setRiverName}
-                    placeholder="e.g. White Salmon"
-                    keyboardType="default"
-                  />
-                  <Field
-                    label="Section (optional)"
-                    value={sectionName}
-                    onChangeText={setSectionName}
-                    placeholder="e.g. Green Truss"
-                    keyboardType="default"
-                  />
+                  <Text variant="bodySm" color={theme.colors.textMuted}>
+                    {derivedRiverSection!.name
+                      ? `Will save as "${derivedRiverSection!.name}".`
+                      : 'Type a River or Section above first.'}
+                  </Text>
                   <View style={{ gap: theme.spacing[2] }}>
                     <View style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
                       <Field
@@ -255,30 +267,39 @@ export function SpotPicker({ kind, label, selectedName, onPick }: SpotPickerProp
                   </View>
                 </>
               ) : (
-                <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+                <>
                   <Field
-                    label="Lat"
-                    value={lat}
-                    onChangeText={setLat}
-                    placeholder="45.7115"
-                    keyboardType="numbers-and-punctuation"
-                    style={{ flex: 1 }}
+                    label="Name"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Hood River sandbar"
+                    keyboardType="default"
                   />
-                  <Field
-                    label="Lng"
-                    value={lng}
-                    onChangeText={setLng}
-                    placeholder="-121.4977"
-                    keyboardType="numbers-and-punctuation"
-                    style={{ flex: 1 }}
-                  />
-                </View>
+                  <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+                    <Field
+                      label="Lat"
+                      value={lat}
+                      onChangeText={setLat}
+                      placeholder="45.7115"
+                      keyboardType="numbers-and-punctuation"
+                      style={{ flex: 1 }}
+                    />
+                    <Field
+                      label="Lng"
+                      value={lng}
+                      onChangeText={setLng}
+                      placeholder="-121.4977"
+                      keyboardType="numbers-and-punctuation"
+                      style={{ flex: 1 }}
+                    />
+                  </View>
+                </>
               )}
               <Button
                 label="Create spot"
                 variant="secondary"
                 onPress={create}
-                disabled={name.trim() === '' || busy}
+                disabled={(kind === 'river-section' ? derivedRiverSection!.name : name).trim() === '' || busy}
                 loading={busy}
               />
             </View>

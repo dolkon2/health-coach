@@ -70,6 +70,17 @@ const MANUAL_PARAMETERS: ChipOption<GaugeReading['parameter']>[] = [
   { value: 'gaugeHeight', label: 'Gauge height' },
 ];
 
+/**
+ * Restore River/Section from a picked spot. `name` is now always DERIVED from
+ * river/section (SpotPicker.deriveRiverSectionSpot), so falling back to it for
+ * a missing sectionName would duplicate the river name into the section box —
+ * a legacy spot (pre-fix, free-typed name unrelated to river/section) simply
+ * restores whichever of river/section it actually has, blank otherwise.
+ */
+export function riverSectionFromSpot(s: Spot): { riverName: string; sectionName: string } {
+  return { riverName: s.riverName ?? '', sectionName: s.sectionName ?? '' };
+}
+
 export type WhitewaterSectionProps = {
   value: SessionForm['whitewater'];
   onChange: (patch: Partial<SessionForm['whitewater']>) => void;
@@ -178,8 +189,7 @@ export function WhitewaterSection({
     seqRef.current++;
     onChange({
       spotId: s.id,
-      riverName: s.riverName ?? '',
-      sectionName: s.sectionName ?? s.name,
+      ...riverSectionFromSpot(s),
       ...(invalidate ? { gauge: undefined, precip72hMm: undefined } : {}),
     });
     const canFetch = s.gaugeSiteId || (s.lat != null && s.lng != null);
@@ -222,6 +232,8 @@ export function WhitewaterSection({
             ? [value.riverName, value.sectionName].filter(Boolean).join(' — ')
             : undefined
         }
+        prefillRiverName={value.riverName}
+        prefillSectionName={value.sectionName}
         onPick={handlePick}
       />
 

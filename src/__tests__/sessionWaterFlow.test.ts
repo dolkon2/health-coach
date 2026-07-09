@@ -29,7 +29,7 @@ import {
   updateObservation,
 } from '../storage/observations';
 import { createGearItem, createKit, listKits } from '../storage/gear';
-import { createSpot, listSpots } from '../storage/spots';
+import { createSpot, getSpot, listSpots } from '../storage/spots';
 import {
   getWorkoutPermsRequestedAt,
   setWorkoutPermsRequestedAt,
@@ -43,8 +43,9 @@ import {
   type BuildContext,
   type SessionForm,
 } from '../lib/session';
-import { manualGaugeSnapshot } from '../components/surface/WhitewaterSection';
+import { manualGaugeSnapshot, riverSectionFromSpot } from '../components/surface/WhitewaterSection';
 import { manualWindSnapshot, kitPickPatch } from '../components/surface/WindSection';
+import { deriveRiverSectionSpot } from '../components/surface/SpotPicker';
 
 const CTX: BuildContext = {
   id: 'wf1',
@@ -209,6 +210,90 @@ describe('manual fallback snapshots', () => {
 
     const rebuilt = buildSessionObservation(invert(stored), { ...CTX, id: 'wf2' });
     expect(JSON.stringify(rebuilt.payload.whitewater!.gauge)).toBe(JSON.stringify(gauge));
+  });
+});
+
+describe('river-section spot naming (deriveRiverSectionSpot / riverSectionFromSpot)', () => {
+  it('derives a joined name from both river and section, trimming whitespace', () => {
+    expect(deriveRiverSectionSpot('White Salmon', 'Green Truss')).toEqual({
+      name: 'White Salmon · Green Truss',
+      riverName: 'White Salmon',
+      sectionName: 'Green Truss',
+    });
+    expect(deriveRiverSectionSpot('  White Salmon  ', '  Green Truss  ')).toEqual({
+      name: 'White Salmon · Green Truss',
+      riverName: 'White Salmon',
+      sectionName: 'Green Truss',
+    });
+  });
+
+  it('derives from river only or section only, omitting the absent half', () => {
+    const riverOnly = deriveRiverSectionSpot('White Salmon', undefined);
+    expect(riverOnly).toEqual({ name: 'White Salmon', riverName: 'White Salmon' });
+    expect('sectionName' in riverOnly).toBe(false);
+
+    const sectionOnly = deriveRiverSectionSpot(undefined, 'Green Truss');
+    expect(sectionOnly).toEqual({ name: 'Green Truss', sectionName: 'Green Truss' });
+    expect('riverName' in sectionOnly).toBe(false);
+  });
+
+  it('both blank or whitespace-only yields an empty name — the state that keeps Create disabled', () => {
+    expect(deriveRiverSectionSpot('', '')).toEqual({ name: '' });
+    expect(deriveRiverSectionSpot('   ', '   ')).toEqual({ name: '' });
+    expect(deriveRiverSectionSpot(undefined, undefined)).toEqual({ name: '' });
+  });
+
+  it('a river-only derived spot persists with sectionName genuinely absent, not an empty string', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const spot: Spot = {
+      id: 'spot-klick',
+      kind: 'river-section',
+      createdAt: '2026-07-06T10:00:00.000Z',
+      ...deriveRiverSectionSpot('Klickitat', undefined),
+    };
+    await createSpot(spot, db);
+
+    const back = await getSpot('spot-klick', db);
+    expect(back?.name).toBe('Klickitat');
+    expect(back).not.toHaveProperty('sectionName');
+  });
+
+  it('riverSectionFromSpot: river-only spot restores section blank (no name-into-section duplication)', () => {
+    const spot: Spot = {
+      id: 's1',
+      name: 'Klickitat',
+      kind: 'river-section',
+      riverName: 'Klickitat',
+      createdAt: '2026-07-06T10:00:00.000Z',
+    };
+    expect(riverSectionFromSpot(spot)).toEqual({ riverName: 'Klickitat', sectionName: '' });
+  });
+
+  it('riverSectionFromSpot: both-set spot restores both', () => {
+    const spot: Spot = {
+      id: 's2',
+      name: 'White Salmon · Green Truss',
+      kind: 'river-section',
+      riverName: 'White Salmon',
+      sectionName: 'Green Truss',
+      createdAt: '2026-07-06T10:00:00.000Z',
+    };
+    expect(riverSectionFromSpot(spot)).toEqual({
+      riverName: 'White Salmon',
+      sectionName: 'Green Truss',
+    });
+  });
+
+  it('riverSectionFromSpot: a legacy spot with neither river nor section restores both blank', () => {
+    const spot: Spot = {
+      id: 's3',
+      name: 'Secret Run', // pre-fix free-typed name, unrelated to river/section
+      kind: 'river-section',
+      createdAt: '2026-06-01T10:00:00.000Z',
+    };
+    expect(riverSectionFromSpot(spot)).toEqual({ riverName: '', sectionName: '' });
   });
 });
 
