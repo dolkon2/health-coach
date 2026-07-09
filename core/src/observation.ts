@@ -248,9 +248,14 @@ export type SkyGearUse = {
 /**
  * Sky-dimension session data (paragliding, hike & fly, speedflying,
  * parakiting — sky-research-track-b.md §3a). One shared shape for all four
- * activities: speedflying materializes each flight as its own Observation
- * (one session = one air segment, typically); parakiting holds many air
- * segments inside one Observation (§5 resolved flag 4). The track is RAW and
+ * activities. Only Hike & Fly gets automatic ground-contact segmentation
+ * (flightDetector.ts's `autoSegmentsForActivity`) — paragliding, speedflying,
+ * and parakiting default to one continuous air segment per session instead
+ * (Dylan's real XC flight over-split under the old always-on detector;
+ * dev-log/dimension-sky-pass-2.md and -3.md). Parakiting CAN still hold many
+ * air segments in one Observation (§5 resolved flag 4, e.g. repeated
+ * touch-and-gos) via the manual "Check for a landing" re-check — it's just no
+ * longer the default shape a fresh capture arrives in. The track is RAW and
  * retained forever — segments only slice it, never trim it.
  *
  * `conditionsSnapshotId` links to the existing conditions-freeze primitive

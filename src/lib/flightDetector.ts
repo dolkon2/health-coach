@@ -323,3 +323,55 @@ export function detectFlightSegments(
   const raw = rawSegments(points, smoothed, airConfirmVarioMS);
   return mergeShortGroundGaps(raw, points, mergeGroundGapSec);
 }
+
+/** One segment spanning the whole track, unconditionally `kind: 'air'` — the
+ * default {@link autoSegmentsForActivity} falls back to for the activities
+ * ground-contact detection doesn't suit. `[]` for a track too short to have
+ * a duration, matching `detectFlightSegments`' own empty-result convention. */
+export function singleContinuousSegment(points: GeoPoint[]): DetectedSegment[] {
+  if (points.length < 2) return [];
+  return [{ kind: 'air', startIdx: 0, endIdx: points.length - 1 }];
+}
+
+/** Whether an activity gets automatic ground-contact/hysteresis segmentation
+ * at all (the {@link autoSegmentsForActivity} pass). Only Hike & Fly has a
+ * genuine hike-then-fly mode switch to find — Dylan's real XC paraglide
+ * flight over-split into 4 air segments on exactly the failure this excludes:
+ * a long calm inter-thermal glide (or a low save) can read as "on the ground"
+ * — `h<2.5 AND |v|<0.1` for 20s — without the pilot ever landing, and Dylan's
+ * read (2026-07-08, dev-log/dimension-sky-pass-2.md) is that the same
+ * ambiguity applies to speedflying and parakiting tracks too. A lookup keyed
+ * on the full activity union (rather than an `=== 'hikeAndFly'` check) so a
+ * 5th sky activity can't be added without deciding its value here — the same
+ * pattern {@link MERGE_GROUND_GAP_SEC_BY_ACTIVITY} already uses. Exported so
+ * the UI can gate the manual "Check for a landing" escape hatch (only
+ * meaningful for an activity that doesn't already auto-segment) off this
+ * same source of truth instead of a second hardcoded check. */
+const AUTO_SEGMENTS_BY_ACTIVITY: Record<SkyDetectorActivity, boolean> = {
+  paragliding: false,
+  hikeAndFly: true,
+  speedflying: false,
+  parakiting: false,
+};
+
+export function autoSegmentsRunFor(activity: SkyDetectorActivity): boolean {
+  return AUTO_SEGMENTS_BY_ACTIVITY[activity];
+}
+
+/**
+ * The activity-gated entry point every call site should use instead of
+ * calling `detectFlightSegments` directly for an automatic (non-user-
+ * requested) detection pass. Activities {@link autoSegmentsRunFor} excludes
+ * default to one continuous air segment instead. A real top-landing/relaunch
+ * is still recoverable — the caller can always invoke `detectFlightSegments`
+ * directly as a user-requested manual check (log-session.tsx's "Check for a
+ * landing" action) — this function only governs the automatic pass.
+ */
+export function autoSegmentsForActivity(
+  points: GeoPoint[],
+  activity: SkyDetectorActivity,
+  opts: DetectFlightSegmentsOptions = {}
+): DetectedSegment[] {
+  if (autoSegmentsRunFor(activity)) return detectFlightSegments(points, activity, opts);
+  return singleContinuousSegment(points);
+}

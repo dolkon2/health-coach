@@ -2,6 +2,9 @@ import { describe, it, expect } from '@jest/globals';
 import type { GeoPoint } from '@core/observation';
 import {
   detectFlightSegments,
+  autoSegmentsForActivity,
+  autoSegmentsRunFor,
+  singleContinuousSegment,
   mergeGroundGapSecForActivity,
   XC_MERGE_GROUND_GAP_SEC,
   PARAKITE_MERGE_GROUND_GAP_SEC,
@@ -165,6 +168,93 @@ describe('detectFlightSegments', () => {
     expect(segs[0].kind).toBe('ground');
     expect(segs[segs.length - 1].kind).toBe('ground');
     expect(segs.some((s) => s.kind === 'air')).toBe(true);
+  });
+});
+
+describe('autoSegmentsForActivity — activity-gated auto-detection', () => {
+  it('still runs ground-contact segmentation for Hike & Fly', () => {
+    // A real hike-to-launch-then-fly-then-hike-off shape: genuine walking
+    // pace on both ends, a strong thermal climb, and a real glide (sinking,
+    // not flat) back toward the LZ before landing — elevation chained
+    // continuously across phases, unlike the flatter synthetic edges above.
+    const hikeUp = track(500, { speedMS: 1.3, climbMS: 0.15, startEle: 1200 }); // ~8 min walk to launch
+    const climbEle = 1200 + 0.15 * 499;
+    const thermal = track(500, { speedMS: 9, climbMS: 2.5, startEle: climbEle }); // strong core
+    const glideEle = climbEle + 2.5 * 499;
+    const glide = track(350, { speedMS: 6, climbMS: -1.2, startEle: glideEle }); // real glide to the LZ
+    const glideEndEle = glideEle - 1.2 * 349;
+    const hikeOff = track(400, { speedMS: 1.1, climbMS: -0.05, startEle: glideEndEle }); // walk off
+    const pts = concat(hikeUp, thermal, glide, hikeOff);
+
+    const gated = autoSegmentsForActivity(pts, 'hikeAndFly', { trackSource: 'igc' });
+    const raw = detectFlightSegments(pts, 'hikeAndFly', { trackSource: 'igc' });
+
+    expect(gated).toEqual(raw);
+    expect(gated.some((s) => s.kind === 'air')).toBe(true);
+    expect(gated.some((s) => s.kind === 'ground')).toBe(true);
+  });
+
+  it('defaults paragliding to one continuous flight even with a long calm mid-flight glide that would otherwise read as landed', () => {
+    // Modeled on the real XC flight that over-split in production
+    // (dev-log/dimension-sky-pass-2.md): strong thermal climbs bracketing a
+    // long, slow, near-level glide (a low save / dead-calm valley crossing)
+    // — slow and flat enough to trip the ground trigger (h<2.5, |v|<0.1) for
+    // well over the 300 s XC merge window, so the raw detector genuinely
+    // splits this into multiple air segments.
+    const climb1 = track(700, { speedMS: 9, climbMS: 2, startEle: 1500 });
+    const glideEle = 1500 + 2 * 699;
+    const calmGlide = track(500, { speedMS: 1.8, climbMS: -0.05, startEle: glideEle });
+    const climb2Ele = glideEle - 0.05 * 499;
+    const climb2 = track(700, { speedMS: 9, climbMS: 1.8, startEle: climb2Ele });
+    const pts = concat(climb1, calmGlide, climb2);
+
+    // Sanity-check the premise: the raw detector really does over-split this
+    // for an activity whose auto-detection isn't gated off.
+    const raw = detectFlightSegments(pts, 'paragliding', { trackSource: 'igc' });
+    expect(raw.filter((s) => s.kind === 'air').length).toBeGreaterThan(1);
+
+    const gated = autoSegmentsForActivity(pts, 'paragliding', { trackSource: 'igc' });
+    expect(gated).toEqual([{ kind: 'air', startIdx: 0, endIdx: pts.length - 1 }]);
+  });
+
+  it('defaults speedflying and parakiting to one continuous flight too', () => {
+    const air1 = track(200, { speedMS: 10, climbMS: 1.5 });
+    const gap = track(200, { speedMS: 0.5, climbMS: 0 });
+    const air2 = track(200, { speedMS: 10, climbMS: 1.5 });
+    const pts = concat(air1, gap, air2);
+
+    for (const activity of ['speedflying', 'parakiting'] as const) {
+      const gated = autoSegmentsForActivity(pts, activity, { trackSource: 'igc' });
+      expect(gated).toEqual([{ kind: 'air', startIdx: 0, endIdx: pts.length - 1 }]);
+    }
+  });
+
+  it('still returns [] for a track too short to segment, regardless of activity', () => {
+    for (const activity of ['paragliding', 'hikeAndFly', 'speedflying', 'parakiting'] as const) {
+      expect(autoSegmentsForActivity([{ lat: 0, lng: 0, tsSec: 0 }], activity)).toEqual([]);
+      expect(autoSegmentsForActivity([], activity)).toEqual([]);
+    }
+  });
+});
+
+describe('singleContinuousSegment', () => {
+  it('spans the whole track as one air segment', () => {
+    const pts = track(120, { speedMS: 9, climbMS: 2 });
+    expect(singleContinuousSegment(pts)).toEqual([{ kind: 'air', startIdx: 0, endIdx: 119 }]);
+  });
+
+  it('returns [] for fewer than 2 points', () => {
+    expect(singleContinuousSegment([{ lat: 0, lng: 0, tsSec: 0 }])).toEqual([]);
+    expect(singleContinuousSegment([])).toEqual([]);
+  });
+});
+
+describe('autoSegmentsRunFor', () => {
+  it('is true only for Hike & Fly', () => {
+    expect(autoSegmentsRunFor('hikeAndFly')).toBe(true);
+    expect(autoSegmentsRunFor('paragliding')).toBe(false);
+    expect(autoSegmentsRunFor('speedflying')).toBe(false);
+    expect(autoSegmentsRunFor('parakiting')).toBe(false);
   });
 });
 

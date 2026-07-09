@@ -59,7 +59,13 @@ import { parseGpx } from '@/lib/gpxImport';
 import { parseIgc } from '@/lib/igcImport';
 import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
-import { detectFlightSegments, type SkyDetectorActivity } from '@/lib/flightDetector';
+import {
+  detectFlightSegments,
+  autoSegmentsForActivity,
+  autoSegmentsRunFor,
+  type SkyDetectorActivity,
+  type DetectedSegment,
+} from '@/lib/flightDetector';
 import { maxAltitudeM, topSpeedMS } from '@/lib/flightStats';
 import { totalAirtimeSec, airSegmentCount, longestAirSegmentSec } from '@/lib/skySegmentStats';
 import {
@@ -87,19 +93,27 @@ import type { GeoPoint, MovementPattern, ObservationOf, SkySegment } from '@core
  * GPS surface with the activity's default energy system, so the detail step has
  * something to fill.
  */
-/** Runs the detector and stamps every proposed segment `provenance: 'auto'` —
- * shared by the initial track attach and by re-detecting on an activity
- * switch, so the two call sites can't drift on how a raw detection becomes
- * a SkySegment[]. */
+/** Stamps every proposed segment `provenance: 'auto'` — the one place that
+ * turns a raw detector output into a SkySegment[], shared by every producer
+ * (the auto-gate below and {@link checkForLanding}'s manual re-check) so they
+ * can't drift on the mapping. */
+function stampAuto(segments: DetectedSegment[]): SkySegment[] {
+  return segments.map((s) => ({ ...s, provenance: 'auto' as const }));
+}
+
+/** Runs the activity-gated auto-detection — shared by the initial track
+ * attach and by re-detecting on an activity switch, so the two call sites
+ * can't drift on how a raw detection becomes a SkySegment[]. Only Hike & Fly
+ * actually gets ground-contact segmentation here; the other three sky
+ * activities default to one continuous flight (see flightDetector.ts's
+ * `autoSegmentsForActivity` doc) — {@link checkForLanding} is their manual
+ * escape hatch. */
 function detectAutoSegments(
   points: GeoPoint[],
   activity: SkyDetectorActivity,
   trackSource: 'igc' | 'liveGps' | undefined
 ): SkySegment[] {
-  return detectFlightSegments(points, activity, { trackSource }).map((s) => ({
-    ...s,
-    provenance: 'auto' as const,
-  }));
+  return stampAuto(autoSegmentsForActivity(points, activity, { trackSource }));
 }
 
 function seededFormForActivity(a: Activity): SessionForm {
@@ -203,14 +217,20 @@ export default function LogSessionScreen() {
       endurance: a.defaultEnergySystem
         ? { ...f.endurance, energySystem: a.defaultEnergySystem }
         : f.endurance,
-      // A track carries over across a sky-activity switch (no need to
-      // re-import), but its segments were detected under the OLD activity's
-      // merge window — re-run the detector for the new one rather than leave
-      // a stale segmentation on the form. ascentMode is speedflying-only, so
-      // switching away from it clears a value the new activity's UI won't
-      // even show.
+      // A track carries over across a REAL sky-activity switch (no need to
+      // re-import), but its segments were auto-derived under the OLD
+      // activity's gate (see flightDetector.ts's `autoSegmentsForActivity`)
+      // — re-derive for the new one rather than leave a stale segmentation on
+      // the form. Guarded on `a.id !== f.activity` so re-tapping the
+      // CURRENTLY-selected activity (reachable via "Change activity") is a
+      // no-op instead of silently discarding any userConfirmed/userEdited
+      // segments from a manual "Check for a landing" review — the SkySegment
+      // provenance invariant (core/src/observation.ts) never re-overwrites
+      // reviewed work, and a same-activity re-pick has nothing to re-derive
+      // anyway. ascentMode is speedflying-only, so switching away from it
+      // clears a value the new activity's UI won't even show.
       sky:
-        a.surface === 'sky' && f.sky.track && f.sky.track.length >= 2
+        a.surface === 'sky' && a.id !== f.activity && f.sky.track && f.sky.track.length >= 2
           ? {
               ...f.sky,
               segments: detectAutoSegments(f.sky.track, a.id as SkyDetectorActivity, f.sky.trackSource),
@@ -442,6 +462,28 @@ export default function LogSessionScreen() {
           i === idx ? { ...s, kind, provenance: 'userEdited' as const } : s
         ),
       },
+    }));
+  }
+
+  /** Manual escape hatch for activities `autoSegmentsRunFor` excludes
+   * (paragliding/speedflying/parakiting): runs the real ground-contact
+   * detector on demand, for the rare session with an actual top-landing or
+   * relaunch. The app proposes, never silently asserts — so this only ever
+   * runs when the pilot asks for it, replacing the single default segment
+   * with whatever the detector finds for review/edit below. Its button (in
+   * the Segments header) only renders while every segment is still
+   * `provenance: 'auto'` — matching the SkySegment invariant that a
+   * confirmed/edited boundary is never silently re-overwritten by a later
+   * detector run (core/src/observation.ts), so it disappears the moment
+   * there's real review work on the form to protect. */
+  function checkForLanding() {
+    if (!form.sky.track || form.sky.track.length < 2 || !form.activity) return;
+    const track = form.sky.track;
+    const activity = form.activity as SkyDetectorActivity;
+    const trackSource = form.sky.trackSource;
+    setForm((f) => ({
+      ...f,
+      sky: { ...f.sky, segments: stampAuto(detectFlightSegments(track, activity, { trackSource })) },
     }));
   }
 
@@ -952,17 +994,32 @@ export default function LogSessionScreen() {
                     }}
                   >
                     <Text variant="label">Segments</Text>
-                    {form.sky.segments.some((s) => s.provenance === 'auto') ? (
-                      <Pressable
-                        onPress={confirmSkySegments}
-                        accessibilityRole="button"
-                        accessibilityLabel="Confirm all detected segments"
-                      >
-                        <Text variant="label" color={theme.colors.sandstone}>
-                          Confirm all
-                        </Text>
-                      </Pressable>
-                    ) : null}
+                    <View style={{ flexDirection: 'row', gap: theme.spacing[4] }}>
+                      {form.activity &&
+                      !autoSegmentsRunFor(form.activity as SkyDetectorActivity) &&
+                      form.sky.segments.every((s) => s.provenance === 'auto') ? (
+                        <Pressable
+                          onPress={checkForLanding}
+                          accessibilityRole="button"
+                          accessibilityLabel="Check this track for a real landing or relaunch"
+                        >
+                          <Text variant="label" color={theme.colors.textSecondary}>
+                            Check for a landing
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {form.sky.segments.some((s) => s.provenance === 'auto') ? (
+                        <Pressable
+                          onPress={confirmSkySegments}
+                          accessibilityRole="button"
+                          accessibilityLabel="Confirm all detected segments"
+                        >
+                          <Text variant="label" color={theme.colors.sandstone}>
+                            Confirm all
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
                   <Text variant="dataSm" color={theme.colors.textSecondary}>
                     {`${formatDurationSec(skyStats?.totalAirtimeSec ?? 0)} airtime  ·  ` +
