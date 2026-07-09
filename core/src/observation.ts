@@ -162,7 +162,12 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
-  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
+  // user-picked activity file, parsed client-side (wearable-ingestion-spec.md
+  // Addendum, Layer 2). `platform` tags which exporter a 'csv' came from
+  // (⚑ E-16, dev-log/dimension-earth-build.md — climbing tick import, Pass
+  // E5); meaningless for gpx/fit/tcx, so left loose rather than a nested
+  // discriminated union for one extra tag.
+  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx' | 'csv'; filename?: string; platform?: string }
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
@@ -245,6 +250,11 @@ export type ClimbingBlock = {
     sent: boolean;
     outcome?: ClimbOutcome;
     route?: string;
+    // The original imported row, verbatim string cells, for audit (⚑ E-16 —
+    // "frozen verbatim" per climbing-apps-research.md's convergent import
+    // strategy). Import-only: never written by manual entry, absent on every
+    // hand-logged send.
+    raw?: Record<string, string>;
   }>;
   totalProblems?: number; // for high-volume sessions where individual logging is impractical
   // Crag pin (⚑ E-5): a device GPS fix taken at log time, not a Spot row —

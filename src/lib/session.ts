@@ -83,6 +83,10 @@ export type SendDraft = {
   // and the inverse both treat null as "defer to `sent`", not "assume redpoint".
   outcome: ClimbOutcome | null;
   route: string; // optional per-climb name; '' when not set
+  // The imported row this send came from (⚑ E-16), if any. Never set by the
+  // UI — carried through inverse -> build untouched so editing an unrelated
+  // field on an imported session can't silently drop its audit trail.
+  raw?: Record<string, string>;
 };
 
 export type SessionForm = {
@@ -522,6 +526,7 @@ export function buildSessionObservation(
           sent,
           ...(s.outcome != null ? { outcome: s.outcome } : {}),
           ...(route ? { route } : {}),
+          ...(s.raw ? { raw: s.raw } : {}),
         };
       }),
       ...(totalProblems !== null && totalProblems > 0
@@ -709,6 +714,7 @@ export function sessionFormFromObservation(
         // a permanent "fact" the moment the session is next resaved.
         outcome: s.outcome ?? null,
         route: s.route ?? '',
+        ...(s.raw ? { raw: s.raw } : {}),
       })),
       totalProblems: p.climbing.totalProblems != null ? String(p.climbing.totalProblems) : '',
       ...(p.climbing.location ? { location: p.climbing.location } : {}),
