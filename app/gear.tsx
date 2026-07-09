@@ -87,14 +87,14 @@ export default function GearScreen() {
       .catch(() => setError('Could not read session history — totals unavailable.'));
   }, [reload]);
 
-  const active = useMemo(() => allGear.filter((g) => g.retiredAt == null), [allGear]);
+  const active = useMemo(() => allGear.filter((g) => g.retiredOn == null), [allGear]);
   const bikes = useMemo(() => active.filter((g) => g.category === 'bike'), [active]);
 
   const sessionLikes = useMemo(
     () =>
       (sessions ?? [])
         .filter((o) => isKind(o, 'session'))
-        // tz rides along: days + acquiredAt gating are civil-day questions in
+        // tz rides along: days + acquiredOn gating are civil-day questions in
         // the session's own zone (core/gear.ts GearSessionLike).
         .map((o) => ({ occurredAt: o.occurredAt, tz: o.tz, payload: o.payload })),
     [sessions]

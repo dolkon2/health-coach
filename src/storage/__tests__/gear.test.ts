@@ -3,7 +3,7 @@
  * derived:
  *   1. Migration 010 applies on a fresh database and the table round-trips a
  *      full record, spec JSON included.
- *   2. Retire stamps retiredAt and filters the row from the default (active)
+ *   2. Retire stamps retiredOn and filters the row from the default (active)
  *      list — the row itself survives, history intact; includeRetired opts in.
  *   3. Delete is a hard remove for mistakes and reports whether a row matched.
  *   4. Corrupt spec JSON degrades to an absent spec — the gear stays readable,
@@ -27,7 +27,7 @@ const SHOES: GearRecord = {
   id: 'g-shoes',
   name: 'Speedgoat 5',
   category: 'shoes',
-  acquiredAt: '2026-04-01',
+  acquiredOn: '2026-04-01',
   spec: { targetKm: 500 },
   notes: 'trail pair',
   createdAt: '2026-04-01T10:00:00Z',
@@ -38,7 +38,7 @@ const CHAIN: GearRecord = {
   name: 'XT chain',
   category: 'bike-component',
   parentId: 'g-bike',
-  acquiredAt: '2026-07-01',
+  acquiredOn: '2026-07-01',
   spec: { componentType: 'chain', serviceIntervalKm: 300 },
   createdAt: '2026-07-01T10:00:00Z',
 };
@@ -86,7 +86,7 @@ describe('gear storage (migration 010)', () => {
     await expect(updateGear('nope', { name: 'x' }, db)).rejects.toThrow('no gear with id');
   });
 
-  it('retire stamps retiredAt and filters from the default list; includeRetired opts in', async () => {
+  it('retire stamps retiredOn and filters from the default list; includeRetired opts in', async () => {
     const db = makeTestDb();
     await runMigrations(db);
     await createGear(SHOES, db);
@@ -99,7 +99,7 @@ describe('gear storage (migration 010)', () => {
 
     const all = await listGear({ includeRetired: true }, db);
     expect(all).toHaveLength(2);
-    expect(all.find((g) => g.id === 'g-shoes')?.retiredAt).toBe('2026-07-04');
+    expect(all.find((g) => g.id === 'g-shoes')?.retiredOn).toBe('2026-07-04');
     // Retire never deletes — the row and its declared facts survive.
     expect((await getGearById('g-shoes', db))?.name).toBe('Speedgoat 5');
   });

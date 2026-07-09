@@ -6,7 +6,7 @@
  * sessions that tagged it — never a stored odometer that could drift from the
  * timeline it summarizes (⚑ E-4, dev-log/dimension-earth-build.md). Components
  * (chain, cassette…) are child gear rows pointing at their bike via `parentId`,
- * accruing from the parent's sessions from their own `acquiredAt` forward.
+ * accruing from the parent's sessions from their own `acquiredOn` forward.
  *
  * Thresholds (targetKm, serviceIntervalHr…) are user-set marks, not our advice.
  * gearStatusLine reports where the gear stands relative to the user's own mark
@@ -49,8 +49,8 @@ type GearBase = {
   id: string;
   name: string; // the user's own label ("Speedgoats", "SRAM chain")
   parentId?: string; // component → its bike; absent for top-level gear
-  acquiredAt?: LocalDate; // when it entered service; gates a component's inherited accrual
-  retiredAt?: LocalDate; // set on retire, never deleted — the history it accrued stays real
+  acquiredOn?: LocalDate; // when it entered service; gates a component's inherited accrual
+  retiredOn?: LocalDate; // set on retire, never deleted — the history it accrued stays real
   notes?: string;
 };
 
@@ -80,7 +80,7 @@ export type GearTotals = {
 
 /** The slice of a session Observation the accrual reads — keeps core decoupled
  *  from the full Observation shape (any session-like record can accrue). `tz`
- *  rides along because days and the acquiredAt gate are civil-day questions:
+ *  rides along because days and the acquiredOn gate are civil-day questions:
  *  a LocalDate can only be compared against the session's own local day
  *  (observation.ts LocalDate contract), never a UTC slice. */
 export type GearSessionLike = {
@@ -98,8 +98,8 @@ export type GearSessionLike = {
  * counts toward gear G when payload.gearIds includes G.id. A bike-component
  * ALSO inherits sessions tagging its parent bike (resolved through `allGear`,
  * so a dangling parentId inherits nothing), but only from the component's
- * `acquiredAt` forward — a chain fitted in July did not ride June's miles.
- * With no acquiredAt, all parent sessions count (the component has always
+ * `acquiredOn` forward — a chain fitted in July did not ride June's miles.
+ * With no acquiredOn, all parent sessions count (the component has always
  * been on the bike as far as the record knows).
  */
 export function deriveGearTotals(
@@ -125,12 +125,12 @@ export function deriveGearTotals(
 
     // The session's local civil day, in ITS OWN timezone — a Monday 6pm PST
     // ski is a Monday, whatever UTC date the instant lands on. Both `days`
-    // and the acquiredAt gate live in civil-day space (LocalDate contract).
+    // and the acquiredOn gate live in civil-day space (LocalDate contract).
     const day = localDayOf(s.occurredAt, s.tz);
     // Two LocalDates compare lexically; an evening ride the night before a
     // component's install day is pre-install, even when its UTC date matches.
     const inherited =
-      viaParent && (gear.acquiredAt == null || day >= gear.acquiredAt);
+      viaParent && (gear.acquiredOn == null || day >= gear.acquiredOn);
     if (!direct && !inherited) continue;
 
     count += 1;

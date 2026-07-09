@@ -3,11 +3,11 @@
  *   1. A session accrues to gear exactly when its gearIds tag it; totals are
  *      computed from the timeline, never a stored odometer.
  *   2. A bike-component inherits its parent bike's sessions, gated by the
- *      component's acquiredAt — a chain fitted in July did not ride June.
+ *      component's acquiredOn — a chain fitted in July did not ride June.
  *   3. `days` counts distinct civil days, not sessions — in the SESSION'S OWN
  *      timezone (LocalDate contract), never a UTC slice: a Monday-evening PST
  *      ski whose instant lands on Tuesday UTC is still a Monday. The
- *      acquiredAt gate compares the same local day.
+ *      acquiredOn gate compares the same local day.
  *   4. distanceKm/durationHr are undefined — not 0 — when no counted session
  *      carried the field (null ≠ 0).
  *   5. gearStatusLine is DESCRIPTIVE: it states where the total sits against
@@ -35,7 +35,7 @@ const CHAIN: Gear = {
   name: 'Chain',
   category: 'bike-component',
   parentId: 'b1',
-  acquiredAt: '2026-07-01',
+  acquiredOn: '2026-07-01',
   spec: { componentType: 'chain', serviceIntervalKm: 300 },
 };
 const SKIS: Gear = { id: 'sk1', name: 'Powder skis', category: 'skis' };
@@ -53,7 +53,7 @@ describe('deriveGearTotals', () => {
     expect(totals.days).toBe(2);
   });
 
-  it('bike-component inherits parent-bike sessions gated by its acquiredAt', () => {
+  it('bike-component inherits parent-bike sessions gated by its acquiredOn', () => {
     const rides = [
       session('2026-06-15T10:00:00Z', ['b1'], { endurance: { distanceM: 40000 } }), // pre-install
       session('2026-07-02T10:00:00Z', ['b1'], { endurance: { distanceM: 25000 } }),
@@ -63,13 +63,13 @@ describe('deriveGearTotals', () => {
     expect(totals.sessions).toBe(2); // June ride predates the chain
     expect(totals.distanceKm).toBe(35);
 
-    // No acquiredAt -> the record has no reason to exclude anything.
-    const { acquiredAt: _dropped, ...rest } = CHAIN;
+    // No acquiredOn -> the record has no reason to exclude anything.
+    const { acquiredOn: _dropped, ...rest } = CHAIN;
     const alwaysOn = rest as Gear;
     expect(deriveGearTotals(alwaysOn, [BIKE, alwaysOn], rides).sessions).toBe(3);
   });
 
-  it('a session on the acquire date itself counts (local day >= acquiredAt)', () => {
+  it('a session on the acquire date itself counts (local day >= acquiredOn)', () => {
     const totals = deriveGearTotals(CHAIN, [BIKE, CHAIN], [
       session('2026-07-01T00:30:00Z', ['b1']),
       session('2026-06-30T23:59:59Z', ['b1']),
@@ -77,7 +77,7 @@ describe('deriveGearTotals', () => {
     expect(totals.sessions).toBe(1);
   });
 
-  it('gates acquiredAt by the session\'s LOCAL day, not its UTC date', () => {
+  it('gates acquiredOn by the session\'s LOCAL day, not its UTC date', () => {
     // Chain installed 2026-07-01. A ride at June 30 7pm Pacific is instant
     // '2026-07-01T02:00Z' — same UTC date as the install, but still June 30
     // where it happened: pre-install, so it must not accrue.

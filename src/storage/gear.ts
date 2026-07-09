@@ -2,7 +2,7 @@
  * gear.ts — typed CRUD for the gear table (migration 010, quiver entity E1).
  *
  * Gear rows are mutable in place like session templates: edits overwrite,
- * retire sets `retiredAt` (the honest end of service — the accrued history
+ * retire sets `retiredOn` (the honest end of service — the accrued history
  * stays), and delete is a hard remove reserved for mistakes. Everything the
  * app *derives* about gear (mileage, days) is computed on read from session
  * observations (core/gear.ts) — nothing here stores a total.
@@ -19,15 +19,15 @@ import { getDb, type SqlDatabase } from './db';
 /** A persisted gear row: the core Gear plus its bookkeeping timestamp. */
 export type GearRecord = Gear & { createdAt: ISOInstant };
 
-const COLUMNS = 'id, name, category, parentId, acquiredAt, retiredAt, spec, notes, createdAt';
+const COLUMNS = 'id, name, category, parentId, acquiredOn, retiredOn, spec, notes, createdAt';
 
 interface GearRow {
   id: string;
   name: string;
   category: string;
   parentId: string | null;
-  acquiredAt: string | null;
-  retiredAt: string | null;
+  acquiredOn: string | null;
+  retiredOn: string | null;
   spec: string | null;
   notes: string | null;
   createdAt: string;
@@ -49,8 +49,8 @@ function rowToGear(r: GearRow): GearRecord {
     name: r.name,
     category: r.category as GearCategory,
     ...(r.parentId != null ? { parentId: r.parentId } : {}),
-    ...(r.acquiredAt != null ? { acquiredAt: r.acquiredAt } : {}),
-    ...(r.retiredAt != null ? { retiredAt: r.retiredAt } : {}),
+    ...(r.acquiredOn != null ? { acquiredOn: r.acquiredOn } : {}),
+    ...(r.retiredOn != null ? { retiredOn: r.retiredOn } : {}),
     ...(spec !== undefined ? { spec } : {}),
     ...(r.notes != null ? { notes: r.notes } : {}),
     createdAt: r.createdAt,
@@ -66,8 +66,8 @@ export async function createGear(g: GearRecord, db?: SqlDatabase): Promise<GearR
       g.name,
       g.category,
       g.parentId ?? null,
-      g.acquiredAt ?? null,
-      g.retiredAt ?? null,
+      g.acquiredOn ?? null,
+      g.retiredOn ?? null,
       g.spec !== undefined ? JSON.stringify(g.spec) : null,
       g.notes ?? null,
       g.createdAt,
@@ -92,7 +92,7 @@ export async function listGear(
   db?: SqlDatabase
 ): Promise<GearRecord[]> {
   const d = db ?? (await getDb());
-  const where = opts.includeRetired ? '' : 'WHERE retiredAt IS NULL';
+  const where = opts.includeRetired ? '' : 'WHERE retiredOn IS NULL';
   const rows = await d.getAllAsync<GearRow>(
     `SELECT ${COLUMNS} FROM gear ${where} ORDER BY category ASC, createdAt ASC;`
   );
@@ -116,15 +116,15 @@ export async function updateGear(
   const merged = { ...existing, ...patch, id } as GearRecord;
   await d.runAsync(
     `UPDATE gear
-     SET name = ?, category = ?, parentId = ?, acquiredAt = ?,
-         retiredAt = ?, spec = ?, notes = ?
+     SET name = ?, category = ?, parentId = ?, acquiredOn = ?,
+         retiredOn = ?, spec = ?, notes = ?
      WHERE id = ?;`,
     [
       merged.name,
       merged.category,
       merged.parentId ?? null,
-      merged.acquiredAt ?? null,
-      merged.retiredAt ?? null,
+      merged.acquiredOn ?? null,
+      merged.retiredOn ?? null,
       merged.spec !== undefined ? JSON.stringify(merged.spec) : null,
       merged.notes ?? null,
       id,
@@ -134,16 +134,16 @@ export async function updateGear(
 }
 
 /**
- * End of service: stamps `retiredAt`, never deletes — the sessions this gear
+ * End of service: stamps `retiredOn`, never deletes — the sessions this gear
  * accrued stay attributed to it forever. The caller supplies the date (the
  * screen passes today), keeping storage deterministic for tests.
  */
 export async function retireGear(
   id: string,
-  retiredAt: string,
+  retiredOn: string,
   db?: SqlDatabase
 ): Promise<GearRecord> {
-  return updateGear(id, { retiredAt }, db);
+  return updateGear(id, { retiredOn }, db);
 }
 
 /** Hard delete — for rows created by mistake, not for gear that lived a life

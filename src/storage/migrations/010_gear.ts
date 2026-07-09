@@ -9,11 +9,18 @@
  *
  * Deliberately NO mileage/odometer column: accrual is derived-on-read from the
  * sessions tagging the gear (⚑ E-4) — a stored total could drift from the
- * timeline it summarizes. `parentId` links a component to its bike; `retiredAt`
- * is set on retire (never a delete — retired gear keeps the history it earned).
+ * timeline it summarizes. `parentId` links a component to its bike; the
+ * column is named `retiredAt` here for historical reasons — migration 011
+ * renames it (and `acquiredAt`) to `retiredOn`/`acquiredOn`, the cross-branch
+ * naming this reconciliation session settled on, since a gear
+ * acquire/retire is a date, not an instant.
  *
- * Numbered 010: this branch reserves 010–012 (⚑ E-11); sky/water/body
- * coordinate their numbers before merging to main.
+ * Cross-branch reconciliation (2026-07-08): the earlier "this branch reserves
+ * 010–012" plan (⚑ E-11) turned out not to hold — sky and water each shipped
+ * their own migration 010 independently. Real renumbering across
+ * earth/sky/water/body happens at actual merge time, not before; this session
+ * only aligned the TypeScript shapes (field names, category location) so that
+ * merge is less painful.
  */
 import type { Migration } from './index';
 

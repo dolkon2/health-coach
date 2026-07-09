@@ -582,7 +582,7 @@ export default function LogSessionScreen() {
   const gearCats = form.activity ? activityById(form.activity)?.gearCategories : undefined;
   const gearChoices = gearCats
     ? gearOptions.filter(
-        (g) => gearCats.includes(g.category) && (g.retiredAt == null || form.gearIds.includes(g.id))
+        (g) => gearCats.includes(g.category) && (g.retiredOn == null || form.gearIds.includes(g.id))
       )
     : [];
   const poolTotalM =
@@ -941,7 +941,7 @@ export default function LogSessionScreen() {
                       color={selected ? theme.colors.bg : theme.colors.textSecondary}
                     >
                       {g.name}
-                      {g.retiredAt != null ? ' (retired)' : ''}
+                      {g.retiredOn != null ? ' (retired)' : ''}
                     </Text>
                   </Pressable>
                 );
