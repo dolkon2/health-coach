@@ -139,7 +139,7 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
-  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
+  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx' | 'igc'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2; igc = Sky's flight-recorder import)
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
@@ -216,6 +216,64 @@ export type PracticeBlock = {
   style?: string;
 };
 
+/**
+ * One takeoff/landing (or ground-contact) segment of a sky track — proposed by
+ * flightDetector.ts, then user-editable. `startIdx`/`endIdx` index into the
+ * SkyBlock's own `track`, matching the Flytec pre-buffer precedent (a segment
+ * is a slice of the retained raw track, never a copy of it).
+ *
+ * Deliberately has NO `runGroupId` — snow run-grouping was explicitly deferred,
+ * not even as a placeholder field (sky-research-track-b.md §5, resolved flag 7).
+ */
+export type SkySegment = {
+  kind: 'air' | 'ground';
+  startIdx: number;
+  endIdx: number;
+  // 'auto' = detector proposal, untouched. A confirmation/edit in the UI
+  // moves this forward — never backward — so an edited boundary is never
+  // silently re-overwritten by a later re-run of the detector.
+  provenance: 'auto' | 'userConfirmed' | 'userEdited';
+};
+
+/** One piece of gear used in the session. `segmentIds` absent = used for the
+ * whole session (the common case); present = this item was only in use for
+ * those segments (e.g. a parakite outing swapping wings mid-session). Segment
+ * identity here is positional — the segment's index in SkyBlock.segments,
+ * stringified — since segments carry no id of their own. */
+export type SkyGearUse = {
+  gearId: string;
+  segmentIds?: string[];
+};
+
+/**
+ * Sky-dimension session data (paragliding, hike & fly, speedflying,
+ * parakiting — sky-research-track-b.md §3a). One shared shape for all four
+ * activities: speedflying materializes each flight as its own Observation
+ * (one session = one air segment, typically); parakiting holds many air
+ * segments inside one Observation (§5 resolved flag 4). The track is RAW and
+ * retained forever — segments only slice it, never trim it.
+ *
+ * `conditionsSnapshotId` links to the existing conditions-freeze primitive
+ * (core/src/conditions.ts, migration 012) rather than duplicating wind fields
+ * here — the standard freeze-and-edit pattern (§5 resolved flag 6).
+ */
+export type SkyBlock = {
+  track?: GeoPoint[]; // absent = a routeless, hand-logged sky session
+  trackSource?: 'igc' | 'liveGps';
+  segments?: SkySegment[]; // absent when there's no track to segment
+  gearRefs?: SkyGearUse[];
+  spotId?: string;
+  conditionsSnapshotId?: string;
+  // Speedflying only — the real driver of lap volume, never inferred from
+  // discipline (research §Q3: refuted "speedriding vs speedflying changes
+  // session volume" as a causal axis).
+  ascentMode?: 'hike' | 'lift' | 'shuttle' | 'tour';
+  // A simple per-session tag disambiguating ski descents from flight — speed
+  // + vario provably cannot tell them apart (§2). Never inferred, never
+  // defaulted; absent means the question was never asked, not "no".
+  onSkis?: boolean;
+};
+
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
@@ -236,6 +294,7 @@ export type SessionPayload = {
   paddling?: PaddlingBlock;
   swimming?: SwimmingBlock;
   practice?: PracticeBlock;
+  sky?: SkyBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward

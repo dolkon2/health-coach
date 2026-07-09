@@ -8,6 +8,7 @@ import {
   gearIsActive,
   repackDueAt,
   paragliderTotalHours,
+  retrimStatus,
   type GearItem,
   type ReserveSpec,
   type ParagliderSpec,
@@ -136,5 +137,41 @@ describe('paragliderTotalHours', () => {
 
   it('adds tracked hours onto an explicit zero baseline', () => {
     expect(paragliderTotalHours(specWith(0), 5)).toBe(5);
+  });
+});
+
+describe('retrimStatus', () => {
+  it('is undefined when no trim date was ever logged — never inferred', () => {
+    expect(retrimStatus({}, 42)).toBeUndefined();
+    expect(retrimStatus({ trimNudgeHours: 50 }, 42)).toBeUndefined();
+  });
+
+  it('is undefined for an unparseable trim date — as good as absent', () => {
+    expect(retrimStatus({ lastTrimDate: 'not-a-date' }, 42)).toBeUndefined();
+  });
+
+  it('reports hours flown with pastMark undefined when no nudge threshold is set', () => {
+    expect(retrimStatus({ lastTrimDate: '2026-01-01' }, 12.5)).toEqual({
+      hoursSinceTrim: 12.5,
+      pastMark: undefined,
+    });
+  });
+
+  it('reports pastMark false under the threshold', () => {
+    expect(retrimStatus({ lastTrimDate: '2026-01-01', trimNudgeHours: 50 }, 30)).toEqual({
+      hoursSinceTrim: 30,
+      pastMark: false,
+    });
+  });
+
+  it('reports pastMark true at or over the threshold', () => {
+    expect(retrimStatus({ lastTrimDate: '2026-01-01', trimNudgeHours: 50 }, 50)).toEqual({
+      hoursSinceTrim: 50,
+      pastMark: true,
+    });
+    expect(retrimStatus({ lastTrimDate: '2026-01-01', trimNudgeHours: 50 }, 61)).toEqual({
+      hoursSinceTrim: 61,
+      pastMark: true,
+    });
   });
 });

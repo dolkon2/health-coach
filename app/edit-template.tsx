@@ -450,13 +450,20 @@ export default function EditTemplateScreen() {
     setForm((f) => ({ ...f, ...patch }));
 
   function pickActivity(a: Activity) {
+    // The sky surface isn't a template surface yet (no shape has been
+    // designed for it) — the activity list already excludes these, this is
+    // the type-level guard for the same fact. Narrowed to a local so the
+    // closure below carries the narrowed type too (narrowing a captured
+    // parameter's property doesn't survive into a nested closure).
+    if (a.surface === 'sky') return;
+    const surface = a.surface;
     setForm((f) => ({
       ...f,
       activity: a.id,
-      surface: a.surface,
+      surface,
       // Seed the gym editor with one blank exercise so there's something to fill.
       gym:
-        a.surface === 'gym' && f.gym.exercises.length === 0
+        surface === 'gym' && f.gym.exercises.length === 0
           ? { exercises: [emptyExerciseRow(uuidv7(), uuidv7())] }
           : f.gym,
       gps: a.defaultEnergySystem
@@ -516,7 +523,11 @@ export default function EditTemplateScreen() {
 
   if (step === 'activity') {
     const headline = headlineActivities();
-    const more = moreActivities();
+    // Sky activities (paragliding/hike&fly/speedflying/parakiting) don't have
+    // a template surface yet — TemplateSurface stays the original five until
+    // a sky template shape is actually designed, so they're excluded here
+    // rather than widening the type for an unbuilt form.
+    const more = moreActivities().filter((a) => a.surface !== 'sky');
     return (
       <Screen scroll>
         <Text variant="label" color={theme.colors.sandstone}>

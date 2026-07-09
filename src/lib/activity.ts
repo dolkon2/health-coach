@@ -21,8 +21,8 @@
  */
 import type { EnergySystem, Modality } from '@core/observation';
 
-/** The five logging surfaces (form shapes). Many activities map to each. */
-export type Surface = 'gym' | 'gps' | 'swim' | 'practice' | 'climbing';
+/** The six logging surfaces (form shapes). Many activities map to each. */
+export type Surface = 'gym' | 'gps' | 'swim' | 'practice' | 'climbing' | 'sky';
 
 export type Activity = {
   id: string; // stable identity id, e.g. 'calisthenics'
@@ -66,7 +66,11 @@ export const ACTIVITIES: Activity[] = [
   { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
   { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic' },
   { id: 'skate', label: 'Skate', surface: 'gps', modality: 'other', icon: 'footprints', defaultEnergySystem: 'mixed' },
-  { id: 'paraglide', label: 'Paraglide', surface: 'gps', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
+  // ── sky surface (Sky dimension: paragliding/hike&fly/speedflying/parakiting; segmented tracks, USHPA ledger) ──
+  { id: 'paragliding', label: 'Paraglide', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
+  { id: 'hikeAndFly', label: 'Hike & Fly', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
+  { id: 'speedflying', label: 'Speedfly', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
+  { id: 'parakiting', label: 'Parakite', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
   // ── swim surface (form lands Pass 5) ──
   { id: 'swim', label: 'Swim', surface: 'swim', modality: 'swim', icon: 'waves', defaultEnergySystem: 'aerobic' },
   // ── climbing surface ──

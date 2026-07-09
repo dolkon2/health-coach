@@ -35,6 +35,8 @@ export type ParagliderSpec = {
   sizeM2?: number;
   certClass?: string; // e.g. 'EN B'
   hoursBaseline?: number;
+  lastTrimDate?: string; // ISO date; absent = never logged, no nudge possible
+  trimNudgeHours?: number; // user-set flight-hours-since-trim threshold; NO default
 };
 
 export type HarnessSpec = Record<string, never>;
@@ -121,4 +123,36 @@ export function paragliderTotalHours(spec: ParagliderSpec, trackedHours: number)
     return trackedHours > 0 ? trackedHours : undefined;
   }
   return spec.hoursBaseline + trackedHours;
+}
+
+/**
+ * Retrim status, passive-display only (constitution: descriptive by default) —
+ * never gates, nags, or defaults. Absent when no trim date was ever logged:
+ * the question was never asked, so there is nothing to report, ever
+ * (sky-research-track-b.md §5 resolved flag 5 — ship across the whole Sky
+ * dimension, but only once the user has explicitly logged a trim date).
+ *
+ * `hoursFlownSinceTrim` is a precomputed aggregate (summed sky-session airtime
+ * for this gear item, dated at or after `lastTrimDate`) — this module has no
+ * DB access, so the caller supplies it, same pattern as
+ * {@link paragliderTotalHours}'s `trackedHours`.
+ *
+ * `pastMark` is `undefined` (not `false`) when the user never set a
+ * `trimNudgeHours` threshold — there is no default interval to compare
+ * against, so "not past a mark" would be a fabricated claim.
+ */
+export function retrimStatus(
+  spec: Pick<ParagliderSpec, 'lastTrimDate' | 'trimNudgeHours'>,
+  hoursFlownSinceTrim: number
+): { hoursSinceTrim: number; pastMark: boolean | undefined } | undefined {
+  // An unparseable date is as good as absent (matches repackDueAt's rule) —
+  // never build a status on a value that isn't actually a date.
+  if (spec.lastTrimDate === undefined || Number.isNaN(Date.parse(spec.lastTrimDate))) {
+    return undefined;
+  }
+  return {
+    hoursSinceTrim: hoursFlownSinceTrim,
+    pastMark:
+      spec.trimNudgeHours !== undefined ? hoursFlownSinceTrim >= spec.trimNudgeHours : undefined,
+  };
 }
