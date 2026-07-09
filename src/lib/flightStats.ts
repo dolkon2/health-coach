@@ -13,7 +13,7 @@
  * are guarded, never divided by.
  */
 import type { GeoPoint } from '@core/observation';
-import { haversineM } from './geo';
+import { cumulativeDistanceM } from './geo';
 
 type ElePoint = GeoPoint & { eleM: number };
 
@@ -80,8 +80,7 @@ export function maxSinkRateMS(points: GeoPoint[], windowSec = 8): number | undef
 export function topSpeedMS(points: GeoPoint[], windowSec = 4): number | undefined {
   const pts = points.filter((p) => p.tsSec > 0);
   if (pts.length < 2) return undefined;
-  const cumM: number[] = [0];
-  for (let j = 1; j < pts.length; j++) cumM.push(cumM[j - 1] + haversineM(pts[j - 1], pts[j]));
+  const cumM = cumulativeDistanceM(pts);
   let best: number | undefined;
   let i = 0;
   for (let j = 1; j < pts.length; j++) {
