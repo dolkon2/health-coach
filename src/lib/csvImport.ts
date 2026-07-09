@@ -19,6 +19,7 @@
 import type { ISOInstant, MovementPattern, ObservationOf } from '@core/observation';
 import { createObservation, listObservations } from '@/storage/observations';
 import type { SqlDatabase } from '@/storage/db';
+import { writeSessionToHealthKit } from './healthkit/writer';
 
 export type ImportedSet = {
   exercise: string;
@@ -167,6 +168,16 @@ export async function applyCsvImport(
       ...(notes ? { notes } : {}),
     };
     await createObservation(obs, db);
+    // An imported gym session exports to Apple Health too if the user has
+    // that on — but AWAITED here, unlike the manual logger's fire-and-forget
+    // (code-review catch): this loop already writes sessions sequentially,
+    // and the HK export's local bookkeeping (hkExports, a settings JSON
+    // blob — see healthkitExports.ts) is a read-modify-write with no lock.
+    // Firing N of these concurrently across a bulk import raced each other
+    // and silently dropped most of the batch's records. Awaiting removes
+    // the concurrency entirely; import-screen UX is unaffected since the
+    // whole import already shows one "Importing…" state throughout.
+    await writeSessionToHealthKit(obs).catch(() => {});
     sessionsWritten++;
     setsWritten += newSets.length;
   }

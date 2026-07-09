@@ -39,7 +39,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "This app reads your steps, sleep, and workouts so your timeline reflects what actually happened. Your data is never written back or shared.",
+          "NSHealthShareUsageDescription": "This app reads your steps, sleep, and workouts so your timeline reflects what actually happened.",
+          "NSHealthUpdateUsageDescription": "If you turn on Apple Health export in Settings, this app writes the workouts you log here to Health — activity type and start/end time only, never a modeled calorie estimate.",
           "background": false
         }
       ],

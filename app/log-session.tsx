@@ -81,6 +81,7 @@ import { activityById, headlineActivities, moreActivities, type Activity } from 
 import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker';
 import { yogaStyles, danceFamilies, danceContextTags, mobilityZones, ZONE_SIDES } from '@/data/taxonomies';
 import { breathPatterns, breathPatternById } from '@/data/breathwork';
+import { writeSessionToHealthKit } from '@/lib/healthkit/writer';
 import type { MovementPattern, ObservationOf, PracticeContextTag } from '@core/observation';
 
 /**
@@ -567,11 +568,11 @@ export default function LogSessionScreen() {
           weightUnit,
           distanceUnit,
         });
-        await updateObservation({
-          ...built,
-          source: original.source,
-          fidelity: original.fidelity,
-        });
+        const edited = { ...built, source: original.source, fidelity: original.fidelity };
+        await updateObservation(edited);
+        // Fire-and-forget: replaces the HK sample (same sync id, bumped
+        // version) if export is on; never awaited, never blocks the save.
+        void writeSessionToHealthKit(edited).catch(() => {});
       } else {
         const obs = buildSessionObservation(form, {
           id: uuidv7(),
@@ -581,6 +582,7 @@ export default function LogSessionScreen() {
           distanceUnit,
         });
         await createObservation(obs);
+        void writeSessionToHealthKit(obs).catch(() => {});
       }
       dismiss();
     } catch {

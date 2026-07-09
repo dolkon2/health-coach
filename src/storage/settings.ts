@@ -12,10 +12,12 @@ import { getDb, type SqlDatabase } from './db';
 import type { BodyProfile } from '@/lib/bodyProfile';
 import type { Settings } from '@/lib/appSettings';
 import type { UserProtocol, UserProtocolsBlob } from '@/lib/protocols';
+import type { HkExportRecord, HkExportsBlob } from '@/lib/healthkitExports';
 
 const K_BODY_PROFILE = 'bodyProfile';
 const K_APP_SETTINGS = 'appSettings';
 const K_USER_PROTOCOLS = 'userProtocols';
+const K_HK_EXPORTS = 'hkExports';
 
 export async function getSettingJson<T>(key: string, db?: SqlDatabase): Promise<T | null> {
   const d = db ?? (await getDb());
@@ -75,4 +77,27 @@ export async function setUserProtocols(
   db?: SqlDatabase
 ): Promise<void> {
   await setSettingJson(K_USER_PROTOCOLS, { protocols }, db);
+}
+
+/** Per-observation HealthKit export bookkeeping (Body P8 — see
+ *  lib/healthkitExports.ts for why this rides the settings blob instead of
+ *  a dedicated table). {} when nothing has ever been exported. */
+export async function getHkExports(db?: SqlDatabase): Promise<HkExportsBlob> {
+  return (await getSettingJson<HkExportsBlob>(K_HK_EXPORTS, db)) ?? {};
+}
+
+export async function setHkExportRecord(
+  observationId: string,
+  record: HkExportRecord,
+  db?: SqlDatabase
+): Promise<void> {
+  const all = await getHkExports(db);
+  await setSettingJson(K_HK_EXPORTS, { ...all, [observationId]: record }, db);
+}
+
+export async function deleteHkExportRecord(observationId: string, db?: SqlDatabase): Promise<void> {
+  const all = await getHkExports(db);
+  if (!(observationId in all)) return;
+  const { [observationId]: _removed, ...rest } = all;
+  await setSettingJson(K_HK_EXPORTS, rest, db);
 }

@@ -30,6 +30,7 @@ import { useTheme } from '@/theme';
 import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { deleteObservation } from '@/storage/observations';
+import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 import { headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -72,6 +73,9 @@ export default function TrainingScreen() {
   const removeAndReload = useCallback(
     async (id: string) => {
       await deleteObservation(id);
+      // Fire-and-forget: propagates the delete to Apple Health if this
+      // session was ever exported; never blocks the local delete.
+      void deleteHealthKitExport(id).catch(() => {});
       reload();
     },
     [reload]
