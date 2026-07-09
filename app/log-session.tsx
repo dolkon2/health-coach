@@ -1139,10 +1139,22 @@ export default function LogSessionScreen() {
 
           {form.activity !== 'breathwork' ? (
             <Field
-              label="Style (optional)"
+              label={
+                form.activity === 'yoga' || form.activity === 'dance'
+                  ? 'Not listed above? (optional)'
+                  : 'Style (optional)'
+              }
               value={form.practice.style}
               onChangeText={setPracticeStyleText}
-              placeholder="e.g. vinyasa, hatha, mobility"
+              placeholder={
+                form.activity === 'dance'
+                  ? 'e.g. hip-hop'
+                  : form.activity === 'yoga'
+                    ? 'e.g. vinyasa, hatha'
+                    : form.activity === 'mobility'
+                      ? 'e.g. hip mobility'
+                      : 'e.g. bird dog, clamshell'
+              }
               keyboardType="default"
             />
           ) : null}
