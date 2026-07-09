@@ -42,9 +42,9 @@ function pullForm(): SessionForm {
       name: 'barbell row',
       movementPattern: 'upper-pull',
       sets: [
-        { id: 'w', weight: '40', reps: '8', rir: '', isWarmup: true },
-        { id: 'a', weight: '100', reps: '5', rir: '2', isWarmup: false },
-        { id: 'b', weight: '100', reps: '5', rir: '1', isWarmup: false },
+        { id: 'w', weight: '40', reps: '8', holdSec: '', rir: '', isWarmup: true },
+        { id: 'a', weight: '100', reps: '5', holdSec: '', rir: '2', isWarmup: false },
+        { id: 'b', weight: '100', reps: '5', holdSec: '', rir: '1', isWarmup: false },
       ],
     },
   ];
@@ -62,8 +62,8 @@ function squatForm(): SessionForm {
       name: 'back squat',
       movementPattern: 'quad-dom',
       sets: [
-        { id: 'w', weight: '60', reps: '5', rir: '', isWarmup: true },
-        { id: 'a', weight: '120', reps: '3', rir: '2', isWarmup: false },
+        { id: 'w', weight: '60', reps: '5', holdSec: '', rir: '', isWarmup: true },
+        { id: 'a', weight: '120', reps: '3', holdSec: '', rir: '2', isWarmup: false },
       ],
     },
   ];

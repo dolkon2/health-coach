@@ -47,6 +47,8 @@ function emptyWeek(weekStart: LocalDate): StimulusLedgerWeek {
   return {
     weekStart,
     byPattern: {} as StimulusLedgerWeek['byPattern'],
+    // Mirrors core/stimulus.ts emptyWeek() — new week-shape fields must land in both.
+    holdSecByPattern: {} as StimulusLedgerWeek['holdSecByPattern'],
     byEnergySystem: {
       aerobic: { minutes: 0 },
       glycolytic: { minutes: 0 },

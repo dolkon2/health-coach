@@ -1,0 +1,164 @@
+[
+  {
+    "id": "pushup-line",
+    "name": "Push-up",
+    "goal": "reps",
+    "steps": [
+      { "id": "pushup-wall", "name": "Wall push-up", "setType": "reps", "leverageFactor": 0.3, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pushup-incline", "name": "Incline push-up", "setType": "reps", "leverageFactor": 0.65, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pushup-full", "name": "Push-up", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pushup-diamond", "name": "Diamond push-up", "setType": "reps", "leverageFactor": 1.15, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pushup-pseudo-planche", "name": "Pseudo planche push-up", "setType": "reps", "leverageFactor": 1.5, "advancement": { "sets": 3, "repsOrSeconds": 8 } }
+    ]
+  },
+  {
+    "id": "dip-line",
+    "name": "Dip",
+    "goal": "reps",
+    "steps": [
+      { "id": "dip-support-hold", "name": "Parallel bar support hold", "setType": "duration", "leverageFactor": 0.4, "advancement": { "sets": 3, "repsOrSeconds": 60 } },
+      { "id": "dip-negative", "name": "Negative dip", "setType": "reps", "leverageFactor": 0.7, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "dip-parallel-bar", "name": "Parallel bar dip", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "dip-weighted", "name": "Weighted dip", "setType": "reps", "leverageFactor": 1.0, "loadable": true, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "dip-ring", "name": "Ring dip", "setType": "reps", "leverageFactor": 1.2, "advancement": { "sets": 3, "repsOrSeconds": 8 } }
+    ]
+  },
+  {
+    "id": "pullup-line",
+    "name": "Pull-up",
+    "goal": "reps",
+    "steps": [
+      { "id": "pullup-scapular-pull", "name": "Scapular pull", "setType": "reps", "leverageFactor": 0.3, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-arch-hang", "name": "Arch hang", "setType": "reps", "leverageFactor": 0.4, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-negative", "name": "Negative pull-up", "setType": "reps", "leverageFactor": 0.7, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-full", "name": "Pull-up", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-weighted", "name": "Weighted pull-up", "setType": "reps", "leverageFactor": 1.0, "loadable": true, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-archer", "name": "Archer pull-up", "setType": "reps", "leverageFactor": 1.4, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "pullup-one-arm-negative", "name": "One-arm pull-up negative", "setType": "reps", "leverageFactor": 1.8, "advancement": { "sets": 3, "repsOrSeconds": 5 } },
+      { "id": "pullup-one-arm", "name": "One-arm pull-up", "setType": "reps", "leverageFactor": 2.0, "advancement": { "sets": 3, "repsOrSeconds": 5 } }
+    ]
+  },
+  {
+    "id": "row-line",
+    "name": "Row",
+    "goal": "reps",
+    "steps": [
+      { "id": "row-vertical", "name": "Vertical row", "setType": "reps", "leverageFactor": 0.3, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "row-incline", "name": "Incline row", "setType": "reps", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "row-horizontal", "name": "Horizontal row", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "row-wide", "name": "Wide row", "setType": "reps", "leverageFactor": 1.1, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "row-archer", "name": "Archer row", "setType": "reps", "leverageFactor": 1.35, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "row-one-arm", "name": "One-arm row", "setType": "reps", "leverageFactor": 1.7, "advancement": { "sets": 3, "repsOrSeconds": 8 } }
+    ]
+  },
+  {
+    "id": "squat-line",
+    "name": "Squat",
+    "goal": "reps",
+    "steps": [
+      { "id": "squat-assisted", "name": "Assisted squat", "setType": "reps", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-full", "name": "Bodyweight squat", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-split", "name": "Split squat", "setType": "reps", "leverageFactor": 1.3, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-bulgarian-split", "name": "Bulgarian split squat", "setType": "reps", "leverageFactor": 1.6, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-shrimp-beginner", "name": "Beginner shrimp squat", "setType": "reps", "leverageFactor": 1.9, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-shrimp-intermediate", "name": "Intermediate shrimp squat", "setType": "reps", "leverageFactor": 2.2, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "squat-shrimp-advanced", "name": "Advanced shrimp squat", "setType": "reps", "leverageFactor": 2.5, "advancement": { "sets": 3, "repsOrSeconds": 8 } }
+    ]
+  },
+  {
+    "id": "hinge-line",
+    "name": "Hinge",
+    "goal": "reps",
+    "steps": [
+      { "id": "hinge-romanian-deadlift", "name": "Romanian deadlift (bodyweight/light)", "setType": "reps", "leverageFactor": 0.25, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hinge-single-leg-deadlift", "name": "Single-leg deadlift", "setType": "reps", "leverageFactor": 0.4, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hinge-banded-nordic-curl", "name": "Banded nordic curl", "setType": "reps", "leverageFactor": 0.7, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hinge-nordic-curl", "name": "Nordic curl", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } }
+    ]
+  },
+  {
+    "id": "lsit-line",
+    "name": "L-sit",
+    "goal": "duration",
+    "steps": [
+      { "id": "lsit-foot-supported", "name": "Foot-supported L-sit", "setType": "duration", "leverageFactor": 0.3, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "lsit-one-foot-supported", "name": "One-foot-supported L-sit", "setType": "duration", "leverageFactor": 0.45, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "lsit-tuck", "name": "Tuck L-sit", "setType": "duration", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "lsit-one-leg-extended", "name": "One-leg-extended L-sit", "setType": "duration", "leverageFactor": 0.8, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "lsit-full", "name": "L-sit", "setType": "duration", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "lsit-v-sit", "name": "V-sit", "setType": "duration", "leverageFactor": 1.4, "advancement": { "sets": 3, "repsOrSeconds": 10 } }
+    ]
+  },
+  {
+    "id": "front-lever-line",
+    "name": "Front lever",
+    "goal": "duration",
+    "steps": [
+      { "id": "front-lever-tuck", "name": "Tuck front lever", "setType": "duration", "leverageFactor": 0.4, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "front-lever-advanced-tuck", "name": "Advanced tuck front lever", "setType": "duration", "leverageFactor": 0.65, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "front-lever-single-leg", "name": "Single-leg front lever", "setType": "duration", "leverageFactor": 0.75, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "front-lever-straddle", "name": "Straddle front lever", "setType": "duration", "leverageFactor": 0.85, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "front-lever-full", "name": "Front lever", "setType": "duration", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 10 } }
+    ]
+  },
+  {
+    "id": "back-lever-line",
+    "name": "Back lever",
+    "goal": "duration",
+    "steps": [
+      { "id": "back-lever-german-hang", "name": "German hang", "setType": "duration", "leverageFactor": 0.2, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "back-lever-tuck", "name": "Tuck back lever", "setType": "duration", "leverageFactor": 0.4, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "back-lever-advanced-tuck", "name": "Advanced tuck back lever", "setType": "duration", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "back-lever-single-leg", "name": "Single-leg back lever", "setType": "duration", "leverageFactor": 0.75, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "back-lever-straddle", "name": "Straddle back lever", "setType": "duration", "leverageFactor": 0.85, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "back-lever-full", "name": "Back lever", "setType": "duration", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 10 } }
+    ]
+  },
+  {
+    "id": "planche-line",
+    "name": "Planche",
+    "goal": "duration",
+    "steps": [
+      { "id": "planche-lean", "name": "Planche lean", "setType": "duration", "leverageFactor": 0.3, "advancement": { "sets": 3, "repsOrSeconds": 20 } },
+      { "id": "planche-tuck", "name": "Tuck planche", "setType": "duration", "leverageFactor": 0.45, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "planche-advanced-tuck", "name": "Advanced tuck planche", "setType": "duration", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "planche-straddle", "name": "Straddle planche", "setType": "duration", "leverageFactor": 0.8, "advancement": { "sets": 3, "repsOrSeconds": 10 } },
+      { "id": "planche-full", "name": "Planche", "setType": "duration", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 10 } }
+    ]
+  },
+  {
+    "id": "handstand-line",
+    "name": "Handstand",
+    "goal": "duration",
+    "steps": [
+      { "id": "handstand-wall-back", "name": "Back-to-wall handstand", "setType": "duration", "leverageFactor": 0.5, "advancement": { "sets": 3, "repsOrSeconds": 30 } },
+      { "id": "handstand-wall-chest", "name": "Chest-to-wall handstand", "setType": "duration", "leverageFactor": 0.6, "advancement": { "sets": 3, "repsOrSeconds": 60 } },
+      { "id": "handstand-wall-weight-shift", "name": "Wall handstand weight shifts", "setType": "duration", "leverageFactor": 0.75, "advancement": { "sets": 3, "repsOrSeconds": 30 } },
+      { "id": "handstand-freestanding", "name": "Freestanding handstand", "setType": "duration", "leverageFactor": 1.0, "advancement": { "sets": 1, "repsOrSeconds": 60 } }
+    ]
+  },
+  {
+    "id": "handstand-pushup-line",
+    "name": "Handstand push-up",
+    "goal": "reps",
+    "steps": [
+      { "id": "hspu-pike", "name": "Pike push-up", "setType": "reps", "leverageFactor": 0.45, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hspu-elevated-pike", "name": "Elevated pike push-up", "setType": "reps", "leverageFactor": 0.65, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hspu-wall-negative", "name": "Wall handstand push-up negative", "setType": "reps", "leverageFactor": 0.85, "advancement": { "sets": 3, "repsOrSeconds": 5 } },
+      { "id": "hspu-wall", "name": "Wall handstand push-up", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hspu-wall-deficit", "name": "Deficit wall handstand push-up", "setType": "reps", "leverageFactor": 1.15, "advancement": { "sets": 3, "repsOrSeconds": 8 } },
+      { "id": "hspu-freestanding", "name": "Freestanding handstand push-up", "setType": "reps", "leverageFactor": 1.4, "advancement": { "sets": 3, "repsOrSeconds": 5 } }
+    ]
+  },
+  {
+    "id": "anti-extension-line",
+    "name": "Anti-extension core",
+    "goal": "reps",
+    "steps": [
+      { "id": "antiext-plank", "name": "Plank", "setType": "duration", "leverageFactor": 0.25, "advancement": { "sets": 3, "repsOrSeconds": 30 } },
+      { "id": "antiext-kneeling-rollout", "name": "Kneeling ab-wheel / ring rollout", "setType": "reps", "leverageFactor": 0.55, "advancement": { "sets": 3, "repsOrSeconds": 12 } },
+      { "id": "antiext-incline-ring-rollout", "name": "Incline ring rollout", "setType": "reps", "leverageFactor": 0.75, "advancement": { "sets": 3, "repsOrSeconds": 12 } },
+      { "id": "antiext-standing-rollout", "name": "Standing ab-wheel rollout", "setType": "reps", "leverageFactor": 1.0, "advancement": { "sets": 3, "repsOrSeconds": 12 } }
+    ]
+  }
+]

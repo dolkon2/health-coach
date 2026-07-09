@@ -21,6 +21,7 @@ import { formatWeight, formatDelta } from '@/lib/units';
 import { dailyTotals, fidelityTreatment, mealDisplayName, type DailyMacroTotal } from '@/lib/foodLog';
 import { captureLabel } from '@core/nutrition/captureTier';
 import { deleteObservation } from '@/storage/observations';
+import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 
 // A captured macro renders as a rounded integer; a genuinely unknown one as "—",
 // never 0 (food-logging-spec § null ≠ 0).
@@ -90,6 +91,11 @@ export default function TodayScreen() {
   const removeAndReload = useCallback(
     async (id: string) => {
       await deleteObservation(id);
+      // Fire-and-forget: propagates to Apple Health if this was ever
+      // exported (sessions only — a no-op for every other observation kind
+      // this shared handler also deletes, e.g. weigh-ins). Same P8
+      // propagation as Training tab's own session-delete path.
+      void deleteHealthKitExport(id).catch(() => {});
       reloadToday();
       reloadTrend();
     },

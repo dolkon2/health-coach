@@ -57,6 +57,7 @@ function gymForm(durationMin: number, exercises: GymExercise[]): SessionForm {
       id: `s${i}-${j}`,
       weight: String(kg),
       reps: String(reps),
+      holdSec: '',
       rir: '2',
       isWarmup: false,
     })),

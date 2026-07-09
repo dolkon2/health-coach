@@ -9,13 +9,18 @@
  */
 import { describe, it, expect } from '@jest/globals';
 import { reveal, computeWeeklyStimulus } from '@core/stimulus';
-import type { GeoPoint } from '@core/observation';
+import type { GeoPoint, ObservationOf } from '@core/observation';
 import {
   buildSessionObservation,
+  emptyExerciseDraft,
   emptySessionForm,
+  emptySetDraft,
+  ghostSetPlaceholders,
+  isSetFilled,
   resolveSurface,
   sessionFormFromObservation,
   validateSessionForm,
+  withEntryType,
   type BuildContext,
   type SessionForm,
 } from '../session';
@@ -38,7 +43,7 @@ function calisthenicsForm(): SessionForm {
       id: 'e1',
       name: 'pull-up',
       movementPattern: 'upper-pull',
-      sets: [{ id: 'a', weight: '0', reps: '10', rir: '1', isWarmup: false }],
+      sets: [{ id: 'a', weight: '0', reps: '10', holdSec: '', rir: '1', isWarmup: false }],
     },
   ];
   return f;
@@ -140,6 +145,7 @@ describe('Pass 3 — gym duration derived from set timestamps (no manual fallbac
           id: `s${i}`,
           weight: '100',
           reps: '5',
+          holdSec: '',
           rir: '',
           isWarmup: false,
           ...(completedAt ? { completedAt } : {}),
@@ -265,7 +271,7 @@ describe('Pass 6 — practice surface', () => {
     const f = emptySessionForm();
     f.activity = 'yoga';
     f.durationMin = '45';
-    f.practice = { style };
+    f.practice = { ...f.practice, style };
     return f;
   }
 
@@ -355,5 +361,434 @@ describe('Native GPS capture — live in-app recording (rung 2)', () => {
     expect(rebuilt.fidelity).toBe(0.7);
     expect(rebuilt.source).toEqual({ type: 'manual' });
     expect(rebuilt.occurredAt).toBe('2026-06-26T16:30:00Z');
+  });
+});
+describe('Body P1a — hold (isometric) sets on the gym surface', () => {
+  /** A calisthenics session with one hold exercise: 2 working holds + 1 warm-up hold. */
+  function holdForm(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'calisthenics';
+    f.gym.exercises = [
+      {
+        id: 'e1',
+        name: 'plank',
+        movementPattern: 'core',
+        sets: [
+          { id: 'w', weight: '', reps: '', holdSec: '20', rir: '', isWarmup: true },
+          { id: 'a', weight: '', reps: '', holdSec: '60', rir: '', isWarmup: false },
+          { id: 'b', weight: '', reps: '', holdSec: '45', rir: '', isWarmup: false },
+        ],
+      },
+    ];
+    return f;
+  }
+
+  it('isSetFilled accepts a hold-only set (reps>0 OR holdSec>0)', () => {
+    const empty = emptySetDraft('x');
+    expect(isSetFilled(empty)).toBe(false);
+    expect(isSetFilled({ ...empty, holdSec: '30' })).toBe(true); // hold, weight empty = bodyweight
+    expect(isSetFilled({ ...empty, holdSec: '30', weight: '10' })).toBe(true); // weighted hold
+    expect(isSetFilled({ ...empty, holdSec: '0' })).toBe(false); // 0 s is not a hold
+    // Rep-set rule unchanged: reps alone without a weight is still unfilled.
+    expect(isSetFilled({ ...empty, reps: '5' })).toBe(false);
+    expect(isSetFilled({ ...empty, reps: '5', weight: '0' })).toBe(true);
+  });
+
+  it('a hold-only exercise validates and builds: holdSec stored, reps 0, 0 kg added load', () => {
+    expect(validateSessionForm(holdForm())).toBeNull();
+    const obs = buildSessionObservation(holdForm(), CTX);
+    const sets = obs.payload.lifting?.sets ?? [];
+    expect(sets).toHaveLength(3);
+    for (const s of sets) {
+      expect(s.reps).toBe(0); // the hold time is the work — no fabricated rep count
+      expect(s.weightKg).toBe(0); // empty weight = strict bodyweight (0 added load)
+    }
+    expect(sets.map((s) => s.holdSec)).toEqual([20, 60, 45]);
+  });
+
+  it('a weighted hold stores the typed weight as ADDED load', () => {
+    const f = holdForm();
+    f.gym.exercises[0].sets = [
+      { id: 'a', weight: '10', reps: '', holdSec: '30', rir: '', isWarmup: false },
+    ];
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.lifting?.sets[0].weightKg).toBe(10);
+    expect(obs.payload.lifting?.sets[0].holdSec).toBe(30);
+  });
+
+  it('round-trips hold sets through invert → rebuild (payload identical)', () => {
+    const obs = buildSessionObservation(holdForm(), CTX);
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    const sets = inverted.gym.exercises[0].sets;
+    expect(sets.map((s) => s.holdSec)).toEqual(['20', '60', '45']);
+    expect(sets.every((s) => s.reps === '')).toBe(true); // restored the way it was left, not '0'
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's2' });
+    expect(rebuilt.payload.lifting).toEqual(obs.payload.lifting);
+  });
+
+  it('round-trips a library exerciseId per set while the name stays the stored fact', () => {
+    const f = holdForm();
+    f.gym.exercises[0].exerciseId = 'plank';
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.lifting?.sets.every((s) => s.exerciseId === 'plank')).toBe(true);
+    expect(obs.payload.lifting?.sets[0].exercise).toBe('plank');
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.gym.exercises).toHaveLength(1);
+    expect(inverted.gym.exercises[0].exerciseId).toBe('plank');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 's3' });
+    expect(rebuilt.payload.lifting).toEqual(obs.payload.lifting);
+  });
+
+  it('reveal(): hold-only session speaks seconds held, never a 0 kg volume-load line', () => {
+    const obs = buildSessionObservation(holdForm(), CTX);
+    // Warm-up hold excluded: 60 + 45 = 105 s across 2 working sets.
+    expect(reveal(obs)).toBe('core · 2 sets · 105 s held');
+  });
+
+  it('reveal(): mixed reps + holds shows both figures, holds adding no volume', () => {
+    const f = holdForm();
+    f.gym.exercises.push({
+      id: 'e2',
+      name: 'weighted pull-up',
+      movementPattern: 'upper-pull',
+      sets: [
+        { id: 'c', weight: '20', reps: '5', holdSec: '', rir: '', isWarmup: false },
+        { id: 'd', weight: '20', reps: '5', holdSec: '', rir: '', isWarmup: false },
+      ],
+    });
+    const obs = buildSessionObservation(f, CTX);
+    // 4 working sets; volume = 20*5 + 20*5 = 200 kg (holds contribute zero); 105 s held.
+    expect(reveal(obs)).toBe('core + upper-pull · 4 sets · 200 kg volume load · 105 s held');
+  });
+
+  it('weekly stimulus: holds count as pattern sets + holdSecByPattern, zero volumeLoadKg', () => {
+    const obs = buildSessionObservation(holdForm(), { ...CTX, now: '2026-06-17T17:00:00Z' });
+    const [week] = computeWeeklyStimulus([obs]);
+    expect(week.byPattern.core).toEqual({ sets: 2, volumeLoadKg: 0 });
+    expect(week.holdSecByPattern.core).toBe(105); // warm-up hold excluded
+  });
+});
+describe('Body P1a — deprecated martial-arts sessions stay editable', () => {
+  it('an edited historic martial-arts session KEEPS its practice block', () => {
+    // The activity was deprecated (hidden from pickers), not removed: activityById
+    // must still resolve it, or resolveSurface would fall back to the modality
+    // ('other' → no sport block) and an edit would silently drop the block.
+    const historic: ObservationOf<'session'> = {
+      id: 'ma1',
+      kind: 'session',
+      occurredAt: '2026-05-01T18:00:00Z',
+      loggedAt: '2026-05-01T19:05:00Z',
+      tz: 'America/Los_Angeles',
+      tier: 1,
+      fidelity: 0.95,
+      source: { type: 'manual' },
+      payload: {
+        kind: 'session',
+        modality: 'other',
+        activity: 'martial-arts',
+        durationMin: 60,
+        practice: { style: 'bjj' },
+      },
+      notes: 'open mat',
+    };
+
+    let n = 0;
+    const form = sessionFormFromObservation(
+      historic,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(form.activity).toBe('martial-arts');
+    expect(form.practice.style).toBe('bjj');
+    expect(resolveSurface(form)).toBe('practice'); // NOT the modality fallback to 'other'
+
+    const rebuilt = buildSessionObservation(form, { ...CTX, id: 'ma2' });
+    expect(rebuilt.payload.practice).toEqual({ style: 'bjj' }); // the block survives the edit
+    expect(rebuilt.payload.activity).toBe('martial-arts');
+    expect(rebuilt.payload.modality).toBe('other'); // unchanged nearest modality
+    expect(rebuilt.payload.durationMin).toBe(60);
+  });
+});
+
+describe('Body P1b — practice-side fields', () => {
+  const invert = (obs: ObservationOf<'session'>) => {
+    let n = 0;
+    return sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+  };
+
+  it('round-trips styleId + free style together (taxonomy pick keeps the text fact)', () => {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.practice = { ...f.practice, style: 'vinyasa', styleId: 'vinyasa' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice).toEqual({ style: 'vinyasa', styleId: 'vinyasa' });
+
+    const rebuilt = buildSessionObservation(invert(obs), { ...CTX, id: 'p2' });
+    expect(rebuilt.payload.practice).toEqual({ style: 'vinyasa', styleId: 'vinyasa' });
+  });
+
+  it('round-trips the dance context tag', () => {
+    const f = emptySessionForm();
+    f.activity = 'dance';
+    f.durationMin = '90';
+    f.practice = { ...f.practice, contextTag: 'social' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice?.contextTag).toBe('social');
+
+    const inverted = invert(obs);
+    expect(inverted.practice.contextTag).toBe('social');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'd2' });
+    expect(rebuilt.payload.practice?.contextTag).toBe('social');
+  });
+
+  it('round-trips body areas — side and tightness kept, unrated stays absent', () => {
+    const f = emptySessionForm();
+    f.activity = 'mobility';
+    f.durationMin = '20';
+    f.practice = {
+      ...f.practice,
+      bodyAreas: [
+        { id: 'b1', zoneId: 'hips', tightness: '4' },
+        { id: 'b2', zoneId: 'calves-ankles', side: 'left', tightness: '' },
+        { id: 'b3', zoneId: '', tightness: '3' }, // zoneless draft: never built
+      ],
+    };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.practice?.bodyAreas).toEqual([
+      { zoneId: 'hips', tightness: 4 },
+      { zoneId: 'calves-ankles', side: 'left' }, // not rated ≠ rated low
+    ]);
+
+    const inverted = invert(obs);
+    expect(inverted.practice.bodyAreas.map((a) => a.zoneId)).toEqual([
+      'hips',
+      'calves-ankles',
+    ]);
+    expect(inverted.practice.bodyAreas[0].tightness).toBe('4');
+    expect(inverted.practice.bodyAreas[1].tightness).toBe('');
+    expect(inverted.practice.bodyAreas[1].side).toBe('left');
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'm2' });
+    expect(rebuilt.payload.practice?.bodyAreas).toEqual(obs.payload.practice?.bodyAreas);
+  });
+
+  it('rejects an out-of-range tightness instead of clamping it', () => {
+    const f = emptySessionForm();
+    f.activity = 'mobility';
+    f.durationMin = '20';
+    f.practice = {
+      ...f.practice,
+      bodyAreas: [{ id: 'b1', zoneId: 'hips', tightness: '9' }],
+    };
+    expect(validateSessionForm(f)).toMatch(/Tightness/);
+  });
+
+  it('pain attaches to a NON-practice session and 0 persists as a recorded reading', () => {
+    const f = calisthenicsForm(); // gym surface
+    f.painAreas = [
+      { id: 'p1', zoneId: 'knees', side: 'right', pain: '0' },
+      { id: 'p2', zoneId: 'lower-back', pain: '3' },
+      { id: 'p3', zoneId: 'hips', pain: '' }, // untouched draft: absent, NOT a 0
+    ];
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.painAreas).toEqual([
+      { zoneId: 'knees', side: 'right', pain: 0 },
+      { zoneId: 'lower-back', pain: 3 },
+    ]);
+
+    const inverted = invert(obs);
+    expect(inverted.painAreas.map((a) => a.pain)).toEqual(['0', '3']);
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'c2' });
+    expect(rebuilt.payload.painAreas).toEqual(obs.payload.painAreas);
+  });
+
+  it('a session with no pain entries carries NO painAreas key (absent ≠ pain-free)', () => {
+    const obs = buildSessionObservation(calisthenicsForm(), CTX);
+    expect('painAreas' in obs.payload).toBe(false);
+  });
+
+  it('rejects an out-of-range pain score instead of clamping it', () => {
+    const f = calisthenicsForm();
+    f.painAreas = [{ id: 'p1', zoneId: 'knees', pain: '11' }];
+    expect(validateSessionForm(f)).toMatch(/Pain/);
+  });
+});
+
+describe('Body P1b — breathwork through the session form', () => {
+  function whm(rounds: Array<{ sec: string; breaths?: string }>, durationMin = ''): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'breathwork';
+    f.durationMin = durationMin;
+    f.breathwork = {
+      patternId: 'whm',
+      cycles: '',
+      capture: 'manual',
+      rounds: rounds.map((r, i) => ({
+        id: `r${i}`,
+        retentionSec: r.sec,
+        breaths: r.breaths ?? '',
+      })),
+    };
+    return f;
+  }
+
+  it('a duration-less manual session with rounds is VALID (rounds-present = filled)', () => {
+    expect(validateSessionForm(whm([{ sec: '95' }]))).toBeNull();
+  });
+
+  it('without rounds, breathwork still needs a duration like any practice', () => {
+    expect(validateSessionForm(whm([]))).toMatch(/duration/);
+  });
+
+  it('a typed duration must still parse — the exemption never swallows garbage', () => {
+    expect(validateSessionForm(whm([{ sec: '95' }], '0'))).toMatch(/duration/);
+  });
+
+  it('builds rounds without fabricating a duration, and the edit path restores them', () => {
+    const obs = buildSessionObservation(
+      whm([{ sec: '95', breaths: '35' }, { sec: '112' }]),
+      CTX
+    );
+    expect('durationMin' in obs.payload).toBe(false); // absent, never a 0
+    expect(obs.payload.breathwork).toEqual({
+      patternId: 'whm',
+      rounds: [{ retentionSeconds: 95, breathsCount: 35 }, { retentionSeconds: 112 }],
+      capture: 'manual',
+    });
+    expect(obs.payload.practice).toBeUndefined(); // no fabricated practice block
+
+    let n = 0;
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => `g${n++}`
+    );
+    expect(inverted.durationMin).toBe('');
+    expect(inverted.breathwork.rounds.map((r) => r.retentionSec)).toEqual(['95', '112']);
+    expect(inverted.breathwork.rounds[0].breaths).toBe('35');
+    expect(inverted.breathwork.capture).toBe('manual');
+
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'bw2' });
+    expect(rebuilt.payload.breathwork).toEqual(obs.payload.breathwork);
+    expect('durationMin' in rebuilt.payload).toBe(false);
+  });
+
+  it('an aborted (empty) round is never stored as a 0-second row', () => {
+    const obs = buildSessionObservation(
+      whm([{ sec: '95' }, { sec: '' }], '12'),
+      CTX
+    );
+    expect(obs.payload.breathwork?.rounds).toEqual([{ retentionSeconds: 95 }]);
+    expect(obs.payload.durationMin).toBe(12); // a typed duration is honored
+  });
+
+  it('breathwork fields are keyed on the activity — yoga never grows the block', () => {
+    const f = emptySessionForm();
+    f.activity = 'yoga';
+    f.durationMin = '45';
+    f.breathwork = {
+      patternId: 'whm',
+      cycles: '',
+      capture: 'manual',
+      rounds: [{ id: 'r0', retentionSec: '90', breaths: '' }],
+    };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.breathwork).toBeUndefined();
+  });
+
+  it('cycles-only (timed pattern) builds without rounds or capture', () => {
+    const f = whm([], '10');
+    f.breathwork = { patternId: 'box-4-4-4-4', cycles: '20', capture: null, rounds: [] };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.breathwork).toEqual({ patternId: 'box-4-4-4-4', cycles: 20 });
+  });
+});
+
+describe('Body P3 — entry mode (reps ↔ hold) never leaves both fields filled', () => {
+  it('switching reps -> duration clears reps on every set, keeps holdSec', () => {
+    const ex = {
+      ...emptyExerciseDraft('e1', 's1'),
+      sets: [
+        { id: 's1', weight: '20', reps: '10', holdSec: '', rir: '', isWarmup: false },
+        { id: 's2', weight: '20', reps: '8', holdSec: '15', rir: '', isWarmup: false },
+      ],
+    };
+    const next = withEntryType(ex, 'duration');
+    expect(next.entryType).toBe('duration');
+    expect(next.sets.map((s) => s.reps)).toEqual(['', '']);
+    expect(next.sets.map((s) => s.holdSec)).toEqual(['', '15']);
+  });
+
+  it('switching duration -> reps clears holdSec on every set, keeps reps', () => {
+    const ex = {
+      ...emptyExerciseDraft('e1', 's1'),
+      entryType: 'duration' as const,
+      sets: [{ id: 's1', weight: '0', reps: '5', holdSec: '30', rir: '', isWarmup: false }],
+    };
+    const next = withEntryType(ex, 'reps');
+    expect(next.entryType).toBe('reps');
+    expect(next.sets[0].holdSec).toBe('');
+    expect(next.sets[0].reps).toBe('5');
+  });
+
+  it('a set can never build with both reps and holdSec after a toggle round-trip', () => {
+    // Regression for a code-review catch: typing reps, toggling to Hold, then
+    // typing a hold time used to leave the stale reps value in place, so
+    // buildLifting would write BOTH reps>0 and holdSec>0 on the same set —
+    // violating the "hold sets store reps: 0" convention.
+    let ex: ReturnType<typeof emptyExerciseDraft> = {
+      ...emptyExerciseDraft('e1', 's1'),
+      name: 'plank',
+      movementPattern: 'core',
+    };
+    ex = { ...ex, sets: [{ id: 's1', weight: '0', reps: '10', holdSec: '', rir: '', isWarmup: false }] };
+    ex = withEntryType(ex, 'duration'); // toggle — reps must clear
+    ex = {
+      ...ex,
+      sets: ex.sets.map((s) => (s.id === 's1' ? { ...s, holdSec: '30' } : s)),
+    };
+    const f = emptySessionForm();
+    f.activity = 'calisthenics';
+    f.gym.exercises = [ex];
+    const obs = buildSessionObservation(f, CTX);
+    const set = obs.payload.lifting!.sets[0];
+    expect(set.holdSec).toBe(30);
+    expect(set.reps).toBe(0);
+  });
+});
+
+describe('Body P3 — ghostSetPlaceholders', () => {
+  it('formats stored kg back to display units, restoring hold sets with an empty reps placeholder', () => {
+    const sets = [
+      { exercise: 'pull-up', movementPattern: 'upper-pull' as const, weightKg: 9.0718, reps: 5 },
+      {
+        exercise: 'plank',
+        movementPattern: 'core' as const,
+        weightKg: 0,
+        reps: 0,
+        holdSec: 45,
+      },
+    ];
+    const placeholders = ghostSetPlaceholders(sets, 'kg');
+    expect(placeholders[0]).toEqual({ weight: '9.07', reps: '5', holdSec: '', rir: '' });
+    expect(placeholders[1]).toEqual({ weight: '0', reps: '', holdSec: '45', rir: '' });
+  });
+
+  it('returns an empty array for a never-logged exercise (null lastSets, never fabricated)', () => {
+    expect(ghostSetPlaceholders(null, 'kg')).toEqual([]);
   });
 });

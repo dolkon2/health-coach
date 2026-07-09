@@ -32,6 +32,10 @@ export type Activity = {
   icon: string; // lucide icon name; the UI resolves it to a component
   defaultEnergySystem?: EnergySystem; // GPS / swim default (consumed Pass 2+)
   defaultIdentityTags?: string[]; // seeds identity tags (consumed Pass 8)
+  // Hidden from the pickers but NEVER removed: activityById must keep resolving
+  // it so historic sessions still display and edit-round-trip losslessly (removal
+  // would drop their sport block via the surface-'other' fallback in lib/session).
+  deprecated?: true;
 };
 
 export const ACTIVITIES: Activity[] = [
@@ -76,8 +80,13 @@ export const ACTIVITIES: Activity[] = [
   { id: 'pilates', label: 'Pilates', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
   { id: 'mobility', label: 'Mobility', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
   { id: 'meditation', label: 'Meditation', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mindfulness'] },
-  { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['martial-arts'] },
-  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['dance'] },
+  // Dropped from the 7 Body sports (Dylan, 2026-07-05 2nd check-in) — deprecated,
+  // not removed, so historic martial-arts sessions keep resolving (see Activity.deprecated).
+  { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['martial-arts'], deprecated: true },
+  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'dance', icon: 'flower', defaultIdentityTags: ['dance'] },
+  // ── practice surface, Body dimension batch (dimension-body-build.md P1a) ──
+  { id: 'breathwork', label: 'Breathwork', surface: 'practice', modality: 'mobility', icon: 'wind', defaultIdentityTags: ['mindfulness'] },
+  { id: 'pt', label: 'PT', surface: 'practice', modality: 'mobility', icon: 'heart-pulse', defaultIdentityTags: ['recovery'] },
 ];
 
 /**
@@ -96,13 +105,19 @@ export function activityById(id: string): Activity | undefined {
   return BY_ID.get(id);
 }
 
-/** The headline activities, in the given id order (defaults to HEADLINE_DEFAULT_IDS). */
+/**
+ * The headline activities, in the given id order (defaults to HEADLINE_DEFAULT_IDS).
+ * Deprecated activities never surface in a picker, even if a stored preference
+ * still lists them — they only resolve by id for historic sessions.
+ */
 export function headlineActivities(ids: readonly string[] = HEADLINE_DEFAULT_IDS): Activity[] {
-  return ids.map((id) => BY_ID.get(id)).filter((a): a is Activity => a !== undefined);
+  return ids
+    .map((id) => BY_ID.get(id))
+    .filter((a): a is Activity => a !== undefined && a.deprecated !== true);
 }
 
 /** Everything not in the headline row — the "More" long tail, registry order preserved. */
 export function moreActivities(headlineIds: readonly string[] = HEADLINE_DEFAULT_IDS): Activity[] {
   const headline = new Set(headlineIds);
-  return ACTIVITIES.filter((a) => !headline.has(a.id));
+  return ACTIVITIES.filter((a) => !headline.has(a.id) && a.deprecated !== true);
 }

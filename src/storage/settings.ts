@@ -11,9 +11,13 @@
 import { getDb, type SqlDatabase } from './db';
 import type { BodyProfile } from '@/lib/bodyProfile';
 import type { Settings } from '@/lib/appSettings';
+import type { UserProtocol, UserProtocolsBlob } from '@/lib/protocols';
+import type { HkExportRecord, HkExportsBlob } from '@/lib/healthkitExports';
 
 const K_BODY_PROFILE = 'bodyProfile';
 const K_APP_SETTINGS = 'appSettings';
+const K_USER_PROTOCOLS = 'userProtocols';
+const K_HK_EXPORTS = 'hkExports';
 
 export async function getSettingJson<T>(key: string, db?: SqlDatabase): Promise<T | null> {
   const d = db ?? (await getDb());
@@ -57,4 +61,67 @@ export async function getAppSettings(db?: SqlDatabase): Promise<Partial<Settings
 
 export async function setAppSettings(settings: Settings, db?: SqlDatabase): Promise<void> {
   await setSettingJson(K_APP_SETTINGS, settings, db);
+}
+
+/** The user's own recorded plans ("My plan" — lib/protocols.ts). Returns [] when
+ *  none exist: having zero protocols is a fact, not a fabricated default, so
+ *  this tenant honestly reads as an empty list rather than null. Archived
+ *  protocols stay in the blob (archivedAt) — never deleted. */
+export async function getUserProtocols(db?: SqlDatabase): Promise<UserProtocol[]> {
+  const blob = await getSettingJson<UserProtocolsBlob>(K_USER_PROTOCOLS, db);
+  return blob?.protocols ?? [];
+}
+
+export async function setUserProtocols(
+  protocols: UserProtocol[],
+  db?: SqlDatabase
+): Promise<void> {
+  await setSettingJson(K_USER_PROTOCOLS, { protocols }, db);
+}
+
+/** Per-observation HealthKit export bookkeeping (Body P8 — see
+ *  lib/healthkitExports.ts for why this rides the settings blob instead of
+ *  a dedicated table). {} when nothing has ever been exported. */
+export async function getHkExports(db?: SqlDatabase): Promise<HkExportsBlob> {
+  return (await getSettingJson<HkExportsBlob>(K_HK_EXPORTS, db)) ?? {};
+}
+
+// setHkExportRecord/deleteHkExportRecord are read-modify-write against one
+// shared JSON blob, not a row-level upsert. Every mutating call site
+// (log-session.tsx save/edit, training.tsx + (tabs)/index.tsx delete) fires
+// fire-and-forget, so two of these can legitimately overlap (e.g. saving one
+// session while deleting another) — without serialization, the second
+// call's read would miss the first call's not-yet-written update, silently
+// losing one side's bookkeeping. Chaining every mutation through this single
+// promise queue forces them to apply one at a time, in call order, same
+// process — cheap since this is local SQLite on one device, not a
+// distributed lock.
+let hkExportsQueue: Promise<unknown> = Promise.resolve();
+function serializeHkExportsWrite<T>(fn: () => Promise<T>): Promise<T> {
+  const run = hkExportsQueue.then(fn, fn);
+  hkExportsQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+export async function setHkExportRecord(
+  observationId: string,
+  record: HkExportRecord,
+  db?: SqlDatabase
+): Promise<void> {
+  await serializeHkExportsWrite(async () => {
+    const all = await getHkExports(db);
+    await setSettingJson(K_HK_EXPORTS, { ...all, [observationId]: record }, db);
+  });
+}
+
+export async function deleteHkExportRecord(observationId: string, db?: SqlDatabase): Promise<void> {
+  await serializeHkExportsWrite(async () => {
+    const all = await getHkExports(db);
+    if (!(observationId in all)) return;
+    const { [observationId]: _removed, ...rest } = all;
+    await setSettingJson(K_HK_EXPORTS, rest, db);
+  });
 }

@@ -32,7 +32,8 @@ export type ObservationKind =
   | 'foodEntry'
   | 'sleep'
   | 'steps'
-  | 'subjective'; // RPE, mood, soreness, energy — user-defined
+  | 'subjective' // RPE, mood, soreness, energy — user-defined
+  | 'romReading'; // a self-administered range-of-motion test value (weigh-in analog)
 
 export type Modality =
   | 'gym' // lift-focused
@@ -45,6 +46,7 @@ export type Modality =
   | 'hike'
   | 'hiit'
   | 'mobility'
+  | 'dance'
   | 'other';
 
 export type MovementPattern =
@@ -60,6 +62,9 @@ export type MovementPattern =
   | 'other';
 
 export type EnergySystem = 'aerobic' | 'glycolytic' | 'mixed';
+
+/** Which side of the body an entry refers to — only for sided zones, always optional. */
+export type BodySide = 'left' | 'right' | 'both';
 
 // ─── Food logging (Ring 2) ──────────────────────────────────────────────────
 
@@ -139,7 +144,16 @@ export type ObservationSource =
   | { type: 'healthkit'; rawType: string }
   | { type: 'healthconnect'; rawType: string }
   | { type: 'garmin'; activityId: string }
-  | { type: 'fileimport'; format: 'gpx' | 'fit' | 'tcx'; filename?: string } // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2)
+  | {
+      type: 'fileimport';
+      format: 'gpx' | 'fit' | 'tcx' | 'strong-csv' | 'hevy-csv'; // user-picked activity file, parsed client-side (wearable-ingestion-spec.md Addendum, Layer 2); strong-csv/hevy-csv are Body P5
+      filename?: string;
+      // Strong/Hevy only: hash(date, workout name, exercise, set order,
+      // weight, reps) per source row this session was built from — lets a
+      // re-import of an overlapping export skip already-stored rows without
+      // a new table (payload/source JSON is the only place this lives).
+      rowHashes?: string[];
+    }
   | { type: 'foodapi'; provider: FoodSourceDb; itemId: string }
   | { type: 'estimate'; modelVersion: string } // direct LLM nutrition estimate — keyless items, no food-db lineage
   | { type: 'photoestimate'; modelVersion: string }
@@ -156,10 +170,12 @@ export type WeighInPayload = {
 
 export type LiftingBlock = {
   sets: Array<{
-    exercise: string; // e.g. 'barbell back squat'
+    exercise: string; // e.g. 'barbell back squat' — the stored fact, always present
+    exerciseId?: string; // Free Exercise DB slug when picked from the library; the name above stays the fact
     movementPattern: MovementPattern; // required — the engine depends on it
-    weightKg: number;
-    reps: number;
+    weightKg: number; // external load; on a bodyweight movement this is ADDED load (0 = strict bodyweight)
+    reps: number; // 0 for a pure hold set — the hold time is the work, so volume math (weightKg × reps) honestly contributes nothing
+    holdSec?: number; // isometric hold time in seconds (planche, plank, L-sit). Absent = a reps set; never a fabricated 0
     rir?: number; // reps in reserve, optional
     isWarmup?: boolean;
     completedAt?: ISOInstant; // when the set was finished, stamped live by the logger.
@@ -208,12 +224,73 @@ export type SwimmingBlock = {
   energySystem: EnergySystem; // lets the swim contribute energy-system minutes to the ledger
 };
 
+/** Dance capture context — maps to HealthKit cardio vs social dance at export time. */
+export type PracticeContextTag = 'class' | 'social' | 'practice' | 'rehearsal' | 'performance';
+
+/**
+ * One body area worked in a mobility/practice session. `zoneId` is from the
+ * bundled mobility-zones taxonomy (shared vocabulary with pain entries, so
+ * Reflect can overlay the two without any mapping). Tightness is an optional
+ * 1–5 self-rating — absent = not rated, never a defaulted middle value.
+ */
+export type PracticeBodyArea = {
+  zoneId: string;
+  side?: BodySide;
+  tightness?: 1 | 2 | 3 | 4 | 5;
+};
+
 export type PracticeBlock = {
   // Yoga / Pilates / mobility / meditation. Session-level only — no per-pose logging.
   // An optional free style tag ('vinyasa', 'hatha', …). Carries no pattern or energy
   // volume: like climb/hike it appears in sessionIds and contributes nothing
   // fabricated to the ledger (constitution: never invent volume a surface can't report).
   style?: string;
+  // Taxonomy id (yoga-styles / dance-taxonomy) when picked from the bundled list.
+  // The free-text `style` above stays the stored fact; this is the structured key.
+  styleId?: string;
+  contextTag?: PracticeContextTag;
+  bodyAreas?: PracticeBodyArea[];
+};
+
+/**
+ * One WHM-style round's captured measurement. An aborted round is simply not
+ * recorded — never a 0-second row (null ≠ 0).
+ */
+export type BreathworkRound = {
+  // Elapsed exhale-hold (the retention) in whole seconds — THE metric. Stopwatch
+  // and manual m:ss entry are equally facts; 1s precision is honest for both.
+  retentionSeconds: number;
+  // Power breaths before the hold. A fact when the pacer counted or the user
+  // entered it; absent when unknown — never defaulted to a typical 30.
+  breathsCount?: number;
+};
+
+/**
+ * Breathwork block on SessionPayload — rides the practice surface (activity
+ * 'breathwork'), same envelope as every other logged session. Best/avg retention
+ * are derived at render from `rounds`, never stored (deriveSessionDuration
+ * philosophy). See RESEARCH breathwork retention-capture model.
+ */
+export type BreathworkBlock = {
+  patternId?: string; // FK into the bundled patterns library; freeform breathwork is valid without one
+  rounds?: BreathworkRound[]; // retention-capturing patterns only; omit when empty, never []
+  // How the times were captured. PROVENANCE ONLY — display as a small label if
+  // at all; never a tier, never a weight, never gates anything (fidelity/capture
+  // tiers are food-only).
+  capture?: 'stopwatch' | 'manual';
+  cycles?: number; // timed (non-retention) patterns: cycles completed, if known
+};
+
+/**
+ * A pain reading the user recorded against a session. Same zone vocabulary as
+ * PracticeBodyArea. `pain` is the 0–10 NRS integer: 0 is a RECORDED pain-free
+ * reading, distinct from absent (no entry made) — null ≠ 0 both directions.
+ * Informational only; the app never interprets these (FDA wellness framing).
+ */
+export type PainArea = {
+  zoneId: string;
+  side?: BodySide;
+  pain: number;
 };
 
 export type SessionPayload = {
@@ -236,6 +313,11 @@ export type SessionPayload = {
   paddling?: PaddlingBlock;
   swimming?: SwimmingBlock;
   practice?: PracticeBlock;
+  breathwork?: BreathworkBlock;
+  // Pain the user recorded on THIS session — any surface (a knee can hurt on a
+  // run or under a bar). A standalone flare-up is a subjective observation with
+  // metric 'pain' instead. Absent = nothing recorded, not "no pain".
+  painAreas?: PainArea[];
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward
@@ -276,9 +358,34 @@ export type StepsPayload = {
 
 export type SubjectivePayload = {
   kind: 'subjective';
-  metric: 'mood' | 'soreness' | 'energy' | 'stress' | 'custom';
+  // 'pain' = a standalone flare-up reading (session-attached pain lives on
+  // SessionPayload.painAreas); 'protocolTick' = one "did it" mark against a
+  // planned exercise in the user's own protocol (storage/protocolTicks.ts
+  // enforces one per exercise per civil day).
+  metric: 'mood' | 'soreness' | 'energy' | 'stress' | 'pain' | 'protocolTick' | 'custom';
   customLabel?: string;
-  value: number; // 1–10 by convention
+  // 1–10 by convention. 'pain' admits 0 (0–10 NRS): a recorded pain-free
+  // reading, distinct from no entry at all. 'protocolTick' stores 1 — the tick
+  // IS the datum; untoggling deletes the row rather than writing a 0.
+  value: number;
+  zoneId?: string; // pain: mobility-zones taxonomy id (shared with PracticeBodyArea)
+  side?: BodySide; // pain: only for sided zones
+  protocolId?: string; // protocolTick: which of the user's protocols
+  exerciseId?: string; // protocolTick: which planned exercise was done
+};
+
+/**
+ * A self-administered range-of-motion test value (sit-and-reach cm, wall ankle
+ * test cm, …) at retest cadence — the weigh-in analog for mobility. `testId`
+ * keys the bundled rom-tests taxonomy; `unit` is the test's native unit,
+ * stored so the number stays auditable if the taxonomy ever changes.
+ */
+export type RomReadingPayload = {
+  kind: 'romReading';
+  testId: string;
+  side?: 'left' | 'right';
+  value: number;
+  unit: string; // e.g. 'cm', 'deg'
 };
 
 export type ObservationPayload =
@@ -287,7 +394,8 @@ export type ObservationPayload =
   | FoodEntryPayload
   | SleepPayload
   | StepsPayload
-  | SubjectivePayload;
+  | SubjectivePayload
+  | RomReadingPayload;
 
 // ─── The universal record ───────────────────────────────────────────────────
 

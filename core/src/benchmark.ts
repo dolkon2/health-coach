@@ -61,10 +61,26 @@ export type ResolvedDimension =
   | { metric: 'loggingFidelity' }
   // Measured intake − measured burn (the deficit outcome). Reads the
   // expenditure residual; honestly absent until measurement exists.
-  | { metric: 'energyBalance' };
+  | { metric: 'energyBalance' }
+  // ─ Body dimensions (Body build, P6) ─
+  // A lift's e1RM (core/gymAnalytics.ts), outcome-only — the threshold ("bench
+  // 100kg") is the OUTCOME face's `direction: 'up'` + `target`, NOT carried
+  // here. `exerciseId` when the exercise is library-linked, `exercise` (the
+  // stored fact) always present so an unlinked custom lift is still trackable.
+  | { metric: 'exerciseLoad'; exerciseId?: string; exercise: string }
+  // WHM-style breath-hold retention (core BreathworkRound), outcome-only.
+  // `statistic` picks best single hold vs the average across logged rounds.
+  | { metric: 'breathRetention'; statistic: 'best' | 'average' }
+  // A self-administered ROM test reading (romReading, the weigh-in analog),
+  // outcome-only. `testId` keys the bundled rom-tests taxonomy.
+  | { metric: 'romMeasurement'; testId: string; side?: 'left' | 'right' }
+  // Rolling-7d adherence to a user-authored PT protocol, behavior-only —
+  // capped per-exercise ratios (ticks-this-week / targetPerWeek, capped at
+  // 1), unweighted mean across the protocol's exercises. Derived at render,
+  // never stored (protocolTicks.ts's own header already says this).
+  | { metric: 'protocolAdherence'; protocolId: string };
 // Additive next (not wired yet):
 //   | { metric: 'distance'; modality?: Modality; activity?: string }   // behavior-magnitude OR outcome
-//   | { metric: 'exerciseLoad'; exercise: string }                     // strength outcome
 //   | { metric: 'steps' } | { metric: 'sleepDuration' }                // NOTE-ONLY (handoff): reserved, don't wire
 //   | { metric: 'subjective'; label: SubjectiveMetric } | { metric: 'climbGrade' }
 

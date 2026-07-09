@@ -15,12 +15,16 @@
  * reach storage (constitution: the engine's inputs stay honest).
  */
 import type {
+  BodySide,
+  BreathworkBlock,
   EnergySystem,
   LiftingBlock,
   GeoPoint,
   Modality,
   MovementPattern,
   ObservationOf,
+  PracticeBlock,
+  PracticeContextTag,
   SessionPayload,
   SwimmingBlock,
   SwimStroke,
@@ -50,6 +54,7 @@ export type SetDraft = {
   id: string;
   weight: string;
   reps: string;
+  holdSec: string; // isometric hold seconds — a set is a hold set when this is filled (Body P1a)
   rir: string;
   isWarmup: boolean;
   completedAt?: string; // ISO instant, stamped when the set is marked complete (Pass 3b)
@@ -58,7 +63,13 @@ export type SetDraft = {
 export type ExerciseDraft = {
   id: string;
   name: string;
+  exerciseId?: string; // Free Exercise DB slug or ladder step id when picked from the library; `name` stays the stored fact
   movementPattern: MovementPattern | null; // required to save; null until tagged
+  // UI-only entry mode: which column (reps or hold-seconds) the set table shows.
+  // Absent = reps (the default). Auto-set from a library/ladder pick's entryType,
+  // otherwise a manual per-exercise toggle (Body P3). Never persisted directly —
+  // buildLifting still derives each SET's kind from what's actually filled.
+  entryType?: 'reps' | 'duration';
   sets: SetDraft[];
 };
 
@@ -67,6 +78,32 @@ export type SendDraft = {
   grade: string;
   attempts: string;
   sent: boolean;
+};
+
+// A body area worked in a practice session (mobility). Tightness is an optional
+// 1–5 rating as a raw string; empty = not rated (absent, never a middle default).
+export type BodyAreaDraft = {
+  id: string;
+  zoneId: string; // '' until picked
+  side?: BodySide;
+  tightness: string;
+};
+
+// A pain reading attached to the session being logged — any surface. `pain` is
+// the raw 0–10 string; '0' is a deliberate pain-free reading, '' is unfilled.
+export type PainAreaDraft = {
+  id: string;
+  zoneId: string; // '' until picked
+  side?: BodySide;
+  pain: string;
+};
+
+// One breathwork round. `retentionSec` holds whole seconds as a string (the
+// m:ss capture UI converts before writing here); '' = round not captured.
+export type BreathworkRoundDraft = {
+  id: string;
+  retentionSec: string;
+  breaths: string;
 };
 
 export type SessionForm = {
@@ -105,15 +142,67 @@ export type SessionForm = {
     stroke: SwimStroke;
     energySystem: EnergySystem;
   };
-  practice: { style: string }; // optional free style tag for yoga/pilates/mobility
+  practice: {
+    style: string; // optional free style tag for yoga/pilates/mobility — stays the stored fact
+    styleId: string; // taxonomy id when picked from the bundled list; '' = none
+    contextTag: PracticeContextTag | null; // dance: class/social/practice/rehearsal/performance
+    bodyAreas: BodyAreaDraft[]; // mobility: areas worked (+ optional tightness)
+  };
+  // Breathwork fields — read by build() only when the chosen activity is
+  // 'breathwork' (it logs through this form on the practice surface, not a
+  // bypass screen, so the edit path stays unified).
+  breathwork: {
+    patternId: string; // bundled-pattern id; '' = freeform breathwork
+    cycles: string; // timed patterns: cycles completed
+    capture: 'stopwatch' | 'manual' | null; // provenance, set by the capture UI — never defaulted here
+    rounds: BreathworkRoundDraft[];
+  };
+  // Pain the user attaches to THIS session — any surface (pt-model: a knee can
+  // hurt on a run or under a bar).
+  painAreas: PainAreaDraft[];
 };
 
 export function emptySetDraft(id: string): SetDraft {
-  return { id, weight: '', reps: '', rir: '', isWarmup: false };
+  return { id, weight: '', reps: '', holdSec: '', rir: '', isWarmup: false };
 }
 
 export function emptyExerciseDraft(id: string, setId: string): ExerciseDraft {
   return { id, name: '', movementPattern: null, sets: [emptySetDraft(setId)] };
+}
+
+/** Body P7a: a fresh mobility body-area row — no zone picked yet. */
+export function emptyBodyAreaDraft(id: string): BodyAreaDraft {
+  return { id, zoneId: '', tightness: '' };
+}
+
+/** Body P7b: a fresh breathwork round — not captured yet. */
+export function emptyRoundDraft(id: string): BreathworkRoundDraft {
+  return { id, retentionSec: '', breaths: '' };
+}
+
+/** Body P7b: a fresh standalone pain entry (any surface) — no zone yet. */
+export function emptyPainAreaDraft(id: string): PainAreaDraft {
+  return { id, zoneId: '', pain: '' };
+}
+
+/**
+ * Applies an entry-mode switch (reps ↔ hold-seconds) to an exercise draft:
+ * sets the mode and clears whichever field the switch just hid on every set.
+ * Without this, a set could carry both a typed `reps` and a typed `holdSec`
+ * after a mid-entry toggle, which would violate buildLifting's "hold sets
+ * store reps: 0" convention (a code-review catch, Body P3).
+ */
+export function withEntryType(
+  ex: ExerciseDraft,
+  entryType: 'reps' | 'duration'
+): ExerciseDraft {
+  return {
+    ...ex,
+    entryType,
+    sets: ex.sets.map((s) =>
+      entryType === 'duration' ? { ...s, reps: '' } : { ...s, holdSec: '' }
+    ),
+  };
 }
 
 export function emptySessionForm(): SessionForm {
@@ -133,7 +222,9 @@ export function emptySessionForm(): SessionForm {
       stroke: 'freestyle',
       energySystem: 'aerobic',
     },
-    practice: { style: '' },
+    practice: { style: '', styleId: '', contextTag: null, bodyAreas: [] },
+    breathwork: { patternId: '', cycles: '', capture: null, rounds: [] },
+    painAreas: [],
   };
 }
 
@@ -198,10 +289,19 @@ function num(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** A set the user actually filled in: a positive-rep entry (weight may be 0 = bodyweight). */
+/**
+ * A set the user actually filled in: positive reps OR a positive hold time.
+ * A reps set still needs an explicit weight (0 = bodyweight) — unchanged rule.
+ * A hold set may leave weight empty (empty = strict bodyweight, stored as 0 kg
+ * of ADDED load); if a weight is typed it must parse to >= 0.
+ */
 export function isSetFilled(s: SetDraft): boolean {
-  const reps = num(s.reps);
   const weight = num(s.weight);
+  const holdSec = num(s.holdSec);
+  if (holdSec !== null && holdSec > 0) {
+    return s.weight.trim() === '' || (weight !== null && weight >= 0);
+  }
+  const reps = num(s.reps);
   return reps !== null && reps > 0 && weight !== null && weight >= 0;
 }
 
@@ -212,6 +312,23 @@ function isExerciseActive(ex: ExerciseDraft): boolean {
 
 function sendFilled(s: SendDraft): boolean {
   return s.grade.trim() !== '';
+}
+
+/** A captured breathwork round: a positive retention time. An aborted round is
+ *  simply never recorded (null ≠ 0). */
+export function isRoundFilled(r: BreathworkRoundDraft): boolean {
+  const sec = num(r.retentionSec);
+  return sec !== null && sec > 0;
+}
+
+function bodyAreaFilled(a: BodyAreaDraft): boolean {
+  return a.zoneId.trim() !== '';
+}
+
+/** A pain entry the user actually made: a zone AND a score. '0' counts — it is
+ *  a deliberate pain-free reading, distinct from an untouched draft. */
+function painAreaFilled(a: PainAreaDraft): boolean {
+  return a.zoneId.trim() !== '' && a.pain.trim() !== '';
 }
 
 // ─── Validation ──────────────────────────────────────────────────────────────
@@ -227,10 +344,37 @@ export function validateSessionForm(form: SessionForm): string | null {
   const surface = resolveSurface(form);
 
   // Gym duration is derived from the set-timestamp spread, not entered, so it
-  // isn't required. Every other surface still needs a manual duration.
+  // isn't required. Every other surface still needs a manual duration — except a
+  // breathwork log carrying at least one captured round: rounds-present is its
+  // filled criterion (mirroring gym's derived-duration exemption), and forcing a
+  // duration there would fabricate one. Only an EMPTY field is exempt; a typed
+  // duration must still parse > 0 (typed garbage errors, it is never dropped).
   if (surface !== 'gym') {
     const duration = num(form.durationMin);
-    if (duration === null || duration <= 0) return 'Enter a duration in minutes.';
+    const roundsPresent =
+      form.activity === 'breathwork' && form.breathwork.rounds.some(isRoundFilled);
+    if (duration === null || duration <= 0) {
+      if (!(roundsPresent && form.durationMin.trim() === '')) {
+        return 'Enter a duration in minutes.';
+      }
+    }
+  }
+
+  // Out-of-range entries block the save instead of being clamped or silently
+  // dropped — never rewrite what the user typed.
+  for (const a of form.painAreas) {
+    if (!painAreaFilled(a)) continue;
+    const v = num(a.pain);
+    if (v === null || !Number.isInteger(v) || v < 0 || v > 10) {
+      return 'Pain is a whole number from 0 to 10.';
+    }
+  }
+  for (const a of form.practice.bodyAreas) {
+    if (!bodyAreaFilled(a) || a.tightness.trim() === '') continue;
+    const v = num(a.tightness);
+    if (v === null || !Number.isInteger(v) || v < 1 || v > 5) {
+      return 'Tightness is a whole number from 1 to 5.';
+    }
   }
 
   if (surface === 'gym') {
@@ -246,10 +390,6 @@ export function validateSessionForm(form: SessionForm): string | null {
   }
 
   return null;
-}
-
-export function canSaveSession(form: SessionForm): boolean {
-  return validateSessionForm(form) === null;
 }
 
 // ─── Build: form -> Observation ──────────────────────────────────────────────
@@ -270,15 +410,24 @@ function buildLifting(exercises: ExerciseDraft[], weightUnit: WeightUnit): Lifti
       throw new Error(`Movement pattern required for "${ex.name.trim() || 'exercise'}".`);
     }
     const pattern = ex.movementPattern;
-    return ex.sets.filter(isSetFilled).map((s) => ({
-      exercise: ex.name.trim(),
-      movementPattern: pattern,
-      weightKg: displayToKg(Number(s.weight), weightUnit),
-      reps: Math.round(Number(s.reps)),
-      ...(num(s.rir) !== null ? { rir: Number(s.rir) } : {}),
-      ...(s.isWarmup ? { isWarmup: true } : {}),
-      ...(s.completedAt ? { completedAt: s.completedAt } : {}),
-    }));
+    return ex.sets.filter(isSetFilled).map((s) => {
+      // A hold set stores reps: 0 — the hold time is the work, not a fabricated
+      // rep count. An empty weight on a hold set is strict bodyweight: 0 kg of
+      // ADDED load (weightKg on a bodyweight movement means added external load).
+      const reps = num(s.reps);
+      const holdSec = num(s.holdSec);
+      return {
+        exercise: ex.name.trim(),
+        ...(ex.exerciseId ? { exerciseId: ex.exerciseId } : {}),
+        movementPattern: pattern,
+        weightKg: displayToKg(num(s.weight) ?? 0, weightUnit),
+        reps: reps !== null && reps > 0 ? Math.round(reps) : 0,
+        ...(holdSec !== null && holdSec > 0 ? { holdSec: Math.round(holdSec) } : {}),
+        ...(num(s.rir) !== null ? { rir: Number(s.rir) } : {}),
+        ...(s.isWarmup ? { isWarmup: true } : {}),
+        ...(s.completedAt ? { completedAt: s.completedAt } : {}),
+      };
+    });
   });
   return { sets };
 }
@@ -329,9 +478,11 @@ export function buildSessionObservation(
   // Non-gym surfaces carry a manually entered duration (validated > 0). Gym's
   // duration is derived from the set-timestamp spread below; when that spread is
   // unknowable (batch/clustered entry) the field stays absent — honest, never a
-  // fabricated 0 (constitution: null ≠ 0).
+  // fabricated 0 (constitution: null ≠ 0). A rounds-carrying breathwork log may
+  // leave the field empty (validated above); it then stays absent here too.
   if (surface !== 'gym') {
-    payload.durationMin = Number(form.durationMin);
+    const duration = num(form.durationMin);
+    if (duration !== null && duration > 0) payload.durationMin = duration;
   }
 
   if (surface === 'gym') {
@@ -379,12 +530,64 @@ export function buildSessionObservation(
     fidelity =
       payload.swimming.poolLengthM != null && payload.swimming.laps != null ? 0.85 : 0.5;
   } else if (surface === 'practice') {
-    // Session-level only; the optional style tag is the sole structured field. A
-    // styleless practice carries no block — the activity identity + duration says it.
+    // Session-level only. Every field is optional; a practice with none of them
+    // carries no block at all — the activity identity + duration says it.
     const style = form.practice.style.trim();
-    if (style) payload.practice = { style };
+    const styleId = form.practice.styleId.trim();
+    const bodyAreas = form.practice.bodyAreas.filter(bodyAreaFilled).map((a) => {
+      const tightness = num(a.tightness);
+      return {
+        zoneId: a.zoneId.trim(),
+        ...(a.side ? { side: a.side } : {}),
+        // Validated 1–5 above; an empty rating stays absent (not rated ≠ rated low).
+        ...(tightness !== null
+          ? { tightness: Math.round(tightness) as 1 | 2 | 3 | 4 | 5 }
+          : {}),
+      };
+    });
+    const practice: PracticeBlock = {
+      ...(style ? { style } : {}),
+      ...(styleId ? { styleId } : {}),
+      ...(form.practice.contextTag ? { contextTag: form.practice.contextTag } : {}),
+      ...(bodyAreas.length > 0 ? { bodyAreas } : {}),
+    };
+    if (Object.keys(practice).length > 0) payload.practice = practice;
+
+    // Breathwork rides the practice surface, keyed on the activity identity —
+    // the block only exists for breathwork sessions, never other practices.
+    if (form.activity === 'breathwork') {
+      const rounds = form.breathwork.rounds.filter(isRoundFilled).map((r) => {
+        const breaths = num(r.breaths);
+        return {
+          retentionSeconds: Math.round(num(r.retentionSec) as number),
+          ...(breaths !== null && breaths > 0 ? { breathsCount: Math.round(breaths) } : {}),
+        };
+      });
+      const patternId = form.breathwork.patternId.trim();
+      const cycles = num(form.breathwork.cycles);
+      const breathwork: BreathworkBlock = {
+        ...(patternId ? { patternId } : {}),
+        ...(rounds.length > 0 ? { rounds } : {}),
+        // capture is provenance the capture UI sets ('stopwatch'/'manual'); when
+        // it never set one, the field stays honestly absent — never defaulted.
+        ...(rounds.length > 0 && form.breathwork.capture
+          ? { capture: form.breathwork.capture }
+          : {}),
+        ...(cycles !== null && cycles > 0 ? { cycles: Math.round(cycles) } : {}),
+      };
+      if (Object.keys(breathwork).length > 0) payload.breathwork = breathwork;
+    }
   }
   // 'other' → duration + effort + notes only (no block).
+
+  // Pain attaches to ANY surface (a knee can hurt on a run or under a bar).
+  // '0' persists as a recorded pain-free reading; untouched drafts drop.
+  const painAreas = form.painAreas.filter(painAreaFilled).map((a) => ({
+    zoneId: a.zoneId.trim(),
+    ...(a.side ? { side: a.side } : {}),
+    pain: Math.round(num(a.pain) as number),
+  }));
+  if (painAreas.length > 0) payload.painAreas = painAreas;
 
   // File-imported GPS sessions carry their provenance and happen when the file
   // says they happened; a live recording likewise happened when it started. Both
@@ -433,11 +636,42 @@ function normalizeModality(m: Modality): SessionModality {
     : 'other';
 }
 
-function numStr(n: number | undefined | null, digits = 2): string {
+export function numStr(n: number | undefined | null, digits = 2): string {
   if (n == null || !Number.isFinite(n)) return '';
   // Trim trailing zeros so "100" stays "100" instead of "100.00".
   const fixed = n.toFixed(digits);
   return fixed.replace(/\.?0+$/, '');
+}
+
+/** One stored lifting set, rendered as the draft's display strings (display
+ *  units). Shared by the edit-path inverse and the ghost-placeholder helper
+ *  below so the two never drift apart. */
+function liftingSetDisplay(
+  s: LiftingBlock['sets'][number],
+  weightUnit: WeightUnit
+): { weight: string; reps: string; holdSec: string; rir: string } {
+  return {
+    weight: numStr(kgToDisplay(s.weightKg, weightUnit), 2),
+    // A hold set stored reps: 0 by convention — show the reps field empty,
+    // the way the user left it, not a literal '0'.
+    reps: s.reps === 0 && s.holdSec != null ? '' : String(s.reps),
+    holdSec: s.holdSec != null ? String(s.holdSec) : '',
+    rir: s.rir != null ? String(s.rir) : '',
+  };
+}
+
+/**
+ * The last session's sets for an exercise, formatted as display-unit
+ * placeholder strings — Strong-style ghost text shown faintly in the set
+ * table, never prefilled into the draft (constitution: never fabricate what
+ * the user did today from what they did last time). Body P3.
+ */
+export function ghostSetPlaceholders(
+  sets: LiftingBlock['sets'] | null,
+  weightUnit: WeightUnit
+): Array<{ weight: string; reps: string; holdSec: string; rir: string }> {
+  if (!sets) return [];
+  return sets.map((s) => liftingSetDisplay(s, weightUnit));
 }
 
 /**
@@ -469,12 +703,13 @@ export function sessionFormFromObservation(
   // Rebuild from whichever block is populated (not the coarse modality) so an
   // identity that normalises to 'other' (Surf, Wingfoil) still restores its body.
   if (p.lifting) {
-    // Group flat sets back under their exercise (name + pattern). Same name
-    // logged with different patterns becomes two groups, preserving order.
+    // Group flat sets back under their exercise (name + pattern + library id,
+    // \u0001-separated so names can't collide). Same name logged with different
+    // patterns (or different library exercises) becomes two groups, preserving order.
     const groups: ExerciseDraft[] = [];
     const indexByKey = new Map<string, number>();
     for (const s of p.lifting.sets) {
-      const key = `${s.exercise}${s.movementPattern}`;
+      const key = `${s.exercise}\u0001${s.movementPattern}\u0001${s.exerciseId ?? ''}`;
       let idx = indexByKey.get(key);
       if (idx === undefined) {
         idx = groups.length;
@@ -482,18 +717,22 @@ export function sessionFormFromObservation(
         groups.push({
           id: idFactory(),
           name: s.exercise,
+          ...(s.exerciseId ? { exerciseId: s.exerciseId } : {}),
           movementPattern: s.movementPattern,
           sets: [],
         });
       }
       groups[idx].sets.push({
         id: idFactory(),
-        weight: numStr(kgToDisplay(s.weightKg, units.weightUnit), 2),
-        reps: String(s.reps),
-        rir: s.rir != null ? String(s.rir) : '',
+        ...liftingSetDisplay(s, units.weightUnit),
         isWarmup: s.isWarmup === true,
         ...(s.completedAt ? { completedAt: s.completedAt } : {}),
       });
+    }
+    // Infer the UI entry mode from what was actually stored — any hold-seconds
+    // set in the group means the exercise was logged in hold mode.
+    for (const g of groups) {
+      if (g.sets.some((s) => s.holdSec !== '')) g.entryType = 'duration';
     }
     form.gym = { exercises: groups };
   }
@@ -557,7 +796,39 @@ export function sessionFormFromObservation(
   }
 
   if (p.practice) {
-    form.practice = { style: p.practice.style ?? '' };
+    form.practice = {
+      style: p.practice.style ?? '',
+      styleId: p.practice.styleId ?? '',
+      contextTag: p.practice.contextTag ?? null,
+      bodyAreas: (p.practice.bodyAreas ?? []).map((a) => ({
+        id: idFactory(),
+        zoneId: a.zoneId,
+        ...(a.side ? { side: a.side } : {}),
+        tightness: a.tightness != null ? String(a.tightness) : '',
+      })),
+    };
+  }
+
+  if (p.breathwork) {
+    form.breathwork = {
+      patternId: p.breathwork.patternId ?? '',
+      cycles: p.breathwork.cycles != null ? String(p.breathwork.cycles) : '',
+      capture: p.breathwork.capture ?? null,
+      rounds: (p.breathwork.rounds ?? []).map((r) => ({
+        id: idFactory(),
+        retentionSec: String(r.retentionSeconds),
+        breaths: r.breathsCount != null ? String(r.breathsCount) : '',
+      })),
+    };
+  }
+
+  if (p.painAreas) {
+    form.painAreas = p.painAreas.map((a) => ({
+      id: idFactory(),
+      zoneId: a.zoneId,
+      ...(a.side ? { side: a.side } : {}),
+      pain: String(a.pain),
+    }));
   }
 
   return form;

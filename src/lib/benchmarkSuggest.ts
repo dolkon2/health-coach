@@ -34,3 +34,33 @@ export function suggestCalorieCeiling(tdeeKcal: number | null): number | null {
   if (tdeeKcal == null || !Number.isFinite(tdeeKcal) || tdeeKcal <= 0) return null;
   return round10(tdeeKcal - SUGGESTED_DEFICIT_KCAL);
 }
+
+// ─── Ladder advancement (Body P6) ────────────────────────────────────────────
+
+export type LadderAdvancementSuggestion = {
+  /** e.g. "3×8 reps" / "3×20s" — the community-standard move-up gate for the
+   *  user's CURRENT step (ladders-notes.md), descriptive text only. */
+  title: string;
+  metric: 'reps' | 'seconds';
+  target: number;
+};
+
+/**
+ * The current ladder step's own advancement threshold, as a suggestion
+ * string a "suggest a benchmark" surface can show — OPT-IN, informational.
+ * This function creates nothing: it has no storage access and returns a
+ * plain value, never a Benchmark. Wiring it to an actual create action (a
+ * future pass) must keep it opt-in — the spec is explicit that a ladder
+ * benchmark is never auto-created from a logged step.
+ */
+export function suggestLadderAdvancement(step: {
+  setType: 'reps' | 'duration';
+  advancement: { sets: number; repsOrSeconds: number };
+}): LadderAdvancementSuggestion {
+  const isDuration = step.setType === 'duration';
+  return {
+    title: `${step.advancement.sets}×${step.advancement.repsOrSeconds}${isDuration ? 's' : ' reps'}`,
+    metric: isDuration ? 'seconds' : 'reps',
+    target: step.advancement.repsOrSeconds,
+  };
+}

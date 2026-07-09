@@ -1,0 +1,7 @@
+"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Bench Press (Barbell)",,"",0,"warmup",60,8,,0,
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Bench Press (Barbell)",,"",1,"normal",100,5,,0,8
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Bench Press (Barbell)",,"",2,"failure",100,4,,0,9.5
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Chest Fly (Dumbbell)",0,"",0,"normal",12.5,12,,0,
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Triceps Pushdown (Cable)",0,"slight elbow tweak",0,"normal",25,15,,0,
+"Push Day","29 Jun 2026, 07:12","29 Jun 2026, 08:22","","Plank",,"",0,"normal",0,0,,60,

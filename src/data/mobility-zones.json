@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "version": "0.1",
+    "purpose": "ONE shared body-zone vocabulary, TWO uses: (1) Mobility — session coverage + optional tightness 1-5 per zone; (2) PT — pain 0-10 per zone (attached to a session or standalone flare-up). Same ids in both places so tightness and pain can be laid over each other in Reflect without any mapping table.",
+    "sidedSemantics": "sided=true zones accept side: 'left' | 'right' | 'both' (side optional — omitting it means unspecified/whole zone, which is always a legal, honest answer). sided=false zones are midline structures where left/right is anatomically meaningless at this granularity.",
+    "tenthZoneChoice": "glutes chosen over feet: glute/piriformis is one of the most common distinct tightness AND pain loci (sciatica-adjacent, desk sitting, running) and is NOT covered by any neighbor — 'hips' here means the joint/front/groin complex, 'hamstrings' the posterior thigh, 'lower-back' the lumbar midline. Feet (plantar fascia) lost the coin flip because calves-ankles already borders it and plantar issues usually co-report with calf tightness; feet can be added later without disturbing existing ids.",
+    "scales": {
+      "tightness": "1-5, mobility-use only, self-reported, descriptive ('how tight did this feel'), never scored against a target",
+      "pain": "0-10 NRS (numeric rating scale), PT-use only, self-reported; 0 = no pain. Standard NRS anchors, no app interpretation of the number (general-wellness guardrail — see pt-model.md)"
+    }
+  },
+  "zones": [
+    { "id": "neck", "label": "Neck", "sided": false },
+    { "id": "shoulders", "label": "Shoulders", "sided": true },
+    { "id": "thoracic-spine", "label": "Upper back (thoracic)", "sided": false },
+    { "id": "lower-back", "label": "Lower back", "sided": false },
+    { "id": "hips", "label": "Hips & groin", "sided": true },
+    { "id": "glutes", "label": "Glutes", "sided": true },
+    { "id": "hamstrings", "label": "Hamstrings", "sided": true },
+    { "id": "quads-hip-flexors", "label": "Quads & hip flexors", "sided": true },
+    { "id": "calves-ankles", "label": "Calves & ankles", "sided": true },
+    { "id": "wrists-forearms", "label": "Wrists & forearms", "sided": true }
+  ]
+}

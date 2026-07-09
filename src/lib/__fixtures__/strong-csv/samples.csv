@@ -1,0 +1,11 @@
+Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE
+2026-06-29 07:12:41,"Push Day",1h 10m,"Bench Press (Barbell)",W,60.0,8,0,0,"","Felt strong today",
+2026-06-29 07:12:41,"Push Day",1h 10m,"Bench Press (Barbell)",1,100.0,5,0,0,"","Felt strong today",8
+2026-06-29 07:12:41,"Push Day",1h 10m,"Bench Press (Barbell)",2,100.0,5,0,0,"paused last rep, elbow ""clicked""",,8.5
+2026-06-29 07:12:41,"Push Day",1h 10m,"Bench Press (Barbell)",F,100.0,4,0,0,,,9.5
+2026-06-29 07:12:41,"Push Day",1h 10m,"Push Up",1,0.0,20,0,0,"",,
+2026-06-29 07:12:41,"Push Day",1h 10m,"Plank",1,0.0,0,0,60,"",,
+2026-06-30 18:03:12,"Pull Day",45m,"Deadlift (Barbell)",1,140.0,5,0,0,"","",7
+2026-06-30 18:03:12,"Pull Day",45m,"Lat Pulldown (Cable)",1,57.5,10,0,0,,,
+2026-06-30 18:03:12,"Pull Day",45m,"Lat Pulldown (Cable)",D,42.5,8,0,0,,,
+2026-06-30 18:03:12,"Pull Day",45m,"Running",1,0,0,2.5,900,"treadmill cooldown, easy pace",,

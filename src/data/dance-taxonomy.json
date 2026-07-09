@@ -1,0 +1,102 @@
+{
+  "_meta": {
+    "version": "0.1",
+    "purpose": "Two-level dance taxonomy for the practice surface. Level 1 = family (picker sections), level 2 = style. Users can always log a family without a style, or free-text a style not listed.",
+    "taxonomyVerification": "Top-level split verified against common genre classifications (ballet / modern-contemporary / hip-hop-street / latin-ballroom-social / folk): the proposed six families are defensible with two adjustments made: (1) ballroom absorbs the competitive 'International Latin' five (cha-cha, rumba, samba, paso doble, jive) plus swing — dancesport and studio convention — while the 'latin' family means the social/street-latin scene (salsa, bachata, etc.), matching how classes and socials are actually marketed; (2) ballet-contemporary is broadened to the studio/concert grouping and also carries jazz, lyrical, and tap. Sources: danceus.org/latin-dance, uk.harlequinfloors.com popular-types-of-dance, dancehouseproductions.com/glossary/dance-styles.",
+    "healthkit": {
+      "mapping": "contextTags drive the HK workout type: social -> HKWorkoutActivityType.socialDance (Apple: 'dancing with a partner or partners, such as swing, salsa, or folk dances'); class/practice/rehearsal/performance -> HKWorkoutActivityType.cardioDance. Both types exist, iOS 14+.",
+      "barreNote": "HKWorkoutActivityType.barre exists as its own type; if style is fitness/barre the app SHOULD map to .barre regardless of contextTag.",
+      "source": "https://developer.apple.com/documentation/healthkit/hkworkoutactivitytype/socialdance, https://developer.apple.com/documentation/healthkit/hkworkoutactivitytype/barre"
+    },
+    "notes": [
+      "kizomba is Angolan (not Latin American) by origin but is danced and taught inside the salsa/bachata social scene, so it lives under latin by scene convention — descriptor says so honestly.",
+      "'cumbria' in the source spec was a typo for cumbia (Colombian).",
+      "Swing (east/west coast, lindy) placed under ballroom: East Coast Swing is an American Rhythm ballroom dance and Apple's own socialDance examples name swing; a standalone 'swing' family was judged too thin for level 1."
+    ]
+  },
+  "families": [
+    {
+      "id": "street",
+      "label": "Street",
+      "styles": [
+        { "id": "hip-hop", "label": "Hip-hop" },
+        { "id": "breaking", "label": "Breaking" },
+        { "id": "house", "label": "House" },
+        { "id": "popping", "label": "Popping" },
+        { "id": "locking", "label": "Locking" },
+        { "id": "krump", "label": "Krump" },
+        { "id": "vogue", "label": "Vogue / Waacking" }
+      ]
+    },
+    {
+      "id": "latin",
+      "label": "Latin (social)",
+      "styles": [
+        { "id": "salsa", "label": "Salsa" },
+        { "id": "bachata", "label": "Bachata" },
+        { "id": "kizomba", "label": "Kizomba", "descriptor": "Angolan origin; danced in the Latin social scene" },
+        { "id": "merengue", "label": "Merengue" },
+        { "id": "cumbia", "label": "Cumbia" },
+        { "id": "mambo", "label": "Mambo" },
+        { "id": "brazilian-zouk", "label": "Brazilian zouk" }
+      ]
+    },
+    {
+      "id": "ballroom",
+      "label": "Ballroom",
+      "styles": [
+        { "id": "waltz", "label": "Waltz" },
+        { "id": "viennese-waltz", "label": "Viennese waltz" },
+        { "id": "foxtrot", "label": "Foxtrot" },
+        { "id": "quickstep", "label": "Quickstep" },
+        { "id": "tango", "label": "Tango" },
+        { "id": "cha-cha", "label": "Cha-cha" },
+        { "id": "rumba", "label": "Rumba" },
+        { "id": "samba", "label": "Samba (ballroom)" },
+        { "id": "paso-doble", "label": "Paso doble" },
+        { "id": "jive", "label": "Jive" },
+        { "id": "swing", "label": "Swing (east/west coast, lindy)" }
+      ]
+    },
+    {
+      "id": "ballet-contemporary",
+      "label": "Ballet & contemporary",
+      "styles": [
+        { "id": "ballet", "label": "Ballet" },
+        { "id": "contemporary", "label": "Contemporary" },
+        { "id": "modern", "label": "Modern" },
+        { "id": "jazz", "label": "Jazz" },
+        { "id": "lyrical", "label": "Lyrical" },
+        { "id": "tap", "label": "Tap" }
+      ]
+    },
+    {
+      "id": "fitness",
+      "label": "Fitness",
+      "styles": [
+        { "id": "zumba", "label": "Zumba" },
+        { "id": "dance-cardio", "label": "Dance cardio" },
+        { "id": "barre", "label": "Barre", "hkOverride": "barre" }
+      ]
+    },
+    {
+      "id": "folk-cultural",
+      "label": "Folk & cultural",
+      "styles": [
+        { "id": "irish", "label": "Irish" },
+        { "id": "flamenco", "label": "Flamenco" },
+        { "id": "bollywood", "label": "Bollywood" },
+        { "id": "west-african", "label": "West African" },
+        { "id": "hula", "label": "Hula / Polynesian" },
+        { "id": "line-dance", "label": "Line dance" }
+      ]
+    }
+  ],
+  "contextTags": [
+    { "id": "class", "label": "Class", "hkMapping": "cardioDance" },
+    { "id": "social", "label": "Social", "hkMapping": "socialDance" },
+    { "id": "practice", "label": "Practice", "hkMapping": "cardioDance" },
+    { "id": "rehearsal", "label": "Rehearsal", "hkMapping": "cardioDance" },
+    { "id": "performance", "label": "Performance", "hkMapping": "cardioDance" }
+  ]
+}

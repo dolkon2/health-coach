@@ -15,7 +15,7 @@
  * enforced by the same builder the test drives, so an untagged set can't reach
  * storage.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
@@ -60,18 +60,29 @@ import {
   emptySessionForm,
   emptyExerciseDraft,
   emptySetDraft,
+  emptyBodyAreaDraft,
+  emptyRoundDraft,
+  emptyPainAreaDraft,
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
   resolveSurface,
+  ghostSetPlaceholders,
+  withEntryType,
   type SessionForm,
   type ExerciseDraft,
   type SetDraft,
+  type BodyAreaDraft,
+  type PainAreaDraft,
   type ClimbStyle,
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
-import type { MovementPattern, ObservationOf } from '@core/observation';
+import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker';
+import { yogaStyles, danceFamilies, danceContextTags, mobilityZones, ZONE_SIDES } from '@/data/taxonomies';
+import { breathPatterns, breathPatternById } from '@/data/breathwork';
+import { writeSessionToHealthKit } from '@/lib/healthkit/writer';
+import type { MovementPattern, ObservationOf, PracticeContextTag } from '@core/observation';
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -126,6 +137,30 @@ export default function LogSessionScreen() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+  // Dance's two-level family -> style picker; null defers to whichever family
+  // contains the loaded/typed styleId, so editing a dance session opens on
+  // the right family without a separate sync effect.
+  const [danceFamilyId, setDanceFamilyId] = useState<string | null>(null);
+  // WHM tap-to-stop stopwatch for the current breath hold — null while idle.
+  // No pacer animation v1 (spec): this only times the retention, nothing else.
+  const [holdStartedAt, setHoldStartedAt] = useState<number | null>(null);
+  const [holdElapsedSec, setHoldElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (holdStartedAt == null) return;
+    const id = setInterval(() => {
+      setHoldElapsedSec(Math.round((Date.now() - holdStartedAt) / 1000));
+    }, 250);
+    return () => clearInterval(id);
+  }, [holdStartedAt]);
+
+  // The picker dataset for the current activity — memoized once per activity
+  // change, not re-filtered per keystroke (each GymExerciseEditor row does its
+  // own memoized search over this shared array).
+  const pickerEntries = useMemo(
+    () => pickerEntriesForActivity(form.activity),
+    [form.activity]
+  );
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -182,7 +217,29 @@ export default function LogSessionScreen() {
       endurance: a.defaultEnergySystem
         ? { ...f.endurance, energySystem: a.defaultEnergySystem }
         : f.endurance,
+      // Switching to a DIFFERENT activity clears the practice block — every
+      // practice activity shares this one bucket (P7a code-review catch), so
+      // a Dance styleId left over from before switching to Yoga would
+      // otherwise save into the Yoga session untouched. Re-picking the SAME
+      // activity (via "‹ Change activity" and back) keeps what's filled in.
+      practice:
+        f.activity !== a.id
+          ? { style: '', styleId: '', contextTag: null, bodyAreas: [] }
+          : f.practice,
+      // Same reasoning for breathwork (P7b code-review catch): stale rounds
+      // from a prior Breathwork visit must not resurface, and — since a hold
+      // in progress is timed off wall-clock state outside this form — the
+      // stopwatch itself needs its own reset below, not just the draft data.
+      breathwork:
+        f.activity !== a.id
+          ? { patternId: '', cycles: '', capture: null, rounds: [] }
+          : f.breathwork,
     }));
+    setDanceFamilyId(null);
+    if (form.activity !== a.id) {
+      setHoldStartedAt(null);
+      setHoldElapsedSec(0);
+    }
     setStep('detail');
   }
 
@@ -200,12 +257,40 @@ export default function LogSessionScreen() {
       // Default the pattern from memory only while it's still untagged — never
       // overwrite a choice the user already made.
       const remembered = ex.movementPattern === null ? patternMemory.suggest(name) : null;
-      return { ...ex, name, movementPattern: ex.movementPattern ?? remembered };
+      // Typing away from a library pick clears the stale id — the typed name is
+      // the fact now, not the picked one (constitution: never rewrite what the
+      // user logs; a free edit is a free edit, not a mislabeled library row).
+      return {
+        ...ex,
+        name,
+        exerciseId: undefined,
+        movementPattern: ex.movementPattern ?? remembered,
+      };
     });
   }
 
   function setExercisePattern(id: string, movementPattern: MovementPattern) {
     mutateExercise(id, (ex) => ({ ...ex, movementPattern }));
+  }
+
+  /** A library/ladder pick: fills name+exerciseId, auto-fills an untagged
+   *  pattern, and auto-switches entry mode when the picked entry declares one
+   *  (P3). Never overwrites a pattern or entry mode the user already set. */
+  function pickExercise(id: string, entry: PickerEntry) {
+    mutateExercise(id, (ex) => {
+      const entryType = ex.entryType ?? entry.entryType;
+      const next = entryType ? withEntryType(ex, entryType) : ex;
+      return {
+        ...next,
+        name: entry.name,
+        exerciseId: entry.id,
+        movementPattern: ex.movementPattern ?? entry.movementPattern,
+      };
+    });
+  }
+
+  function setExerciseEntryType(id: string, entryType: 'reps' | 'duration') {
+    mutateExercise(id, (ex) => withEntryType(ex, entryType));
   }
 
   function mutateSet(exId: string, setId: string, fn: (s: SetDraft) => SetDraft) {
@@ -280,6 +365,102 @@ export default function LogSessionScreen() {
       ...f,
       climb: { ...f.climb, sends: f.climb.sends.filter((s) => s.id !== id) },
     }));
+  }
+
+  // ─── Practice surface (yoga/dance/mobility capture, Body P7a) ─────────────
+
+  function updatePractice(patch: Partial<SessionForm['practice']>) {
+    update({ practice: { ...form.practice, ...patch } });
+  }
+
+  /** A taxonomy pick fills both the structured id and the free-text style
+   *  fact (so the stored `style` reads the way the user would have typed
+   *  it) — same "pick fills the fact" idiom as the gym exercise picker. */
+  function pickPracticeStyle(id: string, label: string) {
+    updatePractice({ styleId: id, style: label });
+  }
+
+  /** Typing away from a pick clears the now-stale styleId — a free edit is a
+   *  free edit, not a mislabeled taxonomy row (mirrors setExerciseName). */
+  function setPracticeStyleText(style: string) {
+    updatePractice({ style, styleId: '' });
+  }
+
+  function addBodyArea() {
+    updatePractice({ bodyAreas: [...form.practice.bodyAreas, emptyBodyAreaDraft(uuidv7())] });
+  }
+
+  function removeBodyArea(id: string) {
+    updatePractice({ bodyAreas: form.practice.bodyAreas.filter((a) => a.id !== id) });
+  }
+
+  function mutateBodyArea(id: string, fn: (a: BodyAreaDraft) => BodyAreaDraft) {
+    updatePractice({ bodyAreas: form.practice.bodyAreas.map((a) => (a.id === id ? fn(a) : a)) });
+  }
+
+  // ─── Breathwork rounds (Body P7b) — WHM-style tap-to-stop stopwatch, no
+  // pacer animation v1: the app times the retention hold, nothing else. ────
+
+  function pickPattern(patternId: string) {
+    update({ breathwork: { ...form.breathwork, patternId } });
+  }
+
+  function updateBreathwork(patch: Partial<SessionForm['breathwork']>) {
+    update({ breathwork: { ...form.breathwork, ...patch } });
+  }
+
+  /** Appends a captured round and marks the block's provenance 'stopwatch' —
+   *  the higher-fidelity method wins if a session mixes stopwatch + manual
+   *  rounds (capture is one flag for the whole block, not per round). */
+  function appendRound(retentionSec: number) {
+    updateBreathwork({
+      capture: 'stopwatch',
+      rounds: [...form.breathwork.rounds, { id: uuidv7(), retentionSec: String(retentionSec), breaths: '' }],
+    });
+  }
+
+  function startHold() {
+    setHoldStartedAt(Date.now());
+    setHoldElapsedSec(0);
+  }
+
+  /** An aborted hold (tapped stop at 0s) records nothing — null ≠ 0. */
+  function stopHold() {
+    if (holdStartedAt == null) return;
+    const sec = Math.round((Date.now() - holdStartedAt) / 1000);
+    setHoldStartedAt(null);
+    if (sec > 0) appendRound(sec);
+  }
+
+  function addManualRound() {
+    updateBreathwork({
+      capture: form.breathwork.capture === 'stopwatch' ? 'stopwatch' : 'manual',
+      rounds: [...form.breathwork.rounds, emptyRoundDraft(uuidv7())],
+    });
+  }
+
+  function mutateRound(id: string, fn: (r: SessionForm['breathwork']['rounds'][number]) => SessionForm['breathwork']['rounds'][number]) {
+    updateBreathwork({ rounds: form.breathwork.rounds.map((r) => (r.id === id ? fn(r) : r)) });
+  }
+
+  function removeRound(id: string) {
+    updateBreathwork({ rounds: form.breathwork.rounds.filter((r) => r.id !== id) });
+  }
+
+  // ─── Pain (Body P7b, PT) — any surface, attached to whatever session was
+  // being logged when it hurt (pt-model.md: a knee can hurt on a run or
+  // under a bar, not just on a practice surface). ────────────────────────────
+
+  function addPainArea() {
+    setForm((f) => ({ ...f, painAreas: [...f.painAreas, emptyPainAreaDraft(uuidv7())] }));
+  }
+
+  function removePainArea(id: string) {
+    setForm((f) => ({ ...f, painAreas: f.painAreas.filter((a) => a.id !== id) }));
+  }
+
+  function mutatePainArea(id: string, fn: (a: PainAreaDraft) => PainAreaDraft) {
+    setForm((f) => ({ ...f, painAreas: f.painAreas.map((a) => (a.id === id ? fn(a) : a)) }));
   }
 
   // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
@@ -387,11 +568,11 @@ export default function LogSessionScreen() {
           weightUnit,
           distanceUnit,
         });
-        await updateObservation({
-          ...built,
-          source: original.source,
-          fidelity: original.fidelity,
-        });
+        const edited = { ...built, source: original.source, fidelity: original.fidelity };
+        await updateObservation(edited);
+        // Fire-and-forget: replaces the HK sample (same sync id, bumped
+        // version) if export is on; never awaited, never blocks the save.
+        void writeSessionToHealthKit(edited).catch(() => {});
       } else {
         const obs = buildSessionObservation(form, {
           id: uuidv7(),
@@ -401,6 +582,7 @@ export default function LogSessionScreen() {
           distanceUnit,
         });
         await createObservation(obs);
+        void writeSessionToHealthKit(obs).catch(() => {});
       }
       dismiss();
     } catch {
@@ -540,6 +722,13 @@ export default function LogSessionScreen() {
               onAddSet={() => addSet(ex.id)}
               onRemoveSet={(setId) => removeSet(ex.id, setId)}
               onRemove={() => removeExercise(ex.id)}
+              pickerEntries={pickerEntries}
+              onPick={(entry) => pickExercise(ex.id, entry)}
+              onEntryType={(t) => setExerciseEntryType(ex.id, t)}
+              ghosts={ghostSetPlaceholders(
+                patternMemory.lastSets(ex.name, ex.exerciseId),
+                weightUnit
+              )}
             />
           ))}
           <Button label="+ Add exercise" variant="secondary" onPress={addExercise} />
@@ -744,14 +933,231 @@ export default function LogSessionScreen() {
       ) : null}
 
       {surface === 'practice' ? (
-        <Card style={{ marginTop: theme.spacing[6] }}>
-          <Field
-            label="Style (optional)"
-            value={form.practice.style}
-            onChangeText={(style) => update({ practice: { style } })}
-            placeholder="e.g. vinyasa, hatha, mobility"
-            keyboardType="default"
-          />
+        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
+          {form.activity === 'yoga' ? (
+            <View style={{ gap: theme.spacing[2] }}>
+              <Text variant="label">Style (optional)</Text>
+              <ChipSelect
+                options={yogaStyles().map((s) => ({ value: s.id, label: s.label }))}
+                value={form.practice.styleId || null}
+                onChange={(id) => {
+                  const style = yogaStyles().find((s) => s.id === id);
+                  if (style) pickPracticeStyle(style.id, style.label);
+                }}
+              />
+            </View>
+          ) : null}
+
+          {form.activity === 'dance'
+            ? (() => {
+                const activeFamilyId =
+                  danceFamilyId ??
+                  danceFamilies().find((f) => f.styles.some((s) => s.id === form.practice.styleId))
+                    ?.id ??
+                  null;
+                const family = danceFamilies().find((f) => f.id === activeFamilyId);
+                return (
+                  <>
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Family (optional)</Text>
+                      <ChipSelect
+                        options={danceFamilies().map((f) => ({ value: f.id, label: f.label }))}
+                        value={activeFamilyId}
+                        onChange={(familyId) => {
+                          setDanceFamilyId(familyId);
+                          // A family switch clears the pending style pick —
+                          // otherwise the stored styleId keeps pointing at
+                          // the OLD family while the chip list now shows the
+                          // new family's (unrelated) styles (code-review
+                          // catch: the two controls would visually diverge
+                          // from what's actually stored).
+                          if (familyId !== activeFamilyId) updatePractice({ styleId: '' });
+                        }}
+                      />
+                    </View>
+                    {family ? (
+                      <View style={{ gap: theme.spacing[2] }}>
+                        <Text variant="label">Style (optional)</Text>
+                        <ChipSelect
+                          options={family.styles.map((s) => ({ value: s.id, label: s.label }))}
+                          value={form.practice.styleId || null}
+                          onChange={(id) => {
+                            const style = family.styles.find((s) => s.id === id);
+                            if (style) pickPracticeStyle(style.id, style.label);
+                          }}
+                        />
+                      </View>
+                    ) : null}
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Context (optional)</Text>
+                      <ChipSelect
+                        options={danceContextTags().map((t) => ({
+                          value: t.id as PracticeContextTag,
+                          label: t.label,
+                        }))}
+                        value={form.practice.contextTag}
+                        onChange={(contextTag) => updatePractice({ contextTag })}
+                      />
+                    </View>
+                  </>
+                );
+              })()
+            : null}
+
+          {form.activity === 'mobility' ? (
+            <View style={{ gap: theme.spacing[3] }}>
+              <Text variant="label">Areas worked (optional)</Text>
+              {form.practice.bodyAreas.map((a) => {
+                const zone = mobilityZones().find((z) => z.id === a.zoneId);
+                return (
+                  <View key={a.id} style={{ gap: theme.spacing[2] }}>
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing[2] }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <ChipSelect
+                          options={mobilityZones().map((z) => ({ value: z.id, label: z.label }))}
+                          value={a.zoneId || null}
+                          onChange={(zoneId) =>
+                            mutateBodyArea(a.id, (prev) => ({ ...prev, zoneId, side: undefined }))
+                          }
+                        />
+                      </View>
+                      <RemoveButton label="Remove area" onPress={() => removeBodyArea(a.id)} />
+                    </View>
+                    {zone?.sided ? (
+                      <ChipSelect
+                        options={ZONE_SIDES.map((s) => ({ value: s, label: s }))}
+                        value={a.side ?? null}
+                        onChange={(side) => mutateBodyArea(a.id, (prev) => ({ ...prev, side }))}
+                      />
+                    ) : null}
+                    <View style={{ gap: theme.spacing[1] }}>
+                      <Text variant="dataSm" color={theme.colors.textMuted}>
+                        Tightness (1–5, optional)
+                      </Text>
+                      <ChipSelect
+                        options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))}
+                        value={a.tightness || null}
+                        onChange={(tightness) => mutateBodyArea(a.id, (prev) => ({ ...prev, tightness }))}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+              <Button label="+ Add area" variant="secondary" onPress={addBodyArea} />
+            </View>
+          ) : null}
+
+          {form.activity === 'breathwork'
+            ? (() => {
+                const pattern = breathPatternById(form.breathwork.patternId);
+                const isRetention = pattern?.phases.some((p) => p.capture === 'retention') ?? false;
+                const seconds = form.breathwork.rounds
+                  .map((r) => Number(r.retentionSec))
+                  .filter((n) => Number.isFinite(n) && n > 0);
+                const best = seconds.length > 0 ? Math.max(...seconds) : null;
+                const avg =
+                  seconds.length > 0 ? Math.round(seconds.reduce((a, b) => a + b, 0) / seconds.length) : null;
+                return (
+                  <>
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Pattern (optional)</Text>
+                      <ChipSelect
+                        options={breathPatterns().map((p) => ({ value: p.id, label: p.name }))}
+                        value={form.breathwork.patternId || null}
+                        onChange={pickPattern}
+                      />
+                    </View>
+                    {pattern && pattern.cautions.length > 0 ? (
+                      <Card style={{ gap: theme.spacing[1] }}>
+                        {pattern.cautions.map((c, i) => (
+                          <Text key={i} variant="dataSm" color={theme.colors.sandstone}>
+                            {c}
+                          </Text>
+                        ))}
+                      </Card>
+                    ) : null}
+
+                    {isRetention ? (
+                      <View style={{ gap: theme.spacing[3] }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[3] }}>
+                          <Button
+                            label={holdStartedAt != null ? `Stop hold — ${holdElapsedSec}s` : 'Start hold'}
+                            variant={holdStartedAt != null ? 'primary' : 'secondary'}
+                            onPress={holdStartedAt != null ? stopHold : startHold}
+                          />
+                        </View>
+                        {form.breathwork.rounds.map((r, i) => (
+                          <View
+                            key={r.id}
+                            style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[3] }}
+                          >
+                            <Text variant="dataSm" color={theme.colors.textMuted} style={{ width: 20 }}>
+                              {i + 1}
+                            </Text>
+                            <Field
+                              label="Seconds"
+                              value={r.retentionSec}
+                              onChangeText={(retentionSec) => mutateRound(r.id, (prev) => ({ ...prev, retentionSec }))}
+                              placeholder="0"
+                              keyboardType="number-pad"
+                              style={{ flex: 1 }}
+                            />
+                            <Field
+                              label="Breaths"
+                              value={r.breaths}
+                              onChangeText={(breaths) => mutateRound(r.id, (prev) => ({ ...prev, breaths }))}
+                              placeholder="—"
+                              keyboardType="number-pad"
+                              style={{ width: 64 }}
+                            />
+                            <RemoveButton label="Remove round" onPress={() => removeRound(r.id)} />
+                          </View>
+                        ))}
+                        <Button label="+ Add round manually" variant="secondary" onPress={addManualRound} />
+                        {best != null && avg != null ? (
+                          <Text variant="dataSm" color={theme.colors.textMuted}>
+                            Best {best}s · average {avg}s over {seconds.length} round
+                            {seconds.length === 1 ? '' : 's'}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : (
+                      <Field
+                        label="Cycles (optional)"
+                        value={form.breathwork.cycles}
+                        onChangeText={(cycles) => updateBreathwork({ cycles })}
+                        placeholder="0"
+                        keyboardType="number-pad"
+                      />
+                    )}
+                  </>
+                );
+              })()
+            : null}
+
+          {form.activity !== 'breathwork' ? (
+            <Field
+              label={
+                form.activity === 'yoga' || form.activity === 'dance'
+                  ? 'Not listed above? (optional)'
+                  : 'Style (optional)'
+              }
+              value={form.practice.style}
+              onChangeText={setPracticeStyleText}
+              placeholder={
+                form.activity === 'dance'
+                  ? 'e.g. hip-hop'
+                  : form.activity === 'yoga'
+                    ? 'e.g. vinyasa, hatha'
+                    : form.activity === 'mobility'
+                      ? 'e.g. hip mobility'
+                      : 'e.g. bird dog, clamshell'
+              }
+              keyboardType="default"
+            />
+          ) : null}
         </Card>
       ) : null}
 
@@ -780,11 +1186,56 @@ export default function LogSessionScreen() {
             onChange={(perceivedEffort) => update({ perceivedEffort })}
           />
         </View>
+
+        {/* Pain — any surface, informational only (pt-model.md: a knee can
+            hurt on a run or under a bar, not just on a practice surface). */}
+        <View style={{ gap: theme.spacing[3] }}>
+          <Text variant="label">Pain (optional)</Text>
+          {form.painAreas.map((a) => {
+            const zone = mobilityZones().find((z) => z.id === a.zoneId);
+            return (
+              <View key={a.id} style={{ gap: theme.spacing[2] }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing[2] }}>
+                  <View style={{ flex: 1 }}>
+                    <ChipSelect
+                      options={mobilityZones().map((z) => ({ value: z.id, label: z.label }))}
+                      value={a.zoneId || null}
+                      onChange={(zoneId) =>
+                        mutatePainArea(a.id, (prev) => ({ ...prev, zoneId, side: undefined }))
+                      }
+                    />
+                  </View>
+                  <RemoveButton label="Remove pain entry" onPress={() => removePainArea(a.id)} />
+                </View>
+                {zone?.sided ? (
+                  <ChipSelect
+                    options={ZONE_SIDES.map((s) => ({ value: s, label: s }))}
+                    value={a.side ?? null}
+                    onChange={(side) => mutatePainArea(a.id, (prev) => ({ ...prev, side }))}
+                  />
+                ) : null}
+                <Field
+                  label="Pain (0–10)"
+                  value={a.pain}
+                  onChangeText={(pain) => mutatePainArea(a.id, (prev) => ({ ...prev, pain }))}
+                  placeholder="—"
+                  keyboardType="number-pad"
+                  style={{ width: 96 }}
+                />
+              </View>
+            );
+          })}
+          <Button label="+ Add pain entry" variant="secondary" onPress={addPainArea} />
+        </View>
+
         <Field
-          label="Notes (optional)"
+          // Body P7a: no new schema — the practice surface just prompts the
+          // EXISTING notes field more prominently ("how did it feel?"),
+          // never a separate reflection field.
+          label={surface === 'practice' ? 'Reflection (optional)' : 'Notes (optional)'}
           value={form.notes}
           onChangeText={(notes) => update({ notes })}
-          placeholder="—"
+          placeholder={surface === 'practice' ? 'How did it feel?' : '—'}
           keyboardType="default"
         />
       </Card>

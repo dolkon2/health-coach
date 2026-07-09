@@ -22,6 +22,7 @@ import {
   Snowflake,
   Flower2,
   Backpack,
+  HeartPulse,
   Activity as ActivityIcon,
 } from 'lucide-react-native';
 import { Screen, Text, Card, SessionCard, SwipeToDelete } from '@/components';
@@ -29,6 +30,7 @@ import { useTheme } from '@/theme';
 import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { deleteObservation } from '@/storage/observations';
+import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 import { headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
@@ -45,6 +47,7 @@ const ICONS: Record<string, IconCmp> = {
   snowflake: Snowflake,
   flower: Flower2,
   backpack: Backpack,
+  'heart-pulse': HeartPulse,
 };
 
 export default function TrainingScreen() {
@@ -70,6 +73,9 @@ export default function TrainingScreen() {
   const removeAndReload = useCallback(
     async (id: string) => {
       await deleteObservation(id);
+      // Fire-and-forget: propagates the delete to Apple Health if this
+      // session was ever exported; never blocks the local delete.
+      void deleteHealthKitExport(id).catch(() => {});
       reload();
     },
     [reload]
@@ -116,6 +122,26 @@ export default function TrainingScreen() {
           >
             <Text variant="label" color={theme.colors.textMuted}>
               Library →
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/training-progress')}
+            accessibilityRole="button"
+            accessibilityLabel="Open training progress"
+            hitSlop={8}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Progress →
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/import-csv')}
+            accessibilityRole="button"
+            accessibilityLabel="Import training history"
+            hitSlop={8}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Import →
             </Text>
           </Pressable>
         </View>

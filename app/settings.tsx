@@ -14,6 +14,7 @@ import { Screen, Text, Card, Button, ChipSelect } from '@/components';
 import { useTheme } from '@/theme';
 import { seedSampleData, clearSampleData } from '@/lib/devSeed';
 import { useSettings, useUpdateSettings } from '@/settings/useSettings';
+import { requestWritePermissions } from '@/lib/healthkit/writer';
 import type { WeightUnit, DistanceUnit } from '@/lib/units';
 
 const WEIGHT_UNITS: Array<{ value: WeightUnit; label: string }> = [
@@ -28,10 +29,29 @@ const DISTANCE_UNITS: Array<{ value: DistanceUnit; label: string }> = [
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit, distanceUnit } = useSettings();
+  const { weightUnit, distanceUnit, healthkitWriteEnabled } = useSettings();
   const updateSettings = useUpdateSettings();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [hkBusy, setHkBusy] = useState(false);
+
+  async function onToggleHealthkitWrite() {
+    if (hkBusy) return;
+    if (healthkitWriteEnabled) {
+      // Turning off never needs the auth sheet — just stop writing.
+      await updateSettings({ healthkitWriteEnabled: false });
+      return;
+    }
+    // Turning ON is the ONLY place the auth sheet appears — never mid-log
+    // (binding doc: "trigger the auth sheet only from the toggle").
+    setHkBusy(true);
+    try {
+      const granted = await requestWritePermissions();
+      await updateSettings({ healthkitWriteEnabled: granted });
+    } finally {
+      setHkBusy(false);
+    }
+  }
 
   async function onSeed() {
     setBusy(true);
@@ -83,6 +103,30 @@ export default function SettingsScreen() {
           label="Edit body stats"
           variant="outline"
           onPress={() => router.push('/body-profile')}
+        />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Plans</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Your own home-exercise plans — define them here, tick them off daily
+          from the same screen.
+        </Text>
+        <Button label="Open plans" variant="outline" onPress={() => router.push('/protocols')} />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Apple Health</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Off by default. When on, sessions you log here export to Health as
+          activity type and start/end time only — never a modeled calorie
+          estimate.
+        </Text>
+        <Button
+          label={healthkitWriteEnabled ? 'Turn off Health export' : 'Turn on Health export'}
+          variant="outline"
+          onPress={onToggleHealthkitWrite}
+          loading={hkBusy}
         />
       </Card>
 

@@ -2,10 +2,13 @@
  * appSettings.ts — the persisted app-settings shape (settings store, key
  * 'appSettings').
  *
- * Display preferences only: none of these change what's stored — weights stay
- * kg, distances stay metres (units.ts). The stored JSON may be a subset of
- * this type (saved before newer fields existed), so readers merge over
- * DEFAULT_SETTINGS instead of trusting the blob to be complete.
+ * Mostly display preferences: weights stay kg, distances stay metres
+ * (units.ts) regardless of these. `healthkitWriteEnabled` (Body P8) is the
+ * one exception — it gates a real side effect (exporting sessions to Apple
+ * Health), off by default (constitution: descriptive by default, writes are
+ * opt-in). The stored JSON may be a subset of this type (saved before newer
+ * fields existed), so readers merge over DEFAULT_SETTINGS instead of
+ * trusting the blob to be complete.
  */
 import type { WeightUnit, DistanceUnit } from './units';
 import type { NutritionFocus } from './foodLog';
@@ -16,6 +19,7 @@ export type Settings = {
   nutritionFocus: NutritionFocus; // display-only: which macro renders large in food UI
   restTimerSec: number; // default between-sets rest; the gym timer starts from this.
   defaultPoolLengthM: number; // remembered pool length; the swim form prefills it.
+  healthkitWriteEnabled: boolean; // Body P8: export logged sessions to Apple Health
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +28,7 @@ export const DEFAULT_SETTINGS: Settings = {
   nutritionFocus: 'calories', // the hero number; a lens over the data, never a gate on it.
   restTimerSec: 120, // 2 min between sets.
   defaultPoolLengthM: 25, // a 25 m pool is the common default.
+  healthkitWriteEnabled: false, // opt-in only — never writes until the user turns it on.
 };
 
 /** Fill gaps in a stored blob with defaults — a save from an older app version

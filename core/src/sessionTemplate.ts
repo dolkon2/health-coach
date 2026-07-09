@@ -49,12 +49,16 @@ export type GymTemplateSet = {
  * exercise. Null falls back to the user's global rest-timer default, so the
  * template only stores deviations from it.
  *
- * Pass 4 of Phase 4 (exercise library — deferred) will upgrade `name` to an
- * exercise-library id; until then it's a freeform string.
+ * `exerciseId` (Body P3) is the library/ladder id from the picker
+ * (src/lib/exercisePicker.ts) — the plan this file's header noted for "Pass 4
+ * of Phase 4". Optional beside `name`, which stays the stored fact; no
+ * template-editor picker UI ships this round (schema-only, template→session
+ * pre-fill is still Pass 4's unbuilt auto-populate step).
  */
 export type GymTemplateExercise = {
   id: string; // local id for keyed UI lists; not persisted as a separate row
   name: string;
+  exerciseId?: string;
   movementPattern: MovementPattern;
   sets: GymTemplateSet[];
   restBetweenSetsSec?: number;

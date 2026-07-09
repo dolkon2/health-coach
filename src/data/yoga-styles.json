@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "version": "0.1",
+    "purpose": "Bundled yoga style taxonomy for the practice surface. Ships as JSON/TS constant; ids are stable and kebab-case per src/lib/activity.ts convention.",
+    "healthkit": {
+      "workoutType": "HKWorkoutActivityType.yoga (all styles)",
+      "mindfulSession": "When mindfulnessEligible is true, the app MAY additionally offer writing an HKCategoryTypeIdentifier.mindfulSession sample for the session duration. Optional, user-controlled, descriptive — never auto-written without the user having enabled it.",
+      "source": "https://developer.apple.com/documentation/healthkit/hkworkoutactivitytype"
+    },
+    "notes": [
+      "typicalIntensity is descriptive metadata for display/sorting only — never used to score or judge a session (constitution: descriptive, no gamification).",
+      "Kundalini includes substantial breathwork/meditation; it was left mindfulnessEligible=false per spec (yin/restorative only) but is the one style worth reconsidering — flagged as open question."
+    ]
+  },
+  "styles": [
+    {
+      "id": "vinyasa",
+      "label": "Vinyasa",
+      "descriptor": "Breath-linked flowing sequences; pace and content vary class to class.",
+      "typicalIntensity": "medium",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "hatha",
+      "label": "Hatha",
+      "descriptor": "Slower-paced foundational practice; poses held individually with attention to breath.",
+      "typicalIntensity": "low",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "yin",
+      "label": "Yin",
+      "descriptor": "Long passive floor holds (3–5+ min) targeting deep connective tissue.",
+      "typicalIntensity": "low",
+      "mindfulnessEligible": true
+    },
+    {
+      "id": "restorative",
+      "label": "Restorative",
+      "descriptor": "Fully supported resting poses with props; aimed at down-regulation, not stretch.",
+      "typicalIntensity": "low",
+      "mindfulnessEligible": true
+    },
+    {
+      "id": "ashtanga",
+      "label": "Ashtanga",
+      "descriptor": "Fixed progressive series practiced in a set order at a vigorous, disciplined pace.",
+      "typicalIntensity": "high",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "power",
+      "label": "Power",
+      "descriptor": "Fitness-oriented vinyasa derivative; strength-biased, faster, often gym-scheduled.",
+      "typicalIntensity": "high",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "iyengar",
+      "label": "Iyengar",
+      "descriptor": "Precision and alignment focus with props and long detailed holds.",
+      "typicalIntensity": "medium",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "kundalini",
+      "label": "Kundalini",
+      "descriptor": "Kriya-based practice mixing repetitive movement, breathwork, chanting, and meditation.",
+      "typicalIntensity": "medium",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "hot",
+      "label": "Hot",
+      "descriptor": "Any style practiced in a heated room (incl. Bikram-style 26+2); heat drives intensity up.",
+      "typicalIntensity": "high",
+      "mindfulnessEligible": false
+    },
+    {
+      "id": "mobility-stretch",
+      "label": "Mobility / Stretch",
+      "descriptor": "Yoga-adjacent stretching or mobility flow without a formal lineage.",
+      "typicalIntensity": "low",
+      "mindfulnessEligible": false
+    }
+  ]
+}
