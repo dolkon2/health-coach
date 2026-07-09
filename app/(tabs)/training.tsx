@@ -31,7 +31,7 @@ import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { deleteObservation } from '@/storage/observations';
 import { deleteHealthKitExport } from '@/lib/healthkit/writer';
-import { headlineActivities, moreActivities, type Activity } from '@/lib/activity';
+import { elementSections, reviewPendingActivities, type Activity } from '@/lib/activity';
 
 type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -54,7 +54,7 @@ export default function TrainingScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { sessions, reload } = useSessionHistory();
-  const [showMore, setShowMore] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   // Re-fetch whenever the tab regains focus — after the logger saves or a delete.
   useFocusEffect(
@@ -88,8 +88,10 @@ export default function TrainingScreen() {
     router.push({ pathname: '/log-session', params: { activity: a.id } });
   }
 
-  const headline = headlineActivities();
-  const more = moreActivities();
+  // Body → Earth → Water → Sky (replaces the old headline/"More" flat
+  // outdoor grouping), plus the pending-delete Review tail (2026-07-09).
+  const sections = elementSections();
+  const reviewPending = reviewPendingActivities();
 
   return (
     <Screen scroll>
@@ -150,43 +152,70 @@ export default function TrainingScreen() {
         Log a session
       </Text>
 
-      {/* Activity picker — headline row */}
-      <View
-        style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: theme.spacing[3],
-          marginTop: theme.spacing[6],
-        }}
-      >
-        {headline.map((a) => (
-          <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
-        ))}
-      </View>
+      {/* Activity picker — one section per element, fixed order */}
+      {sections.map((section) =>
+        section.activities.length > 0 ? (
+          <View key={section.element}>
+            <Text variant="label" style={{ marginTop: theme.spacing[6] }}>
+              {section.title}
+            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: theme.spacing[3],
+                marginTop: theme.spacing[3],
+              }}
+            >
+              {section.activities.map((a) => (
+                <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
+              ))}
+            </View>
+          </View>
+        ) : null
+      )}
 
-      {/* Long tail */}
-      <Pressable
-        onPress={() => setShowMore((v) => !v)}
-        accessibilityRole="button"
-        accessibilityLabel={showMore ? 'Show fewer activities' : 'Show more activities'}
-        style={{ marginTop: theme.spacing[4] }}
-      >
-        <Text variant="label" color={theme.colors.textMuted}>
-          {showMore ? 'Less ▲' : 'More ▼'}
-        </Text>
-      </Pressable>
-      {showMore ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: theme.spacing[3],
-            marginTop: theme.spacing[3],
-          }}
-        >
-          {more.map((a) => (
-            <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
-          ))}
+      {/* Pending-delete review (2026-07-09 prune): activities not in the
+          Training Database and untouched by the dimension builds. Collapsed
+          by default; they can still be logged from here until the delete is
+          confirmed — nothing is removed silently. */}
+      {reviewPending.length > 0 ? (
+        <View>
+          <Pressable
+            onPress={() => setShowReview((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              showReview ? 'Hide activities pending removal' : 'Show activities pending removal'
+            }
+            style={{ marginTop: theme.spacing[6] }}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              {showReview ? 'Review — pending removal ▲' : 'Review — pending removal ▼'}
+            </Text>
+          </Pressable>
+          {showReview ? (
+            <>
+              <Text
+                variant="bodySm"
+                color={theme.colors.textMuted}
+                style={{ marginTop: theme.spacing[2] }}
+              >
+                Not in the Training Database — queued for deletion once you confirm.
+              </Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: theme.spacing[3],
+                  marginTop: theme.spacing[3],
+                }}
+              >
+                {reviewPending.map((a) => (
+                  <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
+                ))}
+              </View>
+            </>
+          ) : null}
         </View>
       ) : null}
 

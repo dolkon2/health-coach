@@ -112,6 +112,123 @@ export function activityById(id: string): Activity | undefined {
   return BY_ID.get(id);
 }
 
+// ─── Element grouping (2026-07-09 dimension merge) ──────────────────────────
+// The Training tab organizes activities by the four elemental dimensions, in
+// this fixed order — replacing the old headline/"More" flat outdoor grouping.
+
+export type Element = 'body' | 'earth' | 'water' | 'sky';
+
+export const ELEMENT_ORDER: readonly Element[] = ['body', 'earth', 'water', 'sky'];
+
+export const ELEMENT_LABELS: Record<Element, string> = {
+  body: 'Body',
+  earth: 'Earth',
+  water: 'Water',
+  sky: 'Sky',
+};
+
+/** Which element each activity belongs to. Kept as a map (not a per-entry
+ *  field) so dimension branches adding activities stay low-conflict here. */
+const ELEMENT_OF: Record<string, Element> = {
+  // Body — gym + practice surfaces
+  gym: 'body',
+  strength: 'body',
+  calisthenics: 'body',
+  crossfit: 'body',
+  yoga: 'body',
+  pilates: 'body',
+  mobility: 'body',
+  meditation: 'body',
+  'martial-arts': 'body',
+  dance: 'body',
+  breathwork: 'body',
+  pt: 'body',
+  // Earth — land sports
+  run: 'earth',
+  ride: 'earth',
+  hike: 'earth',
+  walk: 'earth',
+  ruck: 'earth',
+  'trail-run': 'earth',
+  mtb: 'earth',
+  ski: 'earth',
+  snowboard: 'earth',
+  'ski-touring': 'earth',
+  'xc-ski': 'earth',
+  snowshoe: 'earth',
+  skate: 'earth',
+  climb: 'earth',
+  // Water — paddle, wind, swim
+  paddle: 'water',
+  surf: 'water',
+  swim: 'water',
+  kayak: 'water',
+  whitewater: 'water',
+  sup: 'water',
+  canoe: 'water',
+  row: 'water',
+  sail: 'water',
+  windsurf: 'water',
+  kitesurf: 'water',
+  parawing: 'water',
+  wingfoil: 'water',
+  // Sky — flight
+  paragliding: 'sky',
+  hikeAndFly: 'sky',
+  speedflying: 'sky',
+  parakiting: 'sky',
+};
+
+export function elementOf(a: Activity): Element {
+  return ELEMENT_OF[a.id] ?? 'body';
+}
+
+/**
+ * Activities queued for deletion pending Dylan's confirmation (2026-07-09):
+ * in the registry but NOT in the Notion Training Database, and untouched by
+ * any of the four dimension builds (not in WHITEWATER/WIND activity gates, no
+ * Earth gearCategories, not a Body practice build). They render in a separate
+ * "Review" section on the Training tab — hidden from the quick-log picker —
+ * until confirmed. Confirmed deletes should become `deprecated: true`, NOT
+ * row removal, whenever the activity may have logged sessions (see the
+ * `deprecated` field's contract above).
+ */
+export const REVIEW_PENDING_IDS: readonly string[] = [
+  'strength',
+  'crossfit',
+  'pilates',
+  'meditation',
+  'paddle',
+  'surf',
+  'sup',
+  'canoe',
+  'row',
+  'skate',
+];
+
+const REVIEW_PENDING = new Set(REVIEW_PENDING_IDS);
+
+/** Pickable = shown in pickers: not deprecated, not pending delete-review. */
+function pickable(a: Activity): boolean {
+  return a.deprecated !== true && !REVIEW_PENDING.has(a.id);
+}
+
+export type ElementSection = { element: Element; title: string; activities: Activity[] };
+
+/** The Training tab's sections: Body → Earth → Water → Sky, registry order within. */
+export function elementSections(): ElementSection[] {
+  return ELEMENT_ORDER.map((element) => ({
+    element,
+    title: ELEMENT_LABELS[element],
+    activities: ACTIVITIES.filter((a) => pickable(a) && elementOf(a) === element),
+  }));
+}
+
+/** The pending-delete list for the Training tab's Review section. */
+export function reviewPendingActivities(): Activity[] {
+  return ACTIVITIES.filter((a) => a.deprecated !== true && REVIEW_PENDING.has(a.id));
+}
+
 /**
  * The headline activities, in the given id order (defaults to HEADLINE_DEFAULT_IDS).
  * Deprecated activities never surface in a picker, even if a stored preference
@@ -120,11 +237,11 @@ export function activityById(id: string): Activity | undefined {
 export function headlineActivities(ids: readonly string[] = HEADLINE_DEFAULT_IDS): Activity[] {
   return ids
     .map((id) => BY_ID.get(id))
-    .filter((a): a is Activity => a !== undefined && a.deprecated !== true);
+    .filter((a): a is Activity => a !== undefined && pickable(a));
 }
 
 /** Everything not in the headline row — the "More" long tail, registry order preserved. */
 export function moreActivities(headlineIds: readonly string[] = HEADLINE_DEFAULT_IDS): Activity[] {
   const headline = new Set(headlineIds);
-  return ACTIVITIES.filter((a) => !headline.has(a.id) && a.deprecated !== true);
+  return ACTIVITIES.filter((a) => !headline.has(a.id) && pickable(a));
 }

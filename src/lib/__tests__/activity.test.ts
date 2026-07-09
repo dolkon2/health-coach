@@ -1,10 +1,14 @@
 import { describe, it, expect } from '@jest/globals';
 import {
   ACTIVITIES,
+  ELEMENT_ORDER,
   HEADLINE_DEFAULT_IDS,
+  REVIEW_PENDING_IDS,
   activityById,
+  elementSections,
   headlineActivities,
   moreActivities,
+  reviewPendingActivities,
   type Surface,
 } from '../activity';
 
@@ -49,20 +53,46 @@ describe('activity registry', () => {
     }
   });
 
-  it('headline defaults all resolve, in order', () => {
-    expect(headlineActivities().map((a) => a.id)).toEqual([...HEADLINE_DEFAULT_IDS]);
+  it('headline defaults all resolve, in order (minus review-pending ids)', () => {
+    // 'paddle' sits in HEADLINE_DEFAULT_IDS but is queued for delete-review
+    // (2026-07-09 prune) — pickers filter it like a deprecated id.
+    const expected = HEADLINE_DEFAULT_IDS.filter((id) => !REVIEW_PENDING_IDS.includes(id));
+    expect(headlineActivities().map((a) => a.id)).toEqual(expected);
   });
 
-  it('headline and More partition the non-deprecated registry exactly once', () => {
+  it('headline and More partition the pickable registry exactly once', () => {
     const headlineIds = new Set(headlineActivities().map((a) => a.id));
     for (const m of moreActivities()) expect(headlineIds.has(m.id)).toBe(false);
 
     const combined = [...headlineActivities(), ...moreActivities()].map((a) => a.id).sort();
     expect(combined).toEqual(
-      ACTIVITIES.filter((a) => a.deprecated !== true)
+      ACTIVITIES.filter((a) => a.deprecated !== true && !REVIEW_PENDING_IDS.includes(a.id))
         .map((a) => a.id)
         .sort()
     );
+  });
+
+  it('element sections cover the pickable registry exactly once, Body→Earth→Water→Sky', () => {
+    const sections = elementSections();
+    expect(sections.map((s) => s.element)).toEqual([...ELEMENT_ORDER]);
+    const ids = sections.flatMap((s) => s.activities.map((a) => a.id)).sort();
+    expect(ids).toEqual(
+      ACTIVITIES.filter((a) => a.deprecated !== true && !REVIEW_PENDING_IDS.includes(a.id))
+        .map((a) => a.id)
+        .sort()
+    );
+  });
+
+  it('review-pending activities resolve, are excluded from pickers, and none is dimension-built', () => {
+    const review = reviewPendingActivities().map((a) => a.id);
+    expect([...review].sort()).toEqual([...REVIEW_PENDING_IDS].sort());
+    const pickerIds = new Set(
+      [...headlineActivities(), ...moreActivities()].map((a) => a.id)
+    );
+    for (const id of review) {
+      expect(pickerIds.has(id)).toBe(false);
+      expect(activityById(id)).toBeDefined(); // still resolvable for history
+    }
   });
 
   it('deprecated activities stay resolvable by id but never surface in a picker', () => {
