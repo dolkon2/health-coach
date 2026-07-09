@@ -9,6 +9,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   suggestProteinGrams,
   suggestCalorieCeiling,
+  suggestLadderAdvancement,
   PROTEIN_G_PER_KG,
   SUGGESTED_DEFICIT_KCAL,
 } from '@/lib/benchmarkSuggest';
@@ -38,5 +39,17 @@ describe('suggestCalorieCeiling', () => {
   it('is null without a TDEE estimate', () => {
     expect(suggestCalorieCeiling(null)).toBeNull();
     expect(suggestCalorieCeiling(0)).toBeNull();
+  });
+});
+
+describe('suggestLadderAdvancement', () => {
+  it('formats a reps step as "N×M reps"', () => {
+    const s = suggestLadderAdvancement({ setType: 'reps', advancement: { sets: 3, repsOrSeconds: 8 } });
+    expect(s).toEqual({ title: '3×8 reps', metric: 'reps', target: 8 });
+  });
+
+  it('formats a duration step as "N×Ms"', () => {
+    const s = suggestLadderAdvancement({ setType: 'duration', advancement: { sets: 3, repsOrSeconds: 20 } });
+    expect(s).toEqual({ title: '3×20s', metric: 'seconds', target: 20 });
   });
 });

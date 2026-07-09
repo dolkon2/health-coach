@@ -13,6 +13,8 @@ import { useTheme } from '@/theme';
 import { useLadderProgress } from '@/hooks/useLadderProgress';
 import { useGymAnalytics } from '@/hooks/useGymAnalytics';
 import { MUSCLE_GROUP_LABELS, PR_KIND_LABELS } from '@/lib/gymAnalyticsLabels';
+import { ladderChainById } from '@/data/ladders';
+import { suggestLadderAdvancement } from '@/lib/benchmarkSuggest';
 
 export default function TrainingProgressScreen() {
   const theme = useTheme();
@@ -125,17 +127,26 @@ export default function TrainingProgressScreen() {
       </Text>
       {laddersLoading ? null : chains.length > 0 ? (
         <View style={{ gap: theme.spacing[3] }}>
-          {chains.map((c) => (
-            <Card key={c.chainId} style={{ gap: theme.spacing[1] }}>
-              <Text variant="label" color={theme.colors.sandstone}>
-                {c.chainName}
-              </Text>
-              <Text variant="body">{c.stepName}</Text>
-              <Text variant="dataSm" color={theme.colors.textMuted}>
-                Ladder position {c.current.ladderPosition.toFixed(2)}
-              </Text>
-            </Card>
-          ))}
+          {chains.map((c) => {
+            const step = ladderChainById(c.chainId)?.steps[c.current.stepIndex];
+            const advancement = step ? suggestLadderAdvancement(step) : null;
+            return (
+              <Card key={c.chainId} style={{ gap: theme.spacing[1] }}>
+                <Text variant="label" color={theme.colors.sandstone}>
+                  {c.chainName}
+                </Text>
+                <Text variant="body">{c.stepName}</Text>
+                <Text variant="dataSm" color={theme.colors.textMuted}>
+                  Ladder position {c.current.ladderPosition.toFixed(2)}
+                </Text>
+                {advancement ? (
+                  <Text variant="dataSm" color={theme.colors.textMuted}>
+                    This step's community-standard threshold: {advancement.title}
+                  </Text>
+                ) : null}
+              </Card>
+            );
+          })}
         </View>
       ) : (
         <Card>
