@@ -29,8 +29,9 @@ export function SessionCard({ session, contribution }: SessionCardProps) {
 
   // Show the route only when one was actually recorded/imported — a routeless
   // session is complete, not broken (gps-mapping-spec.md: stats-only is a valid
-  // state; never an empty map container).
-  const route = p.endurance?.gpsPath;
+  // state; never an empty map container). Sky sessions carry their track under
+  // `sky.track` rather than `endurance.gpsPath` — same routeless-is-fine rule.
+  const route = p.endurance?.gpsPath ?? p.sky?.track;
 
   return (
     <Card raised style={{ gap: theme.spacing[2] }}>

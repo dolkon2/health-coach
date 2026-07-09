@@ -22,6 +22,8 @@ import type {
   MovementPattern,
   ObservationOf,
   SessionPayload,
+  SkyBlock,
+  SkySegment,
   SwimmingBlock,
   SwimStroke,
 } from '@core/observation';
@@ -106,6 +108,13 @@ export type SessionForm = {
     energySystem: EnergySystem;
   };
   practice: { style: string }; // optional free style tag for yoga/pilates/mobility
+  sky: {
+    track?: GeoPoint[]; // RAW, retained; never trimmed once attached
+    trackSource?: 'igc' | 'liveGps';
+    segments: SkySegment[]; // detector proposals + any user edits
+    ascentMode: '' | 'hike' | 'lift' | 'shuttle' | 'tour'; // speedflying only; '' = unset
+    onSkis: boolean; // ski-vs-air tag — never inferred (sky-research-track-b.md §2)
+  };
 };
 
 export function emptySetDraft(id: string): SetDraft {
@@ -134,6 +143,7 @@ export function emptySessionForm(): SessionForm {
       energySystem: 'aerobic',
     },
     practice: { style: '' },
+    sky: { segments: [], ascentMode: '', onSkis: false },
   };
 }
 
@@ -179,7 +189,9 @@ function resolveModality(form: Pick<SessionForm, 'activity' | 'modality'>): Moda
  * Gym set-by-set logging is precise; a manually-typed GPS distance/HR is a guess
  * without a wearable, so it drops to 0.5 (Phase 3 import will raise it). Climbing
  * sends and the footer-only 'other' keep the prior 0.95 until their passes refine
- * them; swim/practice are placeholders their surfaces (Pass 5/6) will tune.
+ * them; swim/practice are placeholders their surfaces (Pass 5/6) will tune. Sky
+ * follows the same pattern as gps: a bare hand-log is a 0.5 guess; a track
+ * (igc/liveGps) raises it, same as endurance's import/capture bump.
  */
 const SURFACE_FIDELITY: Record<SessionSurface, number> = {
   gym: 0.95,
@@ -187,6 +199,7 @@ const SURFACE_FIDELITY: Record<SessionSurface, number> = {
   swim: 0.5,
   climbing: 0.95,
   practice: 0.95,
+  sky: 0.5,
   other: 0.95,
 };
 
@@ -383,6 +396,26 @@ export function buildSessionObservation(
     // styleless practice carries no block — the activity identity + duration says it.
     const style = form.practice.style.trim();
     if (style) payload.practice = { style };
+  } else if (surface === 'sky') {
+    const hasTrack = form.sky.track != null && form.sky.track.length >= 2;
+    const sky: SkyBlock = {
+      ...(hasTrack ? { track: form.sky.track, trackSource: form.sky.trackSource } : {}),
+      ...(form.sky.segments.length > 0 ? { segments: form.sky.segments } : {}),
+      // ascentMode is speedflying-only (research §Q3) — enforced here, not just
+      // in the UI, so a stale value left over from switching activities can
+      // never reach a non-speedflying session (constitution: the engine's
+      // inputs stay honest, same rule buildLifting applies to movement pattern).
+      ...(form.activity === 'speedflying' && form.sky.ascentMode !== ''
+        ? { ascentMode: form.sky.ascentMode }
+        : {}),
+      ...(form.sky.onSkis ? { onSkis: true } : {}),
+    };
+    payload.sky = sky;
+    // An IGC file is a flight recorder's own log — measured, same tier as a
+    // GPX import (0.9). A live phone recording carries the same drift/indoor
+    // caveats as gps's live capture (0.7).
+    if (hasTrack && form.sky.trackSource === 'igc') fidelity = 0.9;
+    else if (hasTrack && form.sky.trackSource === 'liveGps') fidelity = 0.7;
   }
   // 'other' → duration + effort + notes only (no block).
 
@@ -397,18 +430,26 @@ export function buildSessionObservation(
     surface === 'gps' && form.endurance.captureMeta && payload.endurance?.gpsPath
       ? form.endurance.captureMeta
       : null;
+  // A sky track (IGC or live) carries its own fix timestamps, so the session's
+  // occurredAt is read straight off the track's first point — no separate
+  // import/capture metadata needed the way gps's importMeta/captureMeta are.
+  const skyTrack = surface === 'sky' ? payload.sky?.track : undefined;
+  const skyStartIso =
+    skyTrack && skyTrack.length > 0 ? new Date(skyTrack[0].tsSec * 1000).toISOString() : null;
 
   return {
     id: ctx.id,
     kind: 'session',
-    occurredAt: imp?.startTime ?? cap?.startTime ?? ctx.now,
+    occurredAt: imp?.startTime ?? cap?.startTime ?? skyStartIso ?? ctx.now,
     loggedAt: ctx.now,
     tz: ctx.tz,
     tier: 1,
     fidelity,
     source: imp
       ? { type: 'fileimport', format: imp.format, ...(imp.filename ? { filename: imp.filename } : {}) }
-      : { type: 'manual' },
+      : payload.sky?.trackSource === 'igc'
+        ? { type: 'fileimport', format: 'igc' }
+        : { type: 'manual' },
     payload,
     ...(form.notes.trim() ? { notes: form.notes.trim() } : {}),
   };
@@ -558,6 +599,16 @@ export function sessionFormFromObservation(
 
   if (p.practice) {
     form.practice = { style: p.practice.style ?? '' };
+  }
+
+  if (p.sky) {
+    form.sky = {
+      ...(p.sky.track ? { track: p.sky.track } : {}),
+      ...(p.sky.trackSource ? { trackSource: p.sky.trackSource } : {}),
+      segments: p.sky.segments ?? [],
+      ascentMode: p.sky.ascentMode ?? '',
+      onSkis: p.sky.onSkis === true,
+    };
   }
 
   return form;
