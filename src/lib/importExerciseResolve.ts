@@ -49,7 +49,33 @@ function libraryTokens() {
   return libraryTokenCache;
 }
 
+// normalizeExerciseName(name) -> exact library entry, built once — a real
+// import repeats the same handful of exercise names across hundreds of rows
+// (every set of a lift), so this turns an O(rows * library) exact-match scan
+// into O(rows + library).
+let exactByKeyCache: Map<string, LibraryExercise> | null = null;
+function exactByKey() {
+  if (!exactByKeyCache) {
+    exactByKeyCache = new Map(exerciseLibrary().map((e) => [normalizeExerciseName(e.name), e]));
+  }
+  return exactByKeyCache;
+}
+
+// rawName -> resolution, memoized — resolution is a pure function of
+// (rawName, the static library), so repeating the same raw name (the common
+// case: every set of a lift) never re-runs the fuzzy pass.
+const resolutionCache = new Map<string, ExerciseResolution>();
+
 export function resolveExerciseName(rawName: string): ExerciseResolution {
+  const cached = resolutionCache.get(rawName);
+  if (cached) return cached;
+
+  const resolution = resolveExerciseNameUncached(rawName);
+  resolutionCache.set(rawName, resolution);
+  return resolution;
+}
+
+function resolveExerciseNameUncached(rawName: string): ExerciseResolution {
   const rewritten = rewriteStrongHevyName(rawName);
   const key = normalizeExerciseName(rewritten);
 
@@ -59,7 +85,7 @@ export function resolveExerciseName(rawName: string): ExerciseResolution {
     if (lib) return { status: 'alias', exerciseId: lib.id, movementPattern: lib.movementPattern };
   }
 
-  const exact = exerciseLibrary().find((e) => normalizeExerciseName(e.name) === key);
+  const exact = exactByKey().get(key);
   if (exact) return { status: 'exact', exerciseId: exact.id, movementPattern: exact.movementPattern };
 
   const wantTokens = tokenSet(rewritten);
