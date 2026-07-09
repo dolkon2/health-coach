@@ -8,9 +8,9 @@
  * skipped, ambiguous/unmatched exercise names) -> write to storage
  * (idempotent — a re-import of an overlapping file only writes new rows).
  */
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Screen, Text, Card, Button, ChipSelect } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
@@ -54,6 +54,16 @@ export default function ImportCsvScreen() {
   const [error, setError] = useState<string | null>(null);
   const [writeResult, setWriteResult] = useState<ImportWriteResult | null>(null);
   const [applying, setApplying] = useState(false);
+
+  // A stale `picking`/`applying` from a prior visit (e.g. the user backed out
+  // mid-pick) must not survive into a fresh visit — Expo Router can reuse the
+  // component instance across navigations rather than remounting it.
+  useFocusEffect(
+    useCallback(() => {
+      setPicking(false);
+      setApplying(false);
+    }, [])
+  );
 
   async function pickFile() {
     if (picking) return;
