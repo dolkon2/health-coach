@@ -1,0 +1,213 @@
+/**
+ * Storage round-trip tests for SkyGearItem (quiver, migration 010).
+ *
+ * Real SQL via better-sqlite3 in-memory — exercises migration 010, the
+ * serializer, and the CRUD module. One round-trip per category confirms each
+ * spec variant survives JSON.stringify/parse, with `category` (now top-level
+ * on SkyGearItem, not nested in spec) intact.
+ */
+import { describe, it, expect } from '@jest/globals';
+import type { SkyGearItem, ReserveSpec, ParagliderSpec } from '@core/gear';
+import { runMigrations } from '../db';
+import {
+  createGear,
+  listGear,
+  getGearById,
+  updateGear,
+  retireGear,
+  deleteGear,
+} from '../skyGear';
+import { makeTestDb } from './sqliteTestDb';
+
+function wingItem(id: string, overrides: Partial<SkyGearItem> = {}): SkyGearItem {
+  const spec: ParagliderSpec = {
+    style: 'xc',
+    sizeM2: 23,
+    certClass: 'EN B',
+    hoursBaseline: 140,
+  };
+  return {
+    id,
+    name: 'Ozone Rush 6',
+    category: 'paraglider',
+    acquiredOn: '2024-05-10',
+    notes: 'Bought used, one previous owner',
+    spec,
+    ...overrides,
+  } as SkyGearItem;
+}
+
+function harnessItem(id: string): SkyGearItem {
+  return { id, name: 'Advance Lightness 3', category: 'harness' };
+}
+
+function reserveItem(id: string): SkyGearItem {
+  const spec: ReserveSpec = {
+    lastRepackAt: '2026-02-01',
+    repackIntervalMonths: 6,
+  };
+  return { id, name: 'Companion SQR 120', category: 'reserve', acquiredOn: '2024-05-10', spec };
+}
+
+describe('gear storage', () => {
+  it('round-trips a wing with full spec and base fields', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const original = wingItem('g-wing-1');
+    await createGear(original, db);
+
+    const back = await getGearById('g-wing-1', db);
+    expect(back).not.toBeNull();
+    expect(back).toEqual(original);
+    expect(back!.category).toBe('paraglider');
+    const spec = back!.spec as ParagliderSpec;
+    expect(spec.style).toBe('xc');
+    expect(spec.sizeM2).toBe(23);
+    expect(spec.certClass).toBe('EN B');
+    expect(spec.hoursBaseline).toBe(140);
+  });
+
+  it('round-trips each category with discriminator intact', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-wing'), db);
+    await createGear(harnessItem('g-harness'), db);
+    await createGear(reserveItem('g-reserve'), db);
+
+    const list = await listGear({}, db);
+    expect(list).toHaveLength(3);
+
+    const byCategory = Object.fromEntries(list.map((g) => [g.category, g]));
+    expect(byCategory.paraglider.category).toBe('paraglider');
+    expect(byCategory.harness.category).toBe('harness');
+    expect(byCategory.reserve.category).toBe('reserve');
+    expect((byCategory.reserve.spec as ReserveSpec).lastRepackAt).toBe('2026-02-01');
+  });
+
+  it('omits absent optional base fields on the way back (no null leakage)', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(harnessItem('g-h'), db); // no acquiredOn/retiredOn/notes/spec
+
+    const back = await getGearById('g-h', db);
+    expect(back!.acquiredOn).toBeUndefined();
+    expect(back!.retiredOn).toBeUndefined();
+    expect(back!.notes).toBeUndefined();
+    expect('acquiredOn' in back!).toBe(false);
+    expect('spec' in back!).toBe(false);
+  });
+
+  it('lists newest-created first', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-old'), db, '2026-07-01T10:00:00Z');
+    await createGear(harnessItem('g-new'), db, '2026-07-02T10:00:00Z');
+
+    const list = await listGear({}, db);
+    expect(list.map((g) => g.id)).toEqual(['g-new', 'g-old']);
+  });
+
+  it('filters by category', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-wing'), db);
+    await createGear(harnessItem('g-harness'), db);
+    await createGear(reserveItem('g-reserve'), db);
+
+    const wings = await listGear({ category: 'paraglider' }, db);
+    expect(wings.map((g) => g.id)).toEqual(['g-wing']);
+    const reserves = await listGear({ category: 'reserve' }, db);
+    expect(reserves.map((g) => g.id)).toEqual(['g-reserve']);
+  });
+
+  it('excludes retired items by default, includes them on request', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-active'), db, '2026-07-01T10:00:00Z');
+    await createGear(wingItem('g-retired'), db, '2026-07-02T10:00:00Z');
+    await retireGear('g-retired', '2026-07-03', db);
+
+    const active = await listGear({}, db);
+    expect(active.map((g) => g.id)).toEqual(['g-active']);
+
+    const all = await listGear({ includeRetired: true }, db);
+    expect(all.map((g) => g.id)).toEqual(['g-retired', 'g-active']);
+
+    const retiredWings = await listGear({ category: 'paraglider', includeRetired: true }, db);
+    expect(retiredWings).toHaveLength(2);
+  });
+
+  it('retireGear stamps retiredOn and keeps the row; get still returns it', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-1'), db);
+    const retired = await retireGear('g-1', '2026-07-03', db);
+    expect(retired.retiredOn).toBe('2026-07-03');
+
+    const back = await getGearById('g-1', db);
+    expect(back).not.toBeNull();
+    expect(back!.retiredOn).toBe('2026-07-03');
+    expect(back!.name).toBe('Ozone Rush 6'); // rest of the row untouched
+  });
+
+  it('updateGear patches fields and preserves the rest', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    const original = wingItem('g-1');
+    await createGear(original, db);
+
+    const spec: ParagliderSpec = { ...(original.spec as ParagliderSpec), hoursBaseline: 155 };
+    await updateGear('g-1', { name: 'Rush 6 (23m)', spec }, db);
+
+    const back = await getGearById('g-1', db);
+    expect(back!.name).toBe('Rush 6 (23m)');
+    expect((back!.spec as ParagliderSpec).hoursBaseline).toBe(155);
+    expect(back!.acquiredOn).toBe(original.acquiredOn);
+    expect(back!.notes).toBe(original.notes);
+  });
+
+  it('updateGear changes the category column when category + spec are both patched', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-1'), db);
+    // `category` is top-level now — changing what kind of gear a row is means
+    // patching category and spec together, not spec alone.
+    await updateGear('g-1', { category: 'harness', spec: undefined } as Partial<SkyGearItem>, db);
+
+    expect(await listGear({ category: 'paraglider' }, db)).toHaveLength(0);
+    const harnesses = await listGear({ category: 'harness' }, db);
+    expect(harnesses.map((g) => g.id)).toEqual(['g-1']);
+  });
+
+  it('updateGear throws when the id does not exist', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await expect(updateGear('ghost', { name: 'whatever' }, db)).rejects.toThrow(
+      /no gear item with id ghost/
+    );
+  });
+
+  it('deleteGear removes the row and returns true; false when missing', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createGear(wingItem('g-1'), db);
+
+    expect(await deleteGear('g-1', db)).toBe(true);
+    expect(await getGearById('g-1', db)).toBeNull();
+    expect(await listGear({ includeRetired: true }, db)).toHaveLength(0);
+
+    // Idempotent.
+    expect(await deleteGear('g-1', db)).toBe(false);
+  });
+});

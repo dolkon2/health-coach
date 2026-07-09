@@ -14,6 +14,7 @@ const SURFACES: ReadonlySet<Surface> = new Set<Surface>([
   'swim',
   'practice',
   'climbing',
+  'sky',
 ]);
 
 // Mirror of @core Modality — the engine values an activity may map to. tsc also
@@ -94,8 +95,13 @@ describe('activity registry', () => {
   });
 
   it('sport-expansion batch (outdoor-integrations v0.2 add-now) is present on the right surfaces', () => {
-    const gps = ['walk', 'ruck', 'trail-run', 'mtb', 'kayak', 'whitewater', 'sup', 'canoe', 'row', 'sail', 'windsurf', 'kitesurf', 'snowboard', 'ski-touring', 'xc-ski', 'snowshoe', 'skate', 'paraglide'];
+    const gps = ['walk', 'ruck', 'trail-run', 'mtb', 'kayak', 'whitewater', 'sup', 'canoe', 'row', 'sail', 'windsurf', 'kitesurf', 'snowboard', 'ski-touring', 'xc-ski', 'snowshoe', 'skate'];
     for (const id of gps) expect(activityById(id)?.surface).toBe('gps');
     for (const id of ['martial-arts', 'dance']) expect(activityById(id)?.surface).toBe('practice');
+  });
+
+  it('Sky dimension activities (paragliding/hike&fly/speedflying/parakiting) are on the sky surface', () => {
+    const sky = ['paragliding', 'hikeAndFly', 'speedflying', 'parakiting'];
+    for (const id of sky) expect(activityById(id)?.surface).toBe('sky');
   });
 });

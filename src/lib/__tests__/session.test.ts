@@ -792,3 +792,97 @@ describe('Body P3 — ghostSetPlaceholders', () => {
     expect(ghostSetPlaceholders(null, 'kg')).toEqual([]);
   });
 });
+
+describe('Sky dimension — paragliding/hike&fly/speedflying/parakiting surface', () => {
+  const gp = (over: Partial<GeoPoint>): GeoPoint => ({ lat: 0, lng: 0, tsSec: 0, ...over });
+
+  function igcFlight(): SessionForm {
+    const f = emptySessionForm();
+    f.activity = 'paragliding';
+    f.durationMin = '45';
+    f.sky = {
+      track: [gp({ tsSec: 1_720_000_000 }), gp({ lat: 0.01, tsSec: 1_720_003_000 })],
+      trackSource: 'igc',
+      segments: [
+        { kind: 'ground', startIdx: 0, endIdx: 0, provenance: 'auto' },
+        { kind: 'air', startIdx: 0, endIdx: 1, provenance: 'auto' },
+      ],
+      ascentMode: '',
+      onSkis: false,
+    };
+    return f;
+  }
+
+  it('resolves the sky surface for all four sky activities', () => {
+    for (const activity of ['paragliding', 'hikeAndFly', 'speedflying', 'parakiting']) {
+      const f = emptySessionForm();
+      f.activity = activity;
+      expect(resolveSurface(f)).toBe('sky');
+    }
+  });
+
+  it('an IGC-imported track is measured (0.9 fidelity), tagged as a fileimport, dated to the track start', () => {
+    const obs = buildSessionObservation(igcFlight(), CTX);
+    expect(obs.tier).toBe(1);
+    expect(obs.fidelity).toBe(0.9);
+    expect(obs.source).toEqual({ type: 'fileimport', format: 'igc' });
+    expect(obs.occurredAt).toBe(new Date(1_720_000_000 * 1000).toISOString());
+    expect(obs.payload.sky?.track).toHaveLength(2);
+    expect(obs.payload.sky?.segments).toHaveLength(2);
+  });
+
+  it('a live-captured track is measured at phone-GPS fidelity (0.7), source stays manual', () => {
+    const f = igcFlight();
+    f.sky = { ...f.sky, trackSource: 'liveGps' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.fidelity).toBe(0.7);
+    expect(obs.source).toEqual({ type: 'manual' });
+  });
+
+  it('a hand-logged sky session with no track stays a typed guess (0.5)', () => {
+    const f = emptySessionForm();
+    f.activity = 'parakiting';
+    f.durationMin = '90';
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.fidelity).toBe(0.5);
+    expect(obs.source).toEqual({ type: 'manual' });
+    expect(obs.occurredAt).toBe(CTX.now);
+    expect(obs.payload.sky).toEqual({});
+  });
+
+  it('carries ascentMode and onSkis when set', () => {
+    const f = igcFlight();
+    f.activity = 'speedflying';
+    f.sky = { ...f.sky, ascentMode: 'lift', onSkis: true };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.sky?.ascentMode).toBe('lift');
+    expect(obs.payload.sky?.onSkis).toBe(true);
+  });
+
+  it('never writes ascentMode for a non-speedflying activity, even if stale form state carries one', () => {
+    // ascentMode is speedflying-only; a leftover value from switching
+    // activities in the UI must never reach a different activity's session.
+    const f = igcFlight();
+    f.activity = 'paragliding';
+    f.sky = { ...f.sky, ascentMode: 'lift' };
+    const obs = buildSessionObservation(f, CTX);
+    expect(obs.payload.sky?.ascentMode).toBeUndefined();
+  });
+
+  it('round-trips a sky session through invert -> rebuild', () => {
+    const obs = buildSessionObservation(igcFlight(), CTX);
+    const inverted = sessionFormFromObservation(
+      obs,
+      { weightUnit: 'kg', distanceUnit: 'km' },
+      () => 'x'
+    );
+    expect(inverted.sky.track).toHaveLength(2);
+    expect(inverted.sky.trackSource).toBe('igc');
+    expect(inverted.sky.segments).toHaveLength(2);
+
+    const rebuilt = buildSessionObservation(inverted, { ...CTX, id: 'sky2' });
+    expect(rebuilt.fidelity).toBe(0.9);
+    expect(rebuilt.source).toEqual({ type: 'fileimport', format: 'igc' });
+    expect(rebuilt.occurredAt).toBe(obs.occurredAt);
+  });
+});

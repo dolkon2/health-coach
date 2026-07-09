@@ -46,6 +46,16 @@ export function elevationGainM(points: GeoPoint[], thresholdM = 3): number | und
   return sawEle ? Math.round(gain) : undefined;
 }
 
+/** Cumulative along-track distance (m), one entry per point, `out[0] === 0`.
+ * The shared prefix sum behind every sliding-window speed calc (topSpeedMS,
+ * flightDetector's smoothing) — computed once so distance-over-a-window is an
+ * O(1) subtraction instead of a re-summed loop. */
+export function cumulativeDistanceM(points: GeoPoint[]): number[] {
+  const cum = new Array<number>(points.length).fill(0);
+  for (let i = 1; i < points.length; i++) cum[i] = cum[i - 1] + haversineM(points[i - 1], points[i]);
+  return cum;
+}
+
 /** Evenly thin a path to ≤ MAX_STORED_POINTS for storage, always keeping the
  * final point so the trace ends where the activity actually ended. */
 export function thinTrack(points: GeoPoint[]): GeoPoint[] {

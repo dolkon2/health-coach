@@ -174,10 +174,11 @@ export type ObservationSource =
   // user-picked activity file, parsed client-side (wearable-ingestion-spec.md
   // Addendum, Layer 2). `platform` tags which exporter a generic 'csv' came
   // from (⚑ E-16 — climbing tick import, Pass E5); meaningless for
-  // gpx/fit/tcx. strong-csv/hevy-csv are Body P5's gym imports.
+  // gpx/fit/tcx. strong-csv/hevy-csv are Body P5's gym imports; igc is Sky's
+  // flight-recorder import.
   | {
       type: 'fileimport';
-      format: 'gpx' | 'fit' | 'tcx' | 'csv' | 'strong-csv' | 'hevy-csv';
+      format: 'gpx' | 'fit' | 'tcx' | 'igc' | 'csv' | 'strong-csv' | 'hevy-csv';
       filename?: string;
       platform?: string;
       // Strong/Hevy only: hash(date, workout name, exercise, set order,
@@ -459,6 +460,69 @@ export type PainArea = {
   pain: number;
 };
 
+/**
+ * One takeoff/landing (or ground-contact) segment of a sky track — proposed by
+ * flightDetector.ts, then user-editable. `startIdx`/`endIdx` index into the
+ * SkyBlock's own `track`, matching the Flytec pre-buffer precedent (a segment
+ * is a slice of the retained raw track, never a copy of it).
+ *
+ * Deliberately has NO `runGroupId` — snow run-grouping was explicitly deferred,
+ * not even as a placeholder field (sky-research-track-b.md §5, resolved flag 7).
+ */
+export type SkySegment = {
+  kind: 'air' | 'ground';
+  startIdx: number;
+  endIdx: number;
+  // 'auto' = detector proposal, untouched. A confirmation/edit in the UI
+  // moves this forward — never backward — so an edited boundary is never
+  // silently re-overwritten by a later re-run of the detector.
+  provenance: 'auto' | 'userConfirmed' | 'userEdited';
+};
+
+/** One piece of gear used in the session. `segmentIds` absent = used for the
+ * whole session (the common case); present = this item was only in use for
+ * those segments (e.g. a parakite outing swapping wings mid-session). Segment
+ * identity here is positional — the segment's index in SkyBlock.segments,
+ * stringified — since segments carry no id of their own. */
+export type SkyGearUse = {
+  gearId: string;
+  segmentIds?: string[];
+};
+
+/**
+ * Sky-dimension session data (paragliding, hike & fly, speedflying,
+ * parakiting — sky-research-track-b.md §3a). One shared shape for all four
+ * activities. Only Hike & Fly gets automatic ground-contact segmentation
+ * (flightDetector.ts's `autoSegmentsForActivity`) — paragliding, speedflying,
+ * and parakiting default to one continuous air segment per session instead
+ * (Dylan's real XC flight over-split under the old always-on detector;
+ * dev-log/dimension-sky-pass-2.md and -3.md). Parakiting CAN still hold many
+ * air segments in one Observation (§5 resolved flag 4, e.g. repeated
+ * touch-and-gos) via the manual "Check for a landing" re-check — it's just no
+ * longer the default shape a fresh capture arrives in. The track is RAW and
+ * retained forever — segments only slice it, never trim it.
+ *
+ * `conditionsSnapshotId` links to the existing conditions-freeze primitive
+ * (core/src/conditions.ts, migration 012) rather than duplicating wind fields
+ * here — the standard freeze-and-edit pattern (§5 resolved flag 6).
+ */
+export type SkyBlock = {
+  track?: GeoPoint[]; // absent = a routeless, hand-logged sky session
+  trackSource?: 'igc' | 'liveGps';
+  segments?: SkySegment[]; // absent when there's no track to segment
+  gearRefs?: SkyGearUse[];
+  spotId?: string;
+  conditionsSnapshotId?: string;
+  // Speedflying only — the real driver of lap volume, never inferred from
+  // discipline (research §Q3: refuted "speedriding vs speedflying changes
+  // session volume" as a causal axis).
+  ascentMode?: 'hike' | 'lift' | 'shuttle' | 'tour';
+  // A simple per-session tag disambiguating ski descents from flight — speed
+  // + vario provably cannot tell them apart (§2). Never inferred, never
+  // defaulted; absent means the question was never asked, not "no".
+  onSkis?: boolean;
+};
+
 export type SessionPayload = {
   kind: 'session';
   modality: Modality;
@@ -489,6 +553,7 @@ export type SessionPayload = {
   // the envelope is how you moved, the bespoke block is what the water was.
   whitewater?: WhitewaterBlock;
   wind?: WindBlock;
+  sky?: SkyBlock;
   perceivedEffort?: number; // 1–10 RPE, optional but encouraged
   templateId?: string; // if launched from a saved template
   benchmarkRefs?: string[]; // benchmarks this session was logged toward

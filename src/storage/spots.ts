@@ -1,113 +1,165 @@
 /**
- * spots.ts — typed access to the spots table (canonical schema, 014).
+ * spots.ts — typed CRUD for the spots table (canonical schema, 014).
  *
- * Modeled on mealTemplates.ts (COLUMNS const, row mapper, injected
- * SqlDatabase). No hard delete: session blocks denormalize the names they
- * display, but spotId refs should stay resolvable — soft enough for v1.
+ * One module, two dimension heritages (2026-07-09 merge): Water's typed
+ * river-column view (createSpot/updateSpot(spot)/listSpots/getSpot) and
+ * Sky's kind+meta view (createSpot/updateSpot(id, patch)/getSpotById/
+ * deleteSpot). Both read/write the SAME canonical columns; `updateSpot` is
+ * overloaded to carry both call shapes so neither branch's tested surface
+ * changed at merge time.
  *
- * Ported to the canonical camelCase columns at the 2026-07-09 dimension
- * merge (the canonical spots table = Water's typed columns + Sky's
- * kind/meta bag; this module reads/writes the typed-column view).
+ * No retirement lifecycle: session blocks denormalize the names they
+ * display, so `deleteSpot` hard-removes (Sky's rule — a spot you never fly
+ * again just stops accumulating snapshots), while Water simply never calls
+ * delete. createdAt/updatedAt are storage bookkeeping; writes stamp
+ * `new Date().toISOString()` by default, tests pass `nowIso` for determinism.
  */
 import type { Spot } from '@core/spot';
-import { getDb, type SqlDatabase } from './db';
+import { getDb, type SqlDatabase, type SqlParam } from './db';
+import { spotToRow, rowToSpot, type SpotRow } from './serialize';
 
-const COLUMNS = 'id, name, kind, lat, lng, riverName, sectionName, gaugeSiteId, notes, createdAt';
+const COLUMNS =
+  'id, name, lat, lng, kind, meta, riverName, sectionName, gaugeSiteId, notes, createdAt, updatedAt';
 
-interface SpotRow {
-  id: string;
-  name: string;
-  kind: string;
-  lat: number | null;
-  lng: number | null;
-  riverName: string | null;
-  sectionName: string | null;
-  gaugeSiteId: string | null;
-  notes: string | null;
-  createdAt: string;
-}
-
-function rowToSpot(r: SpotRow): Spot {
-  return {
-    id: r.id,
-    name: r.name,
-    kind: r.kind as Spot['kind'],
-    // Omit-when-absent — a spot without coords stays coord-less (null ≠ 0).
-    ...(r.lat !== null ? { lat: r.lat } : {}),
-    ...(r.lng !== null ? { lng: r.lng } : {}),
-    ...(r.riverName ? { riverName: r.riverName } : {}),
-    ...(r.sectionName ? { sectionName: r.sectionName } : {}),
-    ...(r.gaugeSiteId ? { gaugeSiteId: r.gaugeSiteId } : {}),
-    ...(r.notes ? { notes: r.notes } : {}),
-    createdAt: r.createdAt,
-  };
-}
-
-export async function createSpot(s: Spot, db?: SqlDatabase): Promise<Spot> {
+export async function createSpot(
+  spot: Spot,
+  db?: SqlDatabase,
+  nowIso?: string
+): Promise<Spot> {
   const d = db ?? (await getDb());
+  const now = nowIso ?? new Date().toISOString();
+  const r = spotToRow(spot, spot.createdAt ?? now, now);
   await d.runAsync(
-    `INSERT INTO spots (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+    `INSERT INTO spots (${COLUMNS})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     [
-      s.id,
-      s.name,
-      s.kind,
-      s.lat ?? null,
-      s.lng ?? null,
-      s.riverName ?? null,
-      s.sectionName ?? null,
-      s.gaugeSiteId ?? null,
-      s.notes ?? null,
-      s.createdAt,
+      r.id,
+      r.name,
+      r.lat,
+      r.lng,
+      r.kind,
+      r.meta,
+      r.riverName,
+      r.sectionName,
+      r.gaugeSiteId,
+      r.notes,
+      r.createdAt,
+      r.updatedAt,
     ]
   );
-  return s;
+  return spot;
 }
 
-export async function updateSpot(s: Spot, db?: SqlDatabase): Promise<Spot> {
-  const d = db ?? (await getDb());
-  await d.runAsync(
-    `UPDATE spots
-        SET name = ?, kind = ?, lat = ?, lng = ?, riverName = ?, sectionName = ?,
-            gaugeSiteId = ?, notes = ?
-      WHERE id = ?;`,
-    [
-      s.name,
-      s.kind,
-      s.lat ?? null,
-      s.lng ?? null,
-      s.riverName ?? null,
-      s.sectionName ?? null,
-      s.gaugeSiteId ?? null,
-      s.notes ?? null,
-      s.id,
-    ]
-  );
-  return s;
-}
+export type ListSpotsOptions = {
+  kind?: string;
+};
 
 export async function listSpots(
-  opts: { kind?: Spot['kind'] } = {},
+  opts: ListSpotsOptions = {},
   db?: SqlDatabase
 ): Promise<Spot[]> {
   const d = db ?? (await getDb());
+  const where: string[] = [];
+  const params: SqlParam[] = [];
   if (opts.kind) {
-    const rows = await d.getAllAsync<SpotRow>(
-      `SELECT ${COLUMNS} FROM spots WHERE kind = ? ORDER BY createdAt DESC;`,
-      [opts.kind]
-    );
-    return rows.map(rowToSpot);
+    where.push('kind = ?');
+    params.push(opts.kind);
   }
   const rows = await d.getAllAsync<SpotRow>(
-    `SELECT ${COLUMNS} FROM spots ORDER BY createdAt DESC;`
+    `SELECT ${COLUMNS} FROM spots
+     ${where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY createdAt DESC;`,
+    params
   );
   return rows.map(rowToSpot);
 }
 
-export async function getSpot(id: string, db?: SqlDatabase): Promise<Spot | null> {
+export async function getSpotById(id: string, db?: SqlDatabase): Promise<Spot | null> {
   const d = db ?? (await getDb());
-  const row = await d.getFirstAsync<SpotRow>(
-    `SELECT ${COLUMNS} FROM spots WHERE id = ?;`,
+  const row = await d.getFirstAsync<SpotRow>(`SELECT ${COLUMNS} FROM spots WHERE id = ?;`, [
+    id,
+  ]);
+  return row ? rowToSpot(row) : null;
+}
+
+/** Water's name for the same lookup — session history must always resolve. */
+export async function getSpot(id: string, db?: SqlDatabase): Promise<Spot | null> {
+  return getSpotById(id, db);
+}
+
+/**
+ * Merge a change into an existing spot and persist it. Two call shapes, one
+ * per dimension heritage:
+ *   updateSpot(spot)        — Water: a whole Spot, matched by spot.id
+ *   updateSpot(id, patch)   — Sky: merge a partial onto the stored row
+ * `createdAt` is preserved; `updatedAt` is stamped from `nowIso` (or write time).
+ */
+export async function updateSpot(spot: Spot, db?: SqlDatabase, nowIso?: string): Promise<Spot>;
+export async function updateSpot(
+  id: string,
+  patch: Partial<Omit<Spot, 'id'>>,
+  db?: SqlDatabase,
+  nowIso?: string
+): Promise<Spot>;
+export async function updateSpot(
+  spotOrId: Spot | string,
+  patchOrDb?: Partial<Omit<Spot, 'id'>> | SqlDatabase,
+  dbOrNow?: SqlDatabase | string,
+  maybeNow?: string
+): Promise<Spot> {
+  let id: string;
+  let patch: Partial<Omit<Spot, 'id'>>;
+  let db: SqlDatabase | undefined;
+  let nowIso: string | undefined;
+  if (typeof spotOrId === 'string') {
+    id = spotOrId;
+    patch = (patchOrDb ?? {}) as Partial<Omit<Spot, 'id'>>;
+    db = dbOrNow as SqlDatabase | undefined;
+    nowIso = maybeNow;
+  } else {
+    id = spotOrId.id;
+    patch = spotOrId;
+    db = patchOrDb as SqlDatabase | undefined;
+    nowIso = dbOrNow as string | undefined;
+  }
+
+  const d = db ?? (await getDb());
+  const existing = await getSpotById(id, d);
+  if (!existing) {
+    throw new Error(`updateSpot: no spot with id ${id}`);
+  }
+  const merged: Spot = { ...existing, ...patch, id };
+  const now = nowIso ?? new Date().toISOString();
+  const r = spotToRow(merged, merged.createdAt ?? now, now); // r.createdAt unused — the UPDATE never touches it
+  await d.runAsync(
+    `UPDATE spots
+     SET name = ?, lat = ?, lng = ?, kind = ?, meta = ?, riverName = ?, sectionName = ?,
+         gaugeSiteId = ?, notes = ?, updatedAt = ?
+     WHERE id = ?;`,
+    [
+      r.name,
+      r.lat,
+      r.lng,
+      r.kind,
+      r.meta,
+      r.riverName,
+      r.sectionName,
+      r.gaugeSiteId,
+      r.notes,
+      r.updatedAt,
+      id,
+    ]
+  );
+  return merged;
+}
+
+export async function deleteSpot(id: string, db?: SqlDatabase): Promise<boolean> {
+  const d = db ?? (await getDb());
+  const existed = await d.getFirstAsync<{ id: string }>(
+    'SELECT id FROM spots WHERE id = ?;',
     [id]
   );
-  return row ? rowToSpot(row) : null;
+  if (!existed) return false;
+  await d.runAsync('DELETE FROM spots WHERE id = ?;', [id]);
+  return true;
 }

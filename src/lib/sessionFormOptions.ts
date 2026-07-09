@@ -7,7 +7,13 @@
  * "add a new pattern" or "rename a style" is one edit, not two.
  */
 import type { ChipOption } from '@/components';
-import type { ClimbOutcome, EnergySystem, MovementPattern, SwimStroke } from '@core/observation';
+import type {
+  ClimbOutcome,
+  EnergySystem,
+  MovementPattern,
+  SkySegment,
+  SwimStroke,
+} from '@core/observation';
 import type { ClimbStyle, SwimMode } from '@/lib/session';
 
 export const PATTERNS: ChipOption<MovementPattern>[] = [
@@ -80,4 +86,19 @@ export const DAYS_OF_WEEK: ChipOption<number>[] = [
   { value: 4, label: 'Fri' },
   { value: 5, label: 'Sat' },
   { value: 6, label: 'Sun' },
+];
+
+/** Speedflying's ascent mode — the real driver of lap volume (research
+ * §Q3), never inferred from discipline. */
+export const ASCENT_MODES: ChipOption<'hike' | 'lift' | 'shuttle' | 'tour'>[] = [
+  { value: 'hike', label: 'Hike' },
+  { value: 'lift', label: 'Lift' },
+  { value: 'shuttle', label: 'Shuttle' },
+  { value: 'tour', label: 'Tour' },
+];
+
+/** A sky segment's kind — the detector's air/ground proposal, user-editable. */
+export const SKY_SEGMENT_KINDS: ChipOption<SkySegment['kind']>[] = [
+  { value: 'air', label: 'Air' },
+  { value: 'ground', label: 'Ground' },
 ];

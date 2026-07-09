@@ -28,6 +28,7 @@ import {
   RestTimer,
   GymExerciseEditor,
   RemoveButton,
+  Checkbox,
   RoutePreview,
   RouteMap,
   ElevationProfile,
@@ -44,6 +45,8 @@ import {
   SWIM_MODES,
   SWIM_STROKES,
   EFFORT,
+  ASCENT_MODES,
+  SKY_SEGMENT_KINDS,
 } from '@/lib/sessionFormOptions';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
@@ -58,8 +61,18 @@ import {
 import { deviceTz } from '@/lib/date';
 import { uuidv7 } from '@/lib/id';
 import { parseGpx } from '@/lib/gpxImport';
+import { parseIgc } from '@/lib/igcImport';
 import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
+import {
+  detectFlightSegments,
+  autoSegmentsForActivity,
+  autoSegmentsRunFor,
+  type SkyDetectorActivity,
+  type DetectedSegment,
+} from '@/lib/flightDetector';
+import { maxAltitudeM, topSpeedMS } from '@/lib/flightStats';
+import { totalAirtimeSec, airSegmentCount, longestAirSegmentSec } from '@/lib/skySegmentStats';
 import {
   applyElevationGainEdit,
   enduranceWithRoute,
@@ -101,6 +114,7 @@ import type {
   MovementPattern,
   ObservationOf,
   PracticeContextTag,
+  SkySegment,
 } from '@core/observation';
 
 // Descriptive captions for elevation-gain provenance (E2). Rendered only when a
@@ -125,6 +139,29 @@ const ELEVATION_SOURCE_LABELS: Record<ElevationGainSource, string> = {
  * GPS surface with the activity's default energy system, so the detail step has
  * something to fill.
  */
+/** Stamps every proposed segment `provenance: 'auto'` — the one place that
+ * turns a raw detector output into a SkySegment[], shared by every producer
+ * (the auto-gate below and {@link checkForLanding}'s manual re-check) so they
+ * can't drift on the mapping. */
+function stampAuto(segments: DetectedSegment[]): SkySegment[] {
+  return segments.map((s) => ({ ...s, provenance: 'auto' as const }));
+}
+
+/** Runs the activity-gated auto-detection — shared by the initial track
+ * attach and by re-detecting on an activity switch, so the two call sites
+ * can't drift on how a raw detection becomes a SkySegment[]. Only Hike & Fly
+ * actually gets ground-contact segmentation here; the other three sky
+ * activities default to one continuous flight (see flightDetector.ts's
+ * `autoSegmentsForActivity` doc) — {@link checkForLanding} is their manual
+ * escape hatch. */
+function detectAutoSegments(
+  points: GeoPoint[],
+  activity: SkyDetectorActivity,
+  trackSource: 'igc' | 'liveGps' | undefined
+): SkySegment[] {
+  return stampAuto(autoSegmentsForActivity(points, activity, { trackSource }));
+}
+
 function seededFormForActivity(a: Activity): SessionForm {
   const base = emptySessionForm();
   return {
@@ -303,6 +340,26 @@ export default function LogSessionScreen() {
         f.activity !== a.id
           ? { patternId: '', cycles: '', capture: null, rounds: [] }
           : f.breathwork,
+      // A track carries over across a REAL sky-activity switch (no need to
+      // re-import), but its segments were auto-derived under the OLD
+      // activity's gate (see flightDetector.ts's `autoSegmentsForActivity`)
+      // — re-derive for the new one rather than leave a stale segmentation on
+      // the form. Guarded on `a.id !== f.activity` so re-tapping the
+      // CURRENTLY-selected activity (reachable via "Change activity") is a
+      // no-op instead of silently discarding any userConfirmed/userEdited
+      // segments from a manual "Check for a landing" review — the SkySegment
+      // provenance invariant (core/src/observation.ts) never re-overwrites
+      // reviewed work, and a same-activity re-pick has nothing to re-derive
+      // anyway. ascentMode is speedflying-only, so switching away from it
+      // clears a value the new activity's UI won't even show.
+      sky:
+        a.surface === 'sky' && a.id !== f.activity && f.sky.track && f.sky.track.length >= 2
+          ? {
+              ...f.sky,
+              segments: detectAutoSegments(f.sky.track, a.id as SkyDetectorActivity, f.sky.trackSource),
+              ascentMode: a.id === 'speedflying' ? f.sky.ascentMode : '',
+            }
+          : f.sky,
     }));
     setDanceFamilyId(null);
     if (form.activity !== a.id) {
@@ -688,6 +745,124 @@ export default function LogSessionScreen() {
     freezeConditionsForRoute(summary.points, summary.startTime);
   }
 
+  // ─── Sky ingest: IGC import + live GPS, shared detector run ────────────────
+  // Both paths hand the same GeoPoint[] to the detector (flightDetector.ts is
+  // one shared module for both, per the XCSoar/SkyLines precedent) and the
+  // proposed segments land straight on the form, `provenance: 'auto'` — the
+  // user edits or confirms them below, never a silent assertion.
+
+  function attachSkyTrack(points: GeoPoint[], trackSource: 'igc' | 'liveGps') {
+    if (!form.activity) return;
+    if (points.length < 2) {
+      // A GPS capture already guards this itself (GpsRecorderPanel only
+      // calls onCapture with >= 2 fixes); this branch is really for a parsed
+      // IGC file that came back too thin to be a track — say so rather than
+      // silently doing nothing.
+      setError('That file has no usable track points.');
+      return;
+    }
+    const segments = detectAutoSegments(points, form.activity as SkyDetectorActivity, trackSource);
+    const durationSec = points[points.length - 1].tsSec - points[0].tsSec;
+    setForm((f) => ({
+      ...f,
+      durationMin: durationSec >= 60 ? String(Math.max(1, Math.round(durationSec / 60))) : f.durationMin,
+      sky: { ...f.sky, track: points, trackSource, segments },
+    }));
+  }
+
+  function removeSkyTrack() {
+    setForm((f) => ({
+      ...f,
+      sky: { ascentMode: f.sky.ascentMode, onSkis: f.sky.onSkis, segments: [] },
+    }));
+  }
+
+  function setSkySegmentKind(idx: number, kind: 'air' | 'ground') {
+    setForm((f) => ({
+      ...f,
+      sky: {
+        ...f.sky,
+        segments: f.sky.segments.map((s, i) =>
+          i === idx ? { ...s, kind, provenance: 'userEdited' as const } : s
+        ),
+      },
+    }));
+  }
+
+  /** Manual escape hatch for activities `autoSegmentsRunFor` excludes
+   * (paragliding/speedflying/parakiting): runs the real ground-contact
+   * detector on demand, for the rare session with an actual top-landing or
+   * relaunch. The app proposes, never silently asserts — so this only ever
+   * runs when the pilot asks for it, replacing the single default segment
+   * with whatever the detector finds for review/edit below. Its button (in
+   * the Segments header) only renders while every segment is still
+   * `provenance: 'auto'` — matching the SkySegment invariant that a
+   * confirmed/edited boundary is never silently re-overwritten by a later
+   * detector run (core/src/observation.ts), so it disappears the moment
+   * there's real review work on the form to protect. */
+  function checkForLanding() {
+    if (!form.sky.track || form.sky.track.length < 2 || !form.activity) return;
+    const track = form.sky.track;
+    const activity = form.activity as SkyDetectorActivity;
+    const trackSource = form.sky.trackSource;
+    setForm((f) => ({
+      ...f,
+      sky: { ...f.sky, segments: stampAuto(detectFlightSegments(track, activity, { trackSource })) },
+    }));
+  }
+
+  /** Naviter ships a landing-confirmation UI because auto-detection can't be
+   * guaranteed — this is that confirmation, in bulk: every still-'auto'
+   * segment becomes 'userConfirmed' without changing any boundary. */
+  function confirmSkySegments() {
+    setForm((f) => ({
+      ...f,
+      sky: {
+        ...f.sky,
+        segments: f.sky.segments.map((s) =>
+          s.provenance === 'auto' ? { ...s, provenance: 'userConfirmed' as const } : s
+        ),
+      },
+    }));
+  }
+
+  async function importIgcFile() {
+    if (importing) return;
+    setImporting(true);
+    setError(null);
+    let DocumentPicker: typeof import('expo-document-picker');
+    let FileSystem: typeof import('expo-file-system');
+    try {
+      DocumentPicker = await import('expo-document-picker');
+      FileSystem = await import('expo-file-system');
+    } catch {
+      setImporting(false);
+      setError('File import needs an updated dev build of the app — rebuild to enable it.');
+      return;
+    }
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (res.canceled || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      const text = await FileSystem.readAsStringAsync(asset.uri);
+      const igc = parseIgc(text);
+      attachSkyTrack(igc.points, 'igc');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not read that file as IGC.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function formatDurationSec(totalSec: number): string {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = Math.floor(totalSec % 60);
+    const mm = String(m).padStart(2, '0');
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+  }
+
   // ─── Save ──────────────────────────────────────────────────────────────────
 
   const validationError = validateSessionForm(form);
@@ -749,6 +924,27 @@ export default function LogSessionScreen() {
       }}
     />
   );
+
+  // Each of these is an O(track-length) scan (topSpeedMS additionally
+  // rebuilds a cumulative-distance array) — computed once per track/segments
+  // change rather than repeatedly inline in the render below. Declared here,
+  // ahead of the step==='activity' early return below, because every hook
+  // must run on every render regardless of which step is showing — this one
+  // used to sit after the early return and crashed React ("Rendered more
+  // hooks than during the previous render") the moment step flipped from
+  // 'activity' to 'detail' within the same mount, i.e. every time the
+  // quick-log picker (not a deep link) was used, for any activity.
+  const skyStats = useMemo(() => {
+    const track = form.sky.track;
+    if (!track || track.length < 2) return null;
+    return {
+      topSpeedMS: topSpeedMS(track),
+      maxAltitudeM: maxAltitudeM(track),
+      totalAirtimeSec: totalAirtimeSec(track, form.sky.segments),
+      airSegmentCount: airSegmentCount(form.sky.segments),
+      longestAirSegmentSec: longestAirSegmentSec(track, form.sky.segments),
+    };
+  }, [form.sky.track, form.sky.segments]);
 
   if (step === 'activity') {
     const headline = headlineActivities();
@@ -1429,6 +1625,134 @@ export default function LogSessionScreen() {
               keyboardType="default"
             />
           ) : null}
+        </Card>
+      ) : null}
+
+      {surface === 'sky' ? (
+        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
+          {form.activity === 'speedflying' ? (
+            <View style={{ gap: theme.spacing[2] }}>
+              <Text variant="label">Ascent</Text>
+              <ChipSelect
+                options={ASCENT_MODES}
+                value={form.sky.ascentMode === '' ? null : form.sky.ascentMode}
+                onChange={(ascentMode) => update({ sky: { ...form.sky, ascentMode } })}
+              />
+            </View>
+          ) : null}
+          <Checkbox
+            label="This was on skis"
+            checked={form.sky.onSkis}
+            onToggle={() => update({ sky: { ...form.sky, onSkis: !form.sky.onSkis } })}
+          />
+
+          {form.sky.track && form.sky.track.length >= 2 ? (
+            <View style={{ gap: theme.spacing[3] }}>
+              <View
+                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <Text variant="label">
+                  {form.sky.trackSource === 'igc' ? 'IGC track' : 'Recorded track'}
+                </Text>
+                <RemoveButton label="Remove track" onPress={removeSkyTrack} />
+              </View>
+              <RoutePreview path={form.sky.track} />
+              <RouteMap path={form.sky.track} />
+              <ElevationProfile points={form.sky.track} />
+              <Text variant="dataSm" color={theme.colors.textSecondary}>
+                {[
+                  `${form.sky.track.length} points`,
+                  skyStats?.topSpeedMS != null ? `${Math.round(skyStats.topSpeedMS * 3.6)} km/h top` : null,
+                  skyStats?.maxAltitudeM != null ? `${Math.round(skyStats.maxAltitudeM)} m max` : null,
+                ]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </Text>
+
+              {form.sky.segments.length > 0 ? (
+                <View style={{ gap: theme.spacing[2] }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text variant="label">Segments</Text>
+                    <View style={{ flexDirection: 'row', gap: theme.spacing[4] }}>
+                      {form.activity &&
+                      !autoSegmentsRunFor(form.activity as SkyDetectorActivity) &&
+                      form.sky.segments.every((s) => s.provenance === 'auto') ? (
+                        <Pressable
+                          onPress={checkForLanding}
+                          accessibilityRole="button"
+                          accessibilityLabel="Check this track for a real landing or relaunch"
+                        >
+                          <Text variant="label" color={theme.colors.textSecondary}>
+                            Check for a landing
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {form.sky.segments.some((s) => s.provenance === 'auto') ? (
+                        <Pressable
+                          onPress={confirmSkySegments}
+                          accessibilityRole="button"
+                          accessibilityLabel="Confirm all detected segments"
+                        >
+                          <Text variant="label" color={theme.colors.sandstone}>
+                            Confirm all
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+                  <Text variant="dataSm" color={theme.colors.textSecondary}>
+                    {`${formatDurationSec(skyStats?.totalAirtimeSec ?? 0)} airtime  ·  ` +
+                      `${skyStats?.airSegmentCount ?? 0} air segment${skyStats?.airSegmentCount === 1 ? '' : 's'}` +
+                      (skyStats?.longestAirSegmentSec != null
+                        ? `  ·  longest ${formatDurationSec(skyStats.longestAirSegmentSec)}`
+                        : '')}
+                  </Text>
+                  {form.sky.segments.map((seg, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text variant="bodySm" color={theme.colors.textSecondary}>
+                        {formatDurationSec(
+                          form.sky.track![seg.endIdx].tsSec - form.sky.track![seg.startIdx].tsSec
+                        )}
+                        {seg.provenance === 'auto' ? ' · proposed' : ''}
+                      </Text>
+                      <ChipSelect
+                        options={SKY_SEGMENT_KINDS}
+                        value={seg.kind}
+                        onChange={(kind) => setSkySegmentKind(idx, kind)}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  No takeoff/landing detected on this track — logged as one continuous stretch.
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View style={{ gap: theme.spacing[3] }}>
+              <GpsRecorderPanel onCapture={(summary) => attachSkyTrack(summary.points, 'liveGps')} />
+              <Button
+                label={importing ? 'Reading file…' : 'Import IGC file'}
+                variant="ghost"
+                onPress={importIgcFile}
+                disabled={importing}
+              />
+            </View>
+          )}
         </Card>
       ) : null}
 

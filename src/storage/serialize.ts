@@ -19,6 +19,9 @@ import type {
   TemplateShape,
   TemplateSurface,
 } from '@core/sessionTemplate';
+import type { SkyGearItem, SkyGearSpec } from '@core/gear';
+import type { Spot } from '@core/spot';
+import type { SkyConditionsSnapshot } from '@core/skyConditions';
 
 // ─── Observation ────────────────────────────────────────────────────────────
 
@@ -162,5 +165,147 @@ export function rowToSessionTemplate(r: SessionTemplateRow): SessionTemplate {
     isActive: r.isActive === 1,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+  };
+}
+
+// ─── Sky gear (SkyGearItem view — see storage/gear.ts for the others) ───────
+
+export type GearRow = {
+  id: string;
+  category: string; // top-level discriminator (column name unchanged by the flatten)
+  name: string;
+  spec: string; // JSON — bespoke fields only; category no longer duplicated inside
+  acquiredOn: string | null;
+  retiredOn: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null; // nullable in the canonical table (only Sky's API stamps it)
+};
+
+/**
+ * createdAt/updatedAt are storage bookkeeping, not entity fields — SkyGearItem
+ * carries no timestamps — so the storage layer passes them in alongside.
+ * `spec` is optional on SkyGearItem (matches earth/water); an absent spec
+ * serializes to '{}' (Sky's original NOT NULL convention, harmless now).
+ */
+export function gearToRow(g: SkyGearItem, createdAt: string, updatedAt: string): GearRow {
+  return {
+    id: g.id,
+    category: g.category,
+    name: g.name,
+    spec: JSON.stringify(g.spec ?? {}),
+    acquiredOn: g.acquiredOn ?? null,
+    retiredOn: g.retiredOn ?? null,
+    notes: g.notes ?? null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function rowToGear(r: GearRow): SkyGearItem {
+  const parsed = r.spec != null ? (JSON.parse(r.spec) as SkyGearSpec) : null;
+  const hasSpec = parsed !== null && typeof parsed === 'object' && Object.keys(parsed).length > 0;
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category as SkyGearItem['category'],
+    ...(hasSpec ? { spec: parsed } : {}),
+    ...(r.acquiredOn != null ? { acquiredOn: r.acquiredOn } : {}),
+    ...(r.retiredOn != null ? { retiredOn: r.retiredOn } : {}),
+    ...(r.notes != null ? { notes: r.notes } : {}),
+  } as SkyGearItem;
+}
+
+// ─── Spot ───────────────────────────────────────────────────────────────────
+
+export type SpotRow = {
+  id: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  kind: string;
+  meta: string | null; // JSON
+  riverName: string | null;
+  sectionName: string | null;
+  gaugeSiteId: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * createdAt/updatedAt are storage bookkeeping — the storage layer passes them
+ * in alongside (a Spot read back from the table carries createdAt; a fresh
+ * one may not).
+ */
+export function spotToRow(s: Spot, createdAt: string, updatedAt: string): SpotRow {
+  return {
+    id: s.id,
+    name: s.name,
+    lat: s.lat ?? null,
+    lng: s.lng ?? null,
+    kind: s.kind,
+    meta: s.meta ? JSON.stringify(s.meta) : null,
+    riverName: s.riverName ?? null,
+    sectionName: s.sectionName ?? null,
+    gaugeSiteId: s.gaugeSiteId ?? null,
+    notes: s.notes ?? null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function rowToSpot(r: SpotRow): Spot {
+  return {
+    id: r.id,
+    name: r.name,
+    kind: r.kind,
+    // Omit-when-absent — a spot without coords stays coord-less (null ≠ 0).
+    ...(r.lat !== null ? { lat: r.lat } : {}),
+    ...(r.lng !== null ? { lng: r.lng } : {}),
+    ...(r.meta != null ? { meta: JSON.parse(r.meta) as Record<string, unknown> } : {}),
+    ...(r.riverName ? { riverName: r.riverName } : {}),
+    ...(r.sectionName ? { sectionName: r.sectionName } : {}),
+    ...(r.gaugeSiteId ? { gaugeSiteId: r.gaugeSiteId } : {}),
+    ...(r.notes ? { notes: r.notes } : {}),
+    createdAt: r.createdAt,
+  };
+}
+
+// ─── ConditionsSnapshot ─────────────────────────────────────────────────────
+
+export type SkyConditionsSnapshotRow = {
+  id: string;
+  spotId: string;
+  capturedAt: string;
+  dateLocal: string;
+  source: string;
+  surface: string | null; // JSON
+  aloft: string | null; // JSON
+};
+
+export function conditionsSnapshotToRow(s: SkyConditionsSnapshot): SkyConditionsSnapshotRow {
+  return {
+    id: s.id,
+    spotId: s.spotId,
+    capturedAt: s.capturedAt,
+    dateLocal: s.dateLocal,
+    source: s.source,
+    surface: s.surface ? JSON.stringify(s.surface) : null,
+    aloft: s.aloft ? JSON.stringify(s.aloft) : null,
+  };
+}
+
+export function rowToSkyConditionsSnapshot(r: SkyConditionsSnapshotRow): SkyConditionsSnapshot {
+  return {
+    id: r.id,
+    spotId: r.spotId,
+    capturedAt: r.capturedAt,
+    dateLocal: r.dateLocal,
+    source: r.source as SkyConditionsSnapshot['source'],
+    ...(r.surface != null
+      ? { surface: JSON.parse(r.surface) as SkyConditionsSnapshot['surface'] }
+      : {}),
+    ...(r.aloft != null ? { aloft: JSON.parse(r.aloft) as SkyConditionsSnapshot['aloft'] } : {}),
   };
 }

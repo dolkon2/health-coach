@@ -20,6 +20,11 @@ export type Settings = {
   restTimerSec: number; // default between-sets rest; the gym timer starts from this.
   defaultPoolLengthM: number; // remembered pool length; the swim form prefills it.
   healthkitWriteEnabled: boolean; // Body P8: export logged sessions to Apple Health
+  // Sky dimension — descriptive-only, never part of the USHPA ledger math
+  // (core/src/ushpaLedger.ts). Absent until the user sets them; no default
+  // rating is ever fabricated.
+  ushpaNumber?: string;
+  ushpaRating?: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
