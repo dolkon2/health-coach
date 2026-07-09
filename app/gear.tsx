@@ -225,7 +225,13 @@ export default function GearScreen() {
       {/* Add form */}
       <Card style={{ marginTop: theme.spacing[8], gap: theme.spacing[4] }}>
         <Text variant="label">New gear</Text>
-        <Field label="Name" value={name} onChangeText={setName} placeholder="e.g. Speedgoat 5" />
+        <Field
+          label="Name"
+          value={name}
+          onChangeText={setName}
+          placeholder="e.g. Speedgoat 5"
+          keyboardType="default"
+        />
         <View style={{ gap: theme.spacing[2] }}>
           <Text variant="label">Category</Text>
           <ChipSelect options={CATEGORIES} value={category} onChange={setCategory} />
