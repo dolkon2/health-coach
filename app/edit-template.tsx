@@ -98,6 +98,9 @@ type SetRow = {
 type ExerciseRow = {
   id: string;
   name: string;
+  // Carried through losslessly on edit (Body P3) — no picker UI here yet, so
+  // it's only ever set by loading an existing template that already has one.
+  exerciseId?: string;
   movementPattern: MovementPattern | null;
   sets: SetRow[];
   restBetweenSets: string; // MM:SS or raw seconds — empty = global default
@@ -218,6 +221,7 @@ function formFromTemplate(
           exercises: s.exercises.map((e) => ({
             id: e.id,
             name: e.name,
+            ...(e.exerciseId ? { exerciseId: e.exerciseId } : {}),
             movementPattern: e.movementPattern,
             restBetweenSets:
               e.restBetweenSetsSec != null ? formatRestSec(e.restBetweenSetsSec) : '',
@@ -330,6 +334,7 @@ function buildShape(
           return {
             id: e.id,
             name: e.name.trim(),
+            ...(e.exerciseId ? { exerciseId: e.exerciseId } : {}),
             movementPattern: (e.movementPattern ?? 'other') as MovementPattern,
             sets: e.sets.map<GymTemplateSet>((s) => {
               const weightKg = parseKgFromInput(s.targetWeight, weightUnit);
