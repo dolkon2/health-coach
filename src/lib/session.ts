@@ -170,6 +170,11 @@ export function emptyExerciseDraft(id: string, setId: string): ExerciseDraft {
   return { id, name: '', movementPattern: null, sets: [emptySetDraft(setId)] };
 }
 
+/** Body P7a: a fresh mobility body-area row — no zone picked yet. */
+export function emptyBodyAreaDraft(id: string): BodyAreaDraft {
+  return { id, zoneId: '', tightness: '' };
+}
+
 /**
  * Applies an entry-mode switch (reps ↔ hold-seconds) to an exercise draft:
  * sets the mode and clears whichever field the switch just hid on every set.

@@ -60,6 +60,7 @@ import {
   emptySessionForm,
   emptyExerciseDraft,
   emptySetDraft,
+  emptyBodyAreaDraft,
   validateSessionForm,
   buildSessionObservation,
   sessionFormFromObservation,
@@ -69,12 +70,14 @@ import {
   type SessionForm,
   type ExerciseDraft,
   type SetDraft,
+  type BodyAreaDraft,
   type ClimbStyle,
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
 import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker';
-import type { MovementPattern, ObservationOf } from '@core/observation';
+import { yogaStyles, danceFamilies, danceContextTags, mobilityZones, ZONE_SIDES } from '@/data/taxonomies';
+import type { MovementPattern, ObservationOf, PracticeContextTag } from '@core/observation';
 
 /**
  * A fresh form pre-set to an `activity` — used when the screen opens via a
@@ -129,6 +132,10 @@ export default function LogSessionScreen() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+  // Dance's two-level family -> style picker; null defers to whichever family
+  // contains the loaded/typed styleId, so editing a dance session opens on
+  // the right family without a separate sync effect.
+  const [danceFamilyId, setDanceFamilyId] = useState<string | null>(null);
 
   // The picker dataset for the current activity — memoized once per activity
   // change, not re-filtered per keystroke (each GymExerciseEditor row does its
@@ -193,7 +200,17 @@ export default function LogSessionScreen() {
       endurance: a.defaultEnergySystem
         ? { ...f.endurance, energySystem: a.defaultEnergySystem }
         : f.endurance,
+      // Switching to a DIFFERENT activity clears the practice block — every
+      // practice activity shares this one bucket (P7a code-review catch), so
+      // a Dance styleId left over from before switching to Yoga would
+      // otherwise save into the Yoga session untouched. Re-picking the SAME
+      // activity (via "‹ Change activity" and back) keeps what's filled in.
+      practice:
+        f.activity !== a.id
+          ? { style: '', styleId: '', contextTag: null, bodyAreas: [] }
+          : f.practice,
     }));
+    setDanceFamilyId(null);
     setStep('detail');
   }
 
@@ -319,6 +336,37 @@ export default function LogSessionScreen() {
       ...f,
       climb: { ...f.climb, sends: f.climb.sends.filter((s) => s.id !== id) },
     }));
+  }
+
+  // ─── Practice surface (yoga/dance/mobility capture, Body P7a) ─────────────
+
+  function updatePractice(patch: Partial<SessionForm['practice']>) {
+    update({ practice: { ...form.practice, ...patch } });
+  }
+
+  /** A taxonomy pick fills both the structured id and the free-text style
+   *  fact (so the stored `style` reads the way the user would have typed
+   *  it) — same "pick fills the fact" idiom as the gym exercise picker. */
+  function pickPracticeStyle(id: string, label: string) {
+    updatePractice({ styleId: id, style: label });
+  }
+
+  /** Typing away from a pick clears the now-stale styleId — a free edit is a
+   *  free edit, not a mislabeled taxonomy row (mirrors setExerciseName). */
+  function setPracticeStyleText(style: string) {
+    updatePractice({ style, styleId: '' });
+  }
+
+  function addBodyArea() {
+    updatePractice({ bodyAreas: [...form.practice.bodyAreas, emptyBodyAreaDraft(uuidv7())] });
+  }
+
+  function removeBodyArea(id: string) {
+    updatePractice({ bodyAreas: form.practice.bodyAreas.filter((a) => a.id !== id) });
+  }
+
+  function mutateBodyArea(id: string, fn: (a: BodyAreaDraft) => BodyAreaDraft) {
+    updatePractice({ bodyAreas: form.practice.bodyAreas.map((a) => (a.id === id ? fn(a) : a)) });
   }
 
   // ─── GPX import (Layer 2: gate-free route enrichment) ─────────────────────
@@ -790,11 +838,126 @@ export default function LogSessionScreen() {
       ) : null}
 
       {surface === 'practice' ? (
-        <Card style={{ marginTop: theme.spacing[6] }}>
+        <Card style={{ marginTop: theme.spacing[6], gap: theme.spacing[4] }}>
+          {form.activity === 'yoga' ? (
+            <View style={{ gap: theme.spacing[2] }}>
+              <Text variant="label">Style (optional)</Text>
+              <ChipSelect
+                options={yogaStyles().map((s) => ({ value: s.id, label: s.label }))}
+                value={form.practice.styleId || null}
+                onChange={(id) => {
+                  const style = yogaStyles().find((s) => s.id === id);
+                  if (style) pickPracticeStyle(style.id, style.label);
+                }}
+              />
+            </View>
+          ) : null}
+
+          {form.activity === 'dance'
+            ? (() => {
+                const activeFamilyId =
+                  danceFamilyId ??
+                  danceFamilies().find((f) => f.styles.some((s) => s.id === form.practice.styleId))
+                    ?.id ??
+                  null;
+                const family = danceFamilies().find((f) => f.id === activeFamilyId);
+                return (
+                  <>
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Family (optional)</Text>
+                      <ChipSelect
+                        options={danceFamilies().map((f) => ({ value: f.id, label: f.label }))}
+                        value={activeFamilyId}
+                        onChange={(familyId) => {
+                          setDanceFamilyId(familyId);
+                          // A family switch clears the pending style pick —
+                          // otherwise the stored styleId keeps pointing at
+                          // the OLD family while the chip list now shows the
+                          // new family's (unrelated) styles (code-review
+                          // catch: the two controls would visually diverge
+                          // from what's actually stored).
+                          if (familyId !== activeFamilyId) updatePractice({ styleId: '' });
+                        }}
+                      />
+                    </View>
+                    {family ? (
+                      <View style={{ gap: theme.spacing[2] }}>
+                        <Text variant="label">Style (optional)</Text>
+                        <ChipSelect
+                          options={family.styles.map((s) => ({ value: s.id, label: s.label }))}
+                          value={form.practice.styleId || null}
+                          onChange={(id) => {
+                            const style = family.styles.find((s) => s.id === id);
+                            if (style) pickPracticeStyle(style.id, style.label);
+                          }}
+                        />
+                      </View>
+                    ) : null}
+                    <View style={{ gap: theme.spacing[2] }}>
+                      <Text variant="label">Context (optional)</Text>
+                      <ChipSelect
+                        options={danceContextTags().map((t) => ({
+                          value: t.id as PracticeContextTag,
+                          label: t.label,
+                        }))}
+                        value={form.practice.contextTag}
+                        onChange={(contextTag) => updatePractice({ contextTag })}
+                      />
+                    </View>
+                  </>
+                );
+              })()
+            : null}
+
+          {form.activity === 'mobility' ? (
+            <View style={{ gap: theme.spacing[3] }}>
+              <Text variant="label">Areas worked (optional)</Text>
+              {form.practice.bodyAreas.map((a) => {
+                const zone = mobilityZones().find((z) => z.id === a.zoneId);
+                return (
+                  <View key={a.id} style={{ gap: theme.spacing[2] }}>
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing[2] }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <ChipSelect
+                          options={mobilityZones().map((z) => ({ value: z.id, label: z.label }))}
+                          value={a.zoneId || null}
+                          onChange={(zoneId) =>
+                            mutateBodyArea(a.id, (prev) => ({ ...prev, zoneId, side: undefined }))
+                          }
+                        />
+                      </View>
+                      <RemoveButton label="Remove area" onPress={() => removeBodyArea(a.id)} />
+                    </View>
+                    {zone?.sided ? (
+                      <ChipSelect
+                        options={ZONE_SIDES.map((s) => ({ value: s, label: s }))}
+                        value={a.side ?? null}
+                        onChange={(side) => mutateBodyArea(a.id, (prev) => ({ ...prev, side }))}
+                      />
+                    ) : null}
+                    <View style={{ gap: theme.spacing[1] }}>
+                      <Text variant="dataSm" color={theme.colors.textMuted}>
+                        Tightness (1–5, optional)
+                      </Text>
+                      <ChipSelect
+                        options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))}
+                        value={a.tightness || null}
+                        onChange={(tightness) => mutateBodyArea(a.id, (prev) => ({ ...prev, tightness }))}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+              <Button label="+ Add area" variant="secondary" onPress={addBodyArea} />
+            </View>
+          ) : null}
+
           <Field
             label="Style (optional)"
             value={form.practice.style}
-            onChangeText={(style) => update({ practice: { ...form.practice, style } })}
+            onChangeText={setPracticeStyleText}
             placeholder="e.g. vinyasa, hatha, mobility"
             keyboardType="default"
           />
@@ -827,10 +990,13 @@ export default function LogSessionScreen() {
           />
         </View>
         <Field
-          label="Notes (optional)"
+          // Body P7a: no new schema — the practice surface just prompts the
+          // EXISTING notes field more prominently ("how did it feel?"),
+          // never a separate reflection field.
+          label={surface === 'practice' ? 'Reflection (optional)' : 'Notes (optional)'}
           value={form.notes}
           onChangeText={(notes) => update({ notes })}
-          placeholder="—"
+          placeholder={surface === 'practice' ? 'How did it feel?' : '—'}
           keyboardType="default"
         />
       </Card>
