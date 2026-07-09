@@ -15,6 +15,7 @@ export * from './expenditure';
 export * from './baselineTdee';
 export * from './stimulus';
 export * from './ladderTrend';
+export * from './gymAnalytics';
 export * from './nutrition/fidelity';
 export * from './nutrition/captureTier';
 export * from './nutrition/days';
