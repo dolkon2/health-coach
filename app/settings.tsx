@@ -10,7 +10,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Button, ChipSelect } from '@/components';
+import { Screen, Text, Card, Button, ChipSelect, Field } from '@/components';
 import { useTheme } from '@/theme';
 import { seedSampleData, clearSampleData } from '@/lib/devSeed';
 import { useSettings, useUpdateSettings } from '@/settings/useSettings';
@@ -28,10 +28,28 @@ const DISTANCE_UNITS: Array<{ value: DistanceUnit; label: string }> = [
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit, distanceUnit } = useSettings();
+  const { weightUnit, distanceUnit, ushpaNumber, ushpaRating } = useSettings();
   const updateSettings = useUpdateSettings();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Local draft state, committed on Save — matches body-profile.tsx's pattern
+  // for free-text settings. Binding onChangeText straight to updateSettings
+  // would fire one SQLite write per keystroke, with no ordering guarantee
+  // against the next one.
+  const [skyDraft, setSkyDraft] = useState({
+    ushpaNumber: ushpaNumber ?? '',
+    ushpaRating: ushpaRating ?? '',
+  });
+  const skyDraftDirty =
+    skyDraft.ushpaNumber !== (ushpaNumber ?? '') || skyDraft.ushpaRating !== (ushpaRating ?? '');
+
+  function saveSkyDraft() {
+    void updateSettings({
+      ushpaNumber: skyDraft.ushpaNumber,
+      ushpaRating: skyDraft.ushpaRating,
+    });
+  }
 
   async function onSeed() {
     setBusy(true);
@@ -116,6 +134,36 @@ export default function SettingsScreen() {
             }}
           />
         </View>
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Sky pilot</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Descriptive only — never checked against your logged flights, never
+          enforced. See your actual numbers on the USHPA ledger.
+        </Text>
+        <Field
+          label="USHPA number (optional)"
+          value={skyDraft.ushpaNumber}
+          onChangeText={(v) => setSkyDraft((d) => ({ ...d, ushpaNumber: v }))}
+          placeholder="—"
+          keyboardType="default"
+        />
+        <Field
+          label="Current rating (optional)"
+          value={skyDraft.ushpaRating}
+          onChangeText={(v) => setSkyDraft((d) => ({ ...d, ushpaRating: v }))}
+          placeholder="e.g. P2, P3"
+          keyboardType="default"
+        />
+        {skyDraftDirty ? (
+          <Button label="Save" variant="secondary" onPress={saveSkyDraft} />
+        ) : null}
+        <Button
+          label="Open USHPA ledger"
+          variant="outline"
+          onPress={() => router.push('/sky-ledger')}
+        />
       </Card>
 
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[2] }}>
