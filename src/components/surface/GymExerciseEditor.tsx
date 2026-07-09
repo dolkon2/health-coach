@@ -8,18 +8,31 @@
  * data shape differs: a template carries target sets/reps/weight per exercise,
  * not a live set list with timestamps + RIR + warmup flags.
  *
- * What lives here: the per-exercise name field, the required movement-pattern
- * picker, the set table with weight/reps/RIR/warmup/done columns. The rest
- * timer + the per-set completion timestamp belong to the parent screen — it
- * owns the timer hook and decides when to stamp completedAt. This component
- * just calls back via onCompleteSet.
+ * What lives here: the per-exercise name field with a library/ladder picker
+ * (Body P3 — autocomplete over exercisePicker.ts's datasets), the required
+ * movement-pattern picker, a reps/hold entry-mode toggle, and the set table
+ * (weight/reps-or-hold/RIR/warmup/done). Ghost placeholders show the last
+ * time this exercise was logged (Strong-style) — placeholder text only,
+ * never prefilled into the draft. The suggestion SEARCH runs here (not in
+ * the parent's exercise map) and is memoized on name/exerciseId, so typing
+ * in one exercise row never re-scans the ~800-row picker dataset for every
+ * OTHER exercise row on the screen. The rest timer + the per-set completion
+ * timestamp belong to the parent screen — it owns the timer hook and decides
+ * when to stamp completedAt. This component just calls back via onCompleteSet.
  */
+import { useMemo } from 'react';
 import { View, Pressable } from 'react-native';
 import { Text, Card, Field, ChipSelect } from '@/components';
 import { useTheme } from '@/theme';
 import { PATTERNS } from '@/lib/sessionFormOptions';
 import type { ExerciseDraft, SetDraft } from '@/lib/session';
+import { searchExercises, type PickerEntry } from '@/lib/exercisePicker';
 import type { MovementPattern } from '@core/observation';
+
+const ENTRY_TYPES = [
+  { value: 'reps' as const, label: 'Reps' },
+  { value: 'duration' as const, label: 'Hold' },
+];
 
 export type GymExerciseEditorProps = {
   exercise: ExerciseDraft;
@@ -30,6 +43,12 @@ export type GymExerciseEditorProps = {
   onAddSet: () => void;
   onRemoveSet: (setId: string) => void;
   onRemove: () => void;
+  /** The picker dataset for the current activity (memoized once by the parent). */
+  pickerEntries?: PickerEntry[];
+  onPick?: (entry: PickerEntry) => void;
+  onEntryType?: (t: 'reps' | 'duration') => void;
+  /** Last session's sets for this exercise, as display-ready placeholder strings. */
+  ghosts?: Array<{ weight: string; reps: string; holdSec: string; rir: string }>;
 };
 
 export function GymExerciseEditor({
@@ -41,9 +60,20 @@ export function GymExerciseEditor({
   onAddSet,
   onRemoveSet,
   onRemove,
+  pickerEntries = [],
+  onPick,
+  onEntryType,
+  ghosts = [],
 }: GymExerciseEditorProps) {
   const theme = useTheme();
   const canRemoveSet = exercise.sets.length > 1; // always keep one row so the table isn't empty
+  const isHold = exercise.entryType === 'duration';
+  // Only re-scans the dataset when THIS row's name/pick state actually
+  // changes — not on every keystroke in a sibling exercise's set fields.
+  const suggestions = useMemo(
+    () => (exercise.exerciseId ? [] : searchExercises(pickerEntries, exercise.name)),
+    [pickerEntries, exercise.exerciseId, exercise.name]
+  );
   return (
     <Card raised style={{ gap: theme.spacing[4] }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[3] }}>
@@ -57,9 +87,34 @@ export function GymExerciseEditor({
         />
         <RemoveButton label="Remove exercise" onPress={onRemove} />
       </View>
+      {suggestions.length > 0 ? (
+        <View style={{ gap: theme.spacing[1] }}>
+          {suggestions.map((entry) => (
+            <Pressable
+              key={entry.id}
+              onPress={() => onPick?.(entry)}
+              accessibilityRole="button"
+              accessibilityLabel={`Use ${entry.name}`}
+              style={{ paddingVertical: theme.spacing[1] }}
+            >
+              <Text variant="dataSm" color={theme.colors.sandstone}>
+                {entry.name}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
       <View style={{ gap: theme.spacing[2] }}>
         <Text variant="label">Movement pattern (required)</Text>
         <ChipSelect options={PATTERNS} value={exercise.movementPattern} onChange={onPattern} />
+      </View>
+      <View style={{ gap: theme.spacing[2] }}>
+        <Text variant="label">Entry</Text>
+        <ChipSelect
+          options={ENTRY_TYPES}
+          value={exercise.entryType ?? 'reps'}
+          onChange={(t) => onEntryType?.(t)}
+        />
       </View>
 
       {/* Sets table — trailing column reserved for the per-row remove control */}
@@ -69,7 +124,7 @@ export function GymExerciseEditor({
             Weight
           </Text>
           <Text variant="label" style={{ width: 56 }}>
-            Reps
+            {isHold ? 'Hold s' : 'Reps'}
           </Text>
           <Text variant="label" style={{ width: 48 }}>
             RIR
@@ -82,49 +137,62 @@ export function GymExerciseEditor({
           </Text>
           <View style={{ width: 24 }} />
         </View>
-        {exercise.sets.map((s) => (
-          <View
-            key={s.id}
-            style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}
-          >
-            <Field
-              value={s.weight}
-              onChangeText={(weight) => onSet(s.id, (prev) => ({ ...prev, weight }))}
-              placeholder="0"
-              style={{ flex: 1 }}
-            />
-            <Field
-              value={s.reps}
-              onChangeText={(reps) => onSet(s.id, (prev) => ({ ...prev, reps }))}
-              placeholder="0"
-              keyboardType="number-pad"
-              style={{ width: 56 }}
-            />
-            <Field
-              value={s.rir}
-              onChangeText={(rir) => onSet(s.id, (prev) => ({ ...prev, rir }))}
-              placeholder="—"
-              keyboardType="number-pad"
-              style={{ width: 48 }}
-            />
-            <View style={{ width: 44, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
-              <Checkbox
-                checked={s.isWarmup}
-                onToggle={() =>
-                  onSet(s.id, (prev) => ({ ...prev, isWarmup: !prev.isWarmup }))
-                }
+        {exercise.sets.map((s, i) => {
+          const ghost = ghosts[i];
+          return (
+            <View
+              key={s.id}
+              style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}
+            >
+              <Field
+                value={s.weight}
+                onChangeText={(weight) => onSet(s.id, (prev) => ({ ...prev, weight }))}
+                placeholder={ghost?.weight || '0'}
+                style={{ flex: 1 }}
               />
+              {isHold ? (
+                <Field
+                  value={s.holdSec}
+                  onChangeText={(holdSec) => onSet(s.id, (prev) => ({ ...prev, holdSec }))}
+                  placeholder={ghost?.holdSec || '0'}
+                  keyboardType="number-pad"
+                  style={{ width: 56 }}
+                />
+              ) : (
+                <Field
+                  value={s.reps}
+                  onChangeText={(reps) => onSet(s.id, (prev) => ({ ...prev, reps }))}
+                  placeholder={ghost?.reps || '0'}
+                  keyboardType="number-pad"
+                  style={{ width: 56 }}
+                />
+              )}
+              <Field
+                value={s.rir}
+                onChangeText={(rir) => onSet(s.id, (prev) => ({ ...prev, rir }))}
+                placeholder={ghost?.rir || '—'}
+                keyboardType="number-pad"
+                style={{ width: 48 }}
+              />
+              <View style={{ width: 44, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+                <Checkbox
+                  checked={s.isWarmup}
+                  onToggle={() =>
+                    onSet(s.id, (prev) => ({ ...prev, isWarmup: !prev.isWarmup }))
+                  }
+                />
+              </View>
+              <View style={{ width: 32, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+                <SetDoneButton done={!!s.completedAt} onPress={() => onCompleteSet(s.id)} />
+              </View>
+              <View style={{ width: 24, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
+                {canRemoveSet ? (
+                  <RemoveButton label="Remove set" onPress={() => onRemoveSet(s.id)} />
+                ) : null}
+              </View>
             </View>
-            <View style={{ width: 32, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
-              <SetDoneButton done={!!s.completedAt} onPress={() => onCompleteSet(s.id)} />
-            </View>
-            <View style={{ width: 24, alignItems: 'center', paddingBottom: theme.spacing[2] }}>
-              {canRemoveSet ? (
-                <RemoveButton label="Remove set" onPress={() => onRemoveSet(s.id)} />
-              ) : null}
-            </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
       <AddSetLink onPress={onAddSet} />
     </Card>

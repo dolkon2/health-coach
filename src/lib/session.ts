@@ -63,8 +63,13 @@ export type SetDraft = {
 export type ExerciseDraft = {
   id: string;
   name: string;
-  exerciseId?: string; // Free Exercise DB slug when picked from the library; `name` stays the stored fact
+  exerciseId?: string; // Free Exercise DB slug or ladder step id when picked from the library; `name` stays the stored fact
   movementPattern: MovementPattern | null; // required to save; null until tagged
+  // UI-only entry mode: which column (reps or hold-seconds) the set table shows.
+  // Absent = reps (the default). Auto-set from a library/ladder pick's entryType,
+  // otherwise a manual per-exercise toggle (Body P3). Never persisted directly —
+  // buildLifting still derives each SET's kind from what's actually filled.
+  entryType?: 'reps' | 'duration';
   sets: SetDraft[];
 };
 
@@ -163,6 +168,26 @@ export function emptySetDraft(id: string): SetDraft {
 
 export function emptyExerciseDraft(id: string, setId: string): ExerciseDraft {
   return { id, name: '', movementPattern: null, sets: [emptySetDraft(setId)] };
+}
+
+/**
+ * Applies an entry-mode switch (reps ↔ hold-seconds) to an exercise draft:
+ * sets the mode and clears whichever field the switch just hid on every set.
+ * Without this, a set could carry both a typed `reps` and a typed `holdSec`
+ * after a mid-entry toggle, which would violate buildLifting's "hold sets
+ * store reps: 0" convention (a code-review catch, Body P3).
+ */
+export function withEntryType(
+  ex: ExerciseDraft,
+  entryType: 'reps' | 'duration'
+): ExerciseDraft {
+  return {
+    ...ex,
+    entryType,
+    sets: ex.sets.map((s) =>
+      entryType === 'duration' ? { ...s, reps: '' } : { ...s, holdSec: '' }
+    ),
+  };
 }
 
 export function emptySessionForm(): SessionForm {
@@ -600,11 +625,42 @@ function normalizeModality(m: Modality): SessionModality {
     : 'other';
 }
 
-function numStr(n: number | undefined | null, digits = 2): string {
+export function numStr(n: number | undefined | null, digits = 2): string {
   if (n == null || !Number.isFinite(n)) return '';
   // Trim trailing zeros so "100" stays "100" instead of "100.00".
   const fixed = n.toFixed(digits);
   return fixed.replace(/\.?0+$/, '');
+}
+
+/** One stored lifting set, rendered as the draft's display strings (display
+ *  units). Shared by the edit-path inverse and the ghost-placeholder helper
+ *  below so the two never drift apart. */
+function liftingSetDisplay(
+  s: LiftingBlock['sets'][number],
+  weightUnit: WeightUnit
+): { weight: string; reps: string; holdSec: string; rir: string } {
+  return {
+    weight: numStr(kgToDisplay(s.weightKg, weightUnit), 2),
+    // A hold set stored reps: 0 by convention — show the reps field empty,
+    // the way the user left it, not a literal '0'.
+    reps: s.reps === 0 && s.holdSec != null ? '' : String(s.reps),
+    holdSec: s.holdSec != null ? String(s.holdSec) : '',
+    rir: s.rir != null ? String(s.rir) : '',
+  };
+}
+
+/**
+ * The last session's sets for an exercise, formatted as display-unit
+ * placeholder strings — Strong-style ghost text shown faintly in the set
+ * table, never prefilled into the draft (constitution: never fabricate what
+ * the user did today from what they did last time). Body P3.
+ */
+export function ghostSetPlaceholders(
+  sets: LiftingBlock['sets'] | null,
+  weightUnit: WeightUnit
+): Array<{ weight: string; reps: string; holdSec: string; rir: string }> {
+  if (!sets) return [];
+  return sets.map((s) => liftingSetDisplay(s, weightUnit));
 }
 
 /**
@@ -657,15 +713,15 @@ export function sessionFormFromObservation(
       }
       groups[idx].sets.push({
         id: idFactory(),
-        weight: numStr(kgToDisplay(s.weightKg, units.weightUnit), 2),
-        // A hold set stored reps: 0 by convention — restore the reps field empty,
-        // the way the user left it, not a literal '0'.
-        reps: s.reps === 0 && s.holdSec != null ? '' : String(s.reps),
-        holdSec: s.holdSec != null ? String(s.holdSec) : '',
-        rir: s.rir != null ? String(s.rir) : '',
+        ...liftingSetDisplay(s, units.weightUnit),
         isWarmup: s.isWarmup === true,
         ...(s.completedAt ? { completedAt: s.completedAt } : {}),
       });
+    }
+    // Infer the UI entry mode from what was actually stored — any hold-seconds
+    // set in the group means the exercise was logged in hold mode.
+    for (const g of groups) {
+      if (g.sets.some((s) => s.holdSec !== '')) g.entryType = 'duration';
     }
     form.gym = { exercises: groups };
   }

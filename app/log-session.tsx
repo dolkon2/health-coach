@@ -15,7 +15,7 @@
  * enforced by the same builder the test drives, so an untagged set can't reach
  * storage.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import {
@@ -64,6 +64,8 @@ import {
   buildSessionObservation,
   sessionFormFromObservation,
   resolveSurface,
+  ghostSetPlaceholders,
+  withEntryType,
   type SessionForm,
   type ExerciseDraft,
   type SetDraft,
@@ -71,6 +73,7 @@ import {
   type SwimMode,
 } from '@/lib/session';
 import { activityById, headlineActivities, moreActivities, type Activity } from '@/lib/activity';
+import { pickerEntriesForActivity, type PickerEntry } from '@/lib/exercisePicker';
 import type { MovementPattern, ObservationOf } from '@core/observation';
 
 /**
@@ -126,6 +129,14 @@ export default function LogSessionScreen() {
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false); // long tail in the activity picker
+
+  // The picker dataset for the current activity — memoized once per activity
+  // change, not re-filtered per keystroke (each GymExerciseEditor row does its
+  // own memoized search over this shared array).
+  const pickerEntries = useMemo(
+    () => pickerEntriesForActivity(form.activity),
+    [form.activity]
+  );
 
   // Dismissal that survives a missing back-stack (e.g. when the screen was
   // deep-linked or opened with no parent route) — fall back to the Today tab
@@ -200,12 +211,40 @@ export default function LogSessionScreen() {
       // Default the pattern from memory only while it's still untagged — never
       // overwrite a choice the user already made.
       const remembered = ex.movementPattern === null ? patternMemory.suggest(name) : null;
-      return { ...ex, name, movementPattern: ex.movementPattern ?? remembered };
+      // Typing away from a library pick clears the stale id — the typed name is
+      // the fact now, not the picked one (constitution: never rewrite what the
+      // user logs; a free edit is a free edit, not a mislabeled library row).
+      return {
+        ...ex,
+        name,
+        exerciseId: undefined,
+        movementPattern: ex.movementPattern ?? remembered,
+      };
     });
   }
 
   function setExercisePattern(id: string, movementPattern: MovementPattern) {
     mutateExercise(id, (ex) => ({ ...ex, movementPattern }));
+  }
+
+  /** A library/ladder pick: fills name+exerciseId, auto-fills an untagged
+   *  pattern, and auto-switches entry mode when the picked entry declares one
+   *  (P3). Never overwrites a pattern or entry mode the user already set. */
+  function pickExercise(id: string, entry: PickerEntry) {
+    mutateExercise(id, (ex) => {
+      const entryType = ex.entryType ?? entry.entryType;
+      const next = entryType ? withEntryType(ex, entryType) : ex;
+      return {
+        ...next,
+        name: entry.name,
+        exerciseId: entry.id,
+        movementPattern: ex.movementPattern ?? entry.movementPattern,
+      };
+    });
+  }
+
+  function setExerciseEntryType(id: string, entryType: 'reps' | 'duration') {
+    mutateExercise(id, (ex) => withEntryType(ex, entryType));
   }
 
   function mutateSet(exId: string, setId: string, fn: (s: SetDraft) => SetDraft) {
@@ -540,6 +579,13 @@ export default function LogSessionScreen() {
               onAddSet={() => addSet(ex.id)}
               onRemoveSet={(setId) => removeSet(ex.id, setId)}
               onRemove={() => removeExercise(ex.id)}
+              pickerEntries={pickerEntries}
+              onPick={(entry) => pickExercise(ex.id, entry)}
+              onEntryType={(t) => setExerciseEntryType(ex.id, t)}
+              ghosts={ghostSetPlaceholders(
+                patternMemory.lastSets(ex.name, ex.exerciseId),
+                weightUnit
+              )}
             />
           ))}
           <Button label="+ Add exercise" variant="secondary" onPress={addExercise} />

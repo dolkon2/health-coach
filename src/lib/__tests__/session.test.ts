@@ -12,12 +12,15 @@ import { reveal, computeWeeklyStimulus } from '@core/stimulus';
 import type { GeoPoint, ObservationOf } from '@core/observation';
 import {
   buildSessionObservation,
+  emptyExerciseDraft,
   emptySessionForm,
   emptySetDraft,
+  ghostSetPlaceholders,
   isSetFilled,
   resolveSurface,
   sessionFormFromObservation,
   validateSessionForm,
+  withEntryType,
   type BuildContext,
   type SessionForm,
 } from '../session';
@@ -712,5 +715,80 @@ describe('Body P1b — breathwork through the session form', () => {
     f.breathwork = { patternId: 'box-4-4-4-4', cycles: '20', capture: null, rounds: [] };
     const obs = buildSessionObservation(f, CTX);
     expect(obs.payload.breathwork).toEqual({ patternId: 'box-4-4-4-4', cycles: 20 });
+  });
+});
+
+describe('Body P3 — entry mode (reps ↔ hold) never leaves both fields filled', () => {
+  it('switching reps -> duration clears reps on every set, keeps holdSec', () => {
+    const ex = {
+      ...emptyExerciseDraft('e1', 's1'),
+      sets: [
+        { id: 's1', weight: '20', reps: '10', holdSec: '', rir: '', isWarmup: false },
+        { id: 's2', weight: '20', reps: '8', holdSec: '15', rir: '', isWarmup: false },
+      ],
+    };
+    const next = withEntryType(ex, 'duration');
+    expect(next.entryType).toBe('duration');
+    expect(next.sets.map((s) => s.reps)).toEqual(['', '']);
+    expect(next.sets.map((s) => s.holdSec)).toEqual(['', '15']);
+  });
+
+  it('switching duration -> reps clears holdSec on every set, keeps reps', () => {
+    const ex = {
+      ...emptyExerciseDraft('e1', 's1'),
+      entryType: 'duration' as const,
+      sets: [{ id: 's1', weight: '0', reps: '5', holdSec: '30', rir: '', isWarmup: false }],
+    };
+    const next = withEntryType(ex, 'reps');
+    expect(next.entryType).toBe('reps');
+    expect(next.sets[0].holdSec).toBe('');
+    expect(next.sets[0].reps).toBe('5');
+  });
+
+  it('a set can never build with both reps and holdSec after a toggle round-trip', () => {
+    // Regression for a code-review catch: typing reps, toggling to Hold, then
+    // typing a hold time used to leave the stale reps value in place, so
+    // buildLifting would write BOTH reps>0 and holdSec>0 on the same set —
+    // violating the "hold sets store reps: 0" convention.
+    let ex: ReturnType<typeof emptyExerciseDraft> = {
+      ...emptyExerciseDraft('e1', 's1'),
+      name: 'plank',
+      movementPattern: 'core',
+    };
+    ex = { ...ex, sets: [{ id: 's1', weight: '0', reps: '10', holdSec: '', rir: '', isWarmup: false }] };
+    ex = withEntryType(ex, 'duration'); // toggle — reps must clear
+    ex = {
+      ...ex,
+      sets: ex.sets.map((s) => (s.id === 's1' ? { ...s, holdSec: '30' } : s)),
+    };
+    const f = emptySessionForm();
+    f.activity = 'calisthenics';
+    f.gym.exercises = [ex];
+    const obs = buildSessionObservation(f, CTX);
+    const set = obs.payload.lifting!.sets[0];
+    expect(set.holdSec).toBe(30);
+    expect(set.reps).toBe(0);
+  });
+});
+
+describe('Body P3 — ghostSetPlaceholders', () => {
+  it('formats stored kg back to display units, restoring hold sets with an empty reps placeholder', () => {
+    const sets = [
+      { exercise: 'pull-up', movementPattern: 'upper-pull' as const, weightKg: 9.0718, reps: 5 },
+      {
+        exercise: 'plank',
+        movementPattern: 'core' as const,
+        weightKg: 0,
+        reps: 0,
+        holdSec: 45,
+      },
+    ];
+    const placeholders = ghostSetPlaceholders(sets, 'kg');
+    expect(placeholders[0]).toEqual({ weight: '9.07', reps: '5', holdSec: '', rir: '' });
+    expect(placeholders[1]).toEqual({ weight: '0', reps: '', holdSec: '45', rir: '' });
+  });
+
+  it('returns an empty array for a never-logged exercise (null lastSets, never fabricated)', () => {
+    expect(ghostSetPlaceholders(null, 'kg')).toEqual([]);
   });
 });
