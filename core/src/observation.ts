@@ -32,6 +32,8 @@ export type ElevationSource = 'barometric' | 'gps' | 'dem' | 'none';
 // Type-only: erased at compile, so the conditions.ts ↔ observation.ts
 // reference cycle has no runtime edge.
 import type { ConditionsSnapshot } from './conditions';
+import type { ClimbGradeSystem } from './climbGrade';
+import type { LatLng } from './geo';
 
 export type GeoPoint = {
   lat: number;
@@ -207,10 +209,49 @@ export type EnduranceBlock = {
   gpsPath?: GeoPoint[]; // if synced from device
 };
 
+/**
+ * Send outcome — the granularity ladder's level-3 extension (⚑ E-13/E-14,
+ * dev-log/dimension-earth-build.md; the market convergently tracks this axis
+ * per climbing-apps-research.md, citing Mountain Project's two-column model).
+ * 'fell-hung' means the climber fell or weighted the rope/gear on this go — a
+ * worked attempt, NOT a clean send, same category as 'attempt'. Only
+ * onsight/flash/redpoint/pinkpoint are sends; use isSentOutcome() rather than
+ * re-deriving this, since it's easy to assume "not attempt" means "sent" and
+ * get fell-hung wrong (verified: that was this pass's own first draft).
+ * Optional and layered on top of `sent`, never a replacement for it — `sent`
+ * is the always-written coarse fact (did this send happen, yes/no) that stays
+ * meaningful even when the richer outcome is unknown (a pre-E4 row) or simply
+ * unspecified (the user didn't pick one). Never invent a specific `outcome`
+ * from `sent` alone — sent:true is compatible with four different outcomes;
+ * leave outcome absent rather than guess (constitution: never fabricate).
+ */
+export type ClimbOutcome = 'onsight' | 'flash' | 'redpoint' | 'pinkpoint' | 'fell-hung' | 'attempt';
+
+/** Which ClimbOutcome values represent a completed, clean send. */
+export function isSentOutcome(outcome: ClimbOutcome): boolean {
+  return outcome === 'onsight' || outcome === 'flash' || outcome === 'redpoint' || outcome === 'pinkpoint';
+}
+
 export type ClimbingBlock = {
   style: 'sport' | 'trad' | 'boulder' | 'top-rope' | 'gym';
-  sends: Array<{ grade: string; attempts: number; sent: boolean; route?: string }>;
+  sends: Array<{
+    grade: string;
+    // Which sandbag scale the grade matched at log time (core/climbGrade.ts),
+    // frozen so a later read never has to re-guess or silently reinterpret it
+    // under a different scale. Absent when the grade didn't parse against any
+    // known scale — the string above stays the tier-1 fact either way.
+    gradeSystem?: ClimbGradeSystem;
+    attempts: number;
+    sent: boolean;
+    outcome?: ClimbOutcome;
+    route?: string;
+  }>;
   totalProblems?: number; // for high-volume sessions where individual logging is impractical
+  // Crag pin (⚑ E-5): a device GPS fix taken at log time, not a Spot row —
+  // Spot is a cross-dimension entity (Water hangs gauges off it); building it
+  // unilaterally here would invite a merge collision. Promote pin -> Spot when
+  // Spot lands. `name` is free text the user may add; never reverse-geocoded.
+  location?: LatLng & { name?: string };
 };
 
 export type PaddlingBlock = {

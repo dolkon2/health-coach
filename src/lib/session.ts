@@ -15,6 +15,7 @@
  * reach storage (constitution: the engine's inputs stay honest).
  */
 import type {
+  ClimbOutcome,
   ElevationGainSource,
   EnergySystem,
   LiftingBlock,
@@ -26,6 +27,7 @@ import type {
   SwimmingBlock,
   SwimStroke,
 } from '@core/observation';
+import { isSentOutcome } from '@core/observation';
 import {
   displayToKg,
   displayToMeters,
@@ -38,6 +40,8 @@ import { activityById, type Surface } from './activity';
 import { deriveSessionDuration } from '@core/sessionTiming';
 import type { GearCategory } from '@core/gear';
 import type { ConditionsSnapshot } from '@core/conditions';
+import { parseClimbGrade } from '@core/climbGrade';
+import type { LatLng } from '@core/geo';
 
 // The legacy modality set the Today quick-log picker and older sessions use
 // directly. New sessions carry an `activity` identity instead; `resolveSurface`
@@ -69,7 +73,16 @@ export type SendDraft = {
   id: string;
   grade: string;
   attempts: string;
+  // Always meaningful: did this send happen, yes/no. The old checkbox fact,
+  // unchanged — a new row defaults false (unconfirmed), same as before E4.
   sent: boolean;
+  // Richer than sent/not-sent (⚑ E-13/E-14, the granularity ladder's level-3
+  // extension). null = not specified — a fresh row the user hasn't picked a
+  // chip for yet, or a pre-E4 row with no richer record than `sent`. NEVER
+  // backfilled with a guessed member (constitution: never fabricate) — build()
+  // and the inverse both treat null as "defer to `sent`", not "assume redpoint".
+  outcome: ClimbOutcome | null;
+  route: string; // optional per-climb name; '' when not set
 };
 
 export type SessionForm = {
@@ -113,7 +126,14 @@ export type SessionForm = {
     // is not the new route's sky).
     conditionsMeta?: ConditionsSnapshot;
   };
-  climb: { style: ClimbStyle; sends: SendDraft[] };
+  climb: {
+    style: ClimbStyle;
+    sends: SendDraft[];
+    totalProblems: string; // raw count, alternative/supplement to enumerating every send
+    // Crag pin (⚑ E-5): a device fix captured via useCragPin, or absent — never
+    // reverse-geocoded, `name` is free text the user may add by hand.
+    location?: LatLng & { name?: string };
+  };
   swim: {
     mode: SwimMode;
     poolLengthM: string; // pool length in metres (pool mode)
@@ -142,7 +162,7 @@ export function emptySessionForm(): SessionForm {
     gearIds: [],
     gym: { exercises: [] },
     endurance: { distance: '', avgHr: '', energySystem: 'aerobic' },
-    climb: { style: 'gym', sends: [] },
+    climb: { style: 'gym', sends: [], totalProblems: '' },
     swim: {
       mode: 'pool',
       poolLengthM: '',
@@ -481,13 +501,33 @@ export function buildSessionObservation(
     // and drops indoors, so 0.7 — above a manual guess (0.5), below a file import.
     else if (hasRoute && form.endurance.captureMeta) fidelity = 0.7;
   } else if (surface === 'climbing') {
+    const totalProblems = num(form.climb.totalProblems);
     payload.climbing = {
       style: form.climb.style,
-      sends: form.climb.sends.filter(sendFilled).map((s) => ({
-        grade: s.grade.trim(),
-        attempts: Math.max(1, Math.round(num(s.attempts) ?? 1)),
-        sent: s.sent,
-      })),
+      sends: form.climb.sends.filter(sendFilled).map((s) => {
+        const grade = s.grade.trim();
+        const route = s.route.trim();
+        // Best-effort scale match against sandbag, biased by style (⚑ E-13/
+        // E-14). Absent when nothing matches — the grade string above stays
+        // the tier-1 fact regardless.
+        const gradeSystem = parseClimbGrade(grade, form.climb.style);
+        // outcome absent (never chosen, or a pre-E4 row) -> defer to the
+        // coarse `sent` fact rather than guess which of four send styles it
+        // was (constitution: never fabricate a specific value from a boolean).
+        const sent = s.outcome != null ? isSentOutcome(s.outcome) : s.sent;
+        return {
+          grade,
+          ...(gradeSystem ? { gradeSystem } : {}),
+          attempts: Math.max(1, Math.round(num(s.attempts) ?? 1)),
+          sent,
+          ...(s.outcome != null ? { outcome: s.outcome } : {}),
+          ...(route ? { route } : {}),
+        };
+      }),
+      ...(totalProblems !== null && totalProblems > 0
+        ? { totalProblems: Math.round(totalProblems) }
+        : {}),
+      ...(form.climb.location ? { location: form.climb.location } : {}),
     };
   } else if (surface === 'swim') {
     payload.swimming = buildSwimming(form.swim, ctx.distanceUnit);
@@ -662,7 +702,16 @@ export function sessionFormFromObservation(
         grade: s.grade,
         attempts: String(s.attempts),
         sent: s.sent,
+        // Pre-E4 rows (and any row the user simply didn't pick a chip for)
+        // carry sent but no outcome. Never guessed — sent:true alone can't
+        // tell onsight from flash from redpoint from pinkpoint, so this stays
+        // null rather than manufacturing a specific answer that would become
+        // a permanent "fact" the moment the session is next resaved.
+        outcome: s.outcome ?? null,
+        route: s.route ?? '',
       })),
+      totalProblems: p.climbing.totalProblems != null ? String(p.climbing.totalProblems) : '',
+      ...(p.climbing.location ? { location: p.climbing.location } : {}),
     };
   }
 

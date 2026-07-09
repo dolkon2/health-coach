@@ -28,7 +28,6 @@ import {
   RestTimer,
   GymExerciseEditor,
   RemoveButton,
-  Checkbox,
   RoutePreview,
   RouteMap,
   ElevationProfile,
@@ -38,6 +37,7 @@ import {
 import {
   ENERGY_SYSTEMS,
   CLIMB_STYLES,
+  CLIMB_OUTCOMES,
   SWIM_MODES,
   SWIM_STROKES,
   EFFORT,
@@ -46,6 +46,7 @@ import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useExercisePatternMemory } from '@/hooks/useExercisePatternMemory';
 import { useRestTimer } from '@/hooks/useRestTimer';
+import { useCragPin } from '@/hooks/useCragPin';
 import {
   createObservation,
   getObservationById,
@@ -77,6 +78,7 @@ import { activityById, headlineActivities, moreActivities, type Activity } from 
 import { listGear, type GearRecord } from '@/storage/gear';
 import { freezeEarthConditions } from '@/lib/conditions/freeze';
 import type {
+  ClimbOutcome,
   ElevationGainSource,
   GeoPoint,
   MovementPattern,
@@ -300,12 +302,18 @@ export default function LogSessionScreen() {
       ...f,
       climb: {
         ...f.climb,
-        sends: [...f.climb.sends, { id: uuidv7(), grade: '', attempts: '', sent: false }],
+        sends: [
+          ...f.climb.sends,
+          { id: uuidv7(), grade: '', attempts: '', sent: false, outcome: null, route: '' },
+        ],
       },
     }));
   }
 
-  function mutateSend(id: string, patch: Partial<{ grade: string; attempts: string; sent: boolean }>) {
+  function mutateSend(
+    id: string,
+    patch: Partial<{ grade: string; attempts: string; outcome: ClimbOutcome | null; route: string }>
+  ) {
     setForm((f) => ({
       ...f,
       climb: {
@@ -320,6 +328,15 @@ export default function LogSessionScreen() {
       ...f,
       climb: { ...f.climb, sends: f.climb.sends.filter((s) => s.id !== id) },
     }));
+  }
+
+  // ─── Crag pin (⚑ E-5) ──────────────────────────────────────────────────────
+  // One device fix, not a track — captured on demand, never automatically.
+  const cragPin = useCragPin();
+
+  async function pinCragLocation() {
+    const loc = await cragPin.capture();
+    if (loc) setForm((f) => ({ ...f, climb: { ...f.climb, location: loc } }));
   }
 
   // ─── Conditions freeze (E3 — weather only; snow/avalanche join in E7) ─────
@@ -769,35 +786,81 @@ export default function LogSessionScreen() {
             />
           </View>
           {form.climb.sends.map((s) => (
-            <View
-              key={s.id}
-              style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}
-            >
+            <View key={s.id} style={{ gap: theme.spacing[2] }}>
+              <View style={{ flexDirection: 'row', gap: theme.spacing[3], alignItems: 'flex-end' }}>
+                <Field
+                  label="Grade"
+                  value={s.grade}
+                  onChangeText={(grade) => mutateSend(s.id, { grade })}
+                  placeholder="V4 / 6a"
+                  keyboardType="default"
+                  style={{ flex: 1 }}
+                />
+                <Field
+                  label="Attempts"
+                  value={s.attempts}
+                  onChangeText={(attempts) => mutateSend(s.id, { attempts })}
+                  placeholder="1"
+                  keyboardType="number-pad"
+                  style={{ width: 80 }}
+                />
+                <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
+              </View>
               <Field
-                label="Grade"
-                value={s.grade}
-                onChangeText={(grade) => mutateSend(s.id, { grade })}
-                placeholder="V4 / 6a"
+                label="Route (optional)"
+                value={s.route}
+                onChangeText={(route) => mutateSend(s.id, { route })}
+                placeholder="Route or problem name"
                 keyboardType="default"
-                style={{ flex: 1 }}
               />
-              <Field
-                label="Attempts"
-                value={s.attempts}
-                onChangeText={(attempts) => mutateSend(s.id, { attempts })}
-                placeholder="1"
-                keyboardType="number-pad"
-                style={{ width: 80 }}
+              <ChipSelect
+                options={CLIMB_OUTCOMES}
+                value={s.outcome}
+                onChange={(outcome) => mutateSend(s.id, { outcome })}
               />
-              <Checkbox
-                label="Sent"
-                checked={s.sent}
-                onToggle={() => mutateSend(s.id, { sent: !s.sent })}
-              />
-              <RemoveButton label="Remove send" onPress={() => removeSend(s.id)} />
             </View>
           ))}
           <Button label="+ Add send" variant="secondary" onPress={addSend} />
+          <Field
+            label="Total problems (optional)"
+            value={form.climb.totalProblems}
+            onChangeText={(totalProblems) =>
+              update({ climb: { ...form.climb, totalProblems } })
+            }
+            placeholder="e.g. 15 — a high-volume shortcut instead of logging every send"
+            keyboardType="number-pad"
+          />
+          <View style={{ gap: theme.spacing[2] }}>
+            <Button
+              label={
+                cragPin.status === 'locating'
+                  ? 'Locating…'
+                  : form.climb.location
+                    ? 'Update crag pin'
+                    : 'Pin crag location'
+              }
+              variant="ghost"
+              onPress={pinCragLocation}
+              disabled={cragPin.status === 'locating'}
+            />
+            {form.climb.location ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Pinned at {form.climb.location.lat.toFixed(4)}, {form.climb.location.lng.toFixed(4)}
+              </Text>
+            ) : null}
+            {cragPin.status === 'denied' ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Location is off — the pin isn't required, or turn on location for the app in
+                Settings and try again.
+              </Text>
+            ) : null}
+            {(cragPin.status === 'unavailable' || cragPin.status === 'error') &&
+            cragPin.errorMessage ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                {cragPin.errorMessage}
+              </Text>
+            ) : null}
+          </View>
         </Card>
       ) : null}
 

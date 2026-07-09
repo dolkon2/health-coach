@@ -10,6 +10,7 @@ export * from './observation';
 export * from './geo';
 export * from './conditions';
 export * from './gear';
+export * from './climbGrade';
 export * from './benchmark';
 export * from './sessionTemplate';
 export * from './timeline';
