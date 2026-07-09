@@ -11,7 +11,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.dylan.healthcoachproject",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
