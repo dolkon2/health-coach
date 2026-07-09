@@ -600,6 +600,27 @@ export default function LogSessionScreen() {
     />
   );
 
+  // Each of these is an O(track-length) scan (topSpeedMS additionally
+  // rebuilds a cumulative-distance array) — computed once per track/segments
+  // change rather than repeatedly inline in the render below. Declared here,
+  // ahead of the step==='activity' early return below, because every hook
+  // must run on every render regardless of which step is showing — this one
+  // used to sit after the early return and crashed React ("Rendered more
+  // hooks than during the previous render") the moment step flipped from
+  // 'activity' to 'detail' within the same mount, i.e. every time the
+  // quick-log picker (not a deep link) was used, for any activity.
+  const skyStats = useMemo(() => {
+    const track = form.sky.track;
+    if (!track || track.length < 2) return null;
+    return {
+      topSpeedMS: topSpeedMS(track),
+      maxAltitudeM: maxAltitudeM(track),
+      totalAirtimeSec: totalAirtimeSec(track, form.sky.segments),
+      airSegmentCount: airSegmentCount(form.sky.segments),
+      longestAirSegmentSec: longestAirSegmentSec(track, form.sky.segments),
+    };
+  }, [form.sky.track, form.sky.segments]);
+
   if (step === 'activity') {
     const headline = headlineActivities();
     const more = moreActivities();
@@ -660,21 +681,6 @@ export default function LogSessionScreen() {
     form.swim.mode === 'pool'
       ? (Number(form.swim.poolLengthM) || 0) * (Number(form.swim.laps) || 0)
       : 0;
-
-  // Each of these is an O(track-length) scan (topSpeedMS additionally
-  // rebuilds a cumulative-distance array) — computed once per track/segments
-  // change rather than repeatedly inline in the render below.
-  const skyStats = useMemo(() => {
-    const track = form.sky.track;
-    if (!track || track.length < 2) return null;
-    return {
-      topSpeedMS: topSpeedMS(track),
-      maxAltitudeM: maxAltitudeM(track),
-      totalAirtimeSec: totalAirtimeSec(track, form.sky.segments),
-      airSegmentCount: airSegmentCount(form.sky.segments),
-      longestAirSegmentSec: longestAirSegmentSec(track, form.sky.segments),
-    };
-  }, [form.sky.track, form.sky.segments]);
 
   return (
     <Screen scroll>
