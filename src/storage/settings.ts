@@ -86,18 +86,42 @@ export async function getHkExports(db?: SqlDatabase): Promise<HkExportsBlob> {
   return (await getSettingJson<HkExportsBlob>(K_HK_EXPORTS, db)) ?? {};
 }
 
+// setHkExportRecord/deleteHkExportRecord are read-modify-write against one
+// shared JSON blob, not a row-level upsert. Every mutating call site
+// (log-session.tsx save/edit, training.tsx + (tabs)/index.tsx delete) fires
+// fire-and-forget, so two of these can legitimately overlap (e.g. saving one
+// session while deleting another) — without serialization, the second
+// call's read would miss the first call's not-yet-written update, silently
+// losing one side's bookkeeping. Chaining every mutation through this single
+// promise queue forces them to apply one at a time, in call order, same
+// process — cheap since this is local SQLite on one device, not a
+// distributed lock.
+let hkExportsQueue: Promise<unknown> = Promise.resolve();
+function serializeHkExportsWrite<T>(fn: () => Promise<T>): Promise<T> {
+  const run = hkExportsQueue.then(fn, fn);
+  hkExportsQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
 export async function setHkExportRecord(
   observationId: string,
   record: HkExportRecord,
   db?: SqlDatabase
 ): Promise<void> {
-  const all = await getHkExports(db);
-  await setSettingJson(K_HK_EXPORTS, { ...all, [observationId]: record }, db);
+  await serializeHkExportsWrite(async () => {
+    const all = await getHkExports(db);
+    await setSettingJson(K_HK_EXPORTS, { ...all, [observationId]: record }, db);
+  });
 }
 
 export async function deleteHkExportRecord(observationId: string, db?: SqlDatabase): Promise<void> {
-  const all = await getHkExports(db);
-  if (!(observationId in all)) return;
-  const { [observationId]: _removed, ...rest } = all;
-  await setSettingJson(K_HK_EXPORTS, rest, db);
+  await serializeHkExportsWrite(async () => {
+    const all = await getHkExports(db);
+    if (!(observationId in all)) return;
+    const { [observationId]: _removed, ...rest } = all;
+    await setSettingJson(K_HK_EXPORTS, rest, db);
+  });
 }
