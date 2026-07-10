@@ -1,5 +1,29 @@
 # Plan Tab — Spec (v0.1) · the Training tab as a planning surface
 
+> **⚠️ SUPERSEDED IN PART — 2026-07-10 Training-tab planning session (Notion authority).**
+> The tab-by-tab nav planning session materially revised this spec. The **authority
+> is now the Notion "Training" page** (Pages and Features → Pages) until this doc is
+> rewritten. What changed:
+> - **The week grid is dead.** There is no rendered week/agenda view. Recurrence is a
+>   per-template property ("repeats M/W/F") that surfaces *only on Home* as today's due
+>   stack — never as a planner. "The week is the anchor" and the whole placed/cadence/open
+>   three-shapes-on-a-week model below are retired as a *layout*; the underlying idea
+>   (placed workouts vs. cadence benchmarks vs. open activities) survives, just not as a grid.
+> - **The library split into two modes.** The Training tab is a top swap between
+>   **Templates** (structured saved shapes, any dimension — blank-slate, numbers roll
+>   forward from history) and **Routes & Sections** (saved geometry — its own future session).
+>   Not one unified "week + library" surface.
+> - **History left the tab.** The unified "intent becoming record" view is retired.
+>   Training is forward-facing only; the logbook (chronological + calendar) becomes
+>   overflow with a deferred tab-home (Profile is the parking candidate).
+> - **Cadence goals** are still benchmarks (that call holds), and now compose into
+>   **benchmark groups** — pausable, many-to-many bundles (see `benchmarks-spec.md`).
+> - **Templates carry no numeric targets.** Progressive overload = last-performance
+>   prefill with zero app suggestion; explicit targets are a benchmark concept.
+>
+> The constitutional spine (empty library, neutral empty days, count-not-streak,
+> pull-not-push, planned-vs-actual-is-a-mirror) is unchanged and still governs.
+
 *The Phase-6 spec session `backlog.md` gates ("Planning system needs its own spec
 session before any build… Do not build ahead of this planning session"). Companion
 to `training-logging-spec.md` (the logging surfaces this plans *into*) and

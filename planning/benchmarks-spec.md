@@ -198,6 +198,40 @@ Archiving should feel like setting something down, not closing a chapter.
 
 ---
 
+## Benchmark groups (v0.5 — added 2026-07-10)
+
+*From the Training-tab planning session. This spec previously handled benchmarks one
+at a time; groups are the level above a single benchmark — the thing that answers
+"what season am I in."*
+
+A **benchmark group** is a named, user-authored bundle of benchmarks that share one
+**pause / resume** switch. "Comp Prep" might hold *climb 4×/week* + *hangboard 2×/week*
++ *run 2×/week*; flipping the group off steps back from all three at once, flipping it
+on resumes them. It's the seasonal container — Comp Prep, Off-Season, Base Building —
+without the app ever authoring what belongs in one.
+
+- **Group toggle is a pause, not an archive.** Soft and reversible: a paused group's
+  members stop framing Reflect and drop off the Today cards, but nothing is terminated
+  and no history is closed. Distinct from the per-benchmark **archive** below, which is
+  the harder "I'm done tracking this" act.
+- **Archive stays per-benchmark and independent of any group.** A benchmark can be
+  archived on its own while its group is active, or sit paused inside a paused group.
+  The two lifecycles are orthogonal — group membership never forces a member's state.
+- **Membership is many-to-many.** One benchmark can belong to several groups at once
+  ("yoga 1×/week" in both a *flexibility* group and a *comp prep* group); toggling one
+  group doesn't touch the other unless the benchmark sits in both.
+- **Still no app-authored grouping.** Groups ship empty; the user builds them. This is
+  the same pull-not-push / goals-are-yours line the rest of the spec holds — a group is
+  the user's own organizing act, never a suggested "program."
+
+**Where it lives.** Benchmark *counters* ride on Home (unchanged). Group **management**
+(create a group, add/remove members, pause/resume) is part of the retrospective/goal
+surface cluster whose tab-home is deferred by the 2026-07-10 nav session — Profile is
+the parking candidate, but placement is explicitly not yet decided (see the Notion
+Training page's open questions).
+
+---
+
 ## Cohort connection (Ring 4 — forward reference)
 
 Cohort events and challenges target the same data dimensions personal benchmarks use, on the same mapping. Opting into a cohort event spawns an independent personal benchmark on the user's timeline; if the event ends or they leave the cohort, their benchmark survives. The event is social context, the benchmark is personal commitment — the individual's Reflect experience is always driven by their personal benchmarks. Full mechanics in `cohorts-spec.md`.
@@ -227,6 +261,15 @@ Cohort events and challenges target the same data dimensions personal benchmarks
 
 ## Open questions (deferred, not blocking)
 
+- **Seasonal / annual windows** — the behavior face's window is weekly/monthly today. An
+  annual/seasonal goal ("fly 150 days this year," "get X hours this season") is a real
+  case this spec doesn't cover yet. Deferred 2026-07-10 ("not yet"): does the window
+  field just generalize to day/week/month/season/year, or does a year-long goal read
+  differently enough (pacing against a yearly target, not a weekly count) to deserve its
+  own treatment? Not blocking; parked.
+- **Group lifecycle depth** — can a group itself be archived (not just paused), and does
+  a group carry its own completion context, or is a group always a live/paused organizing
+  layer with lifecycle living only on its members? (See "Benchmark groups.")
 - **Active benchmark cap** — one focused at a time? N concurrent? Unbounded with one "primary"?
 - **Per-face lifecycle** — can a face be archived/completed independently ("hit 75 kg, keeping the 4×/week"), or does lifecycle stay whole-benchmark? v1: whole-benchmark; revisit when a threshold outcome completes under a live behavior.
 - **Milestone data model** — do benchmarks own milestones, or do milestones emerge from the correlation engine? Constitution risk: an app-authored sub-goal ("60% to 5.12!") is one step from a checkpoint/streak reward. Whatever ships must keep milestones user-authored or strictly revealed-from-outcome.
