@@ -16,9 +16,14 @@ Dylan is mid-redesign of the core screens around a new Columbia River Gorge bran
 
 ## Open decisions (check Notion for current status — these may resolve over time)
 1. Does tapping "Session" on the new Home log-bar open the activity picker directly?
-2. Does GPS capture move to live on the Map tab (vs. inside the session logger)?
+2. Does GPS capture move to live on the Map tab (vs. inside the session logger)? — *Partially
+   resolved 2026-07-11: route creation lives on the Map tab; see
+   `gps-mapping-spec.md` § Placement — creation on Map, list in both places.*
 3. Where do HealthKit steps/sleep live in the new Home layout?
-4. Does the condensed Stimulus Ledger stay on Home now that Reflect is a tap-in?
+4. ~~Does the condensed Stimulus Ledger stay on Home now that Reflect is a tap-in?~~ **Resolved
+   2026-07-11:** Home gains a Pinned Spots glance surface (see `pinned-spots-spec.md`,
+   "Where it lives"); whether it sits alongside or replaces the condensed Stimulus Ledger is
+   still an open Home-layout question, but Spots-on-Home itself is decided.
 5. Benchmarks need a new `type` field (Outcome / Compliance / Trend) — schema addition, not built in `src/storage/benchmarks.ts` yet.
 6. Benchmarks list layout: grouped-by-domain vs. grouped-by-type — undecided.
 7. Templates library layout: two lists (Templates vs. Sections) vs. one unified stream — undecided.

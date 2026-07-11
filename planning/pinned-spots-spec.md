@@ -16,11 +16,24 @@ launch windy," decide whether to go.
 future Map tab. A Spot is a point, not a line. It is also not planning/goals — that's
 benchmarks. This is place + current conditions only.
 
-**Where it lives:** second mode of the Training tab, opposite Templates, behind a top-of-tab
-swap. The tab shell itself is OUT OF SCOPE for this build (pending the all-tabs research), but
-every surface below must assume it will eventually mount inside a tab that has a top mode-swap:
-no full-screen headers of its own, content is one scrollable region, navigation to detail is a
-push (tap-in), not a mode change.
+**Where it lives:** *Amended 2026-07-11 (Dylan, nav talk-through).* Spots is a **Home** feature,
+not a Training mode. The "check before you go" glance behavior described above (open it in the
+morning, see is-it-runnable, decide whether to go) is Home's job by definition — pull-based,
+at-a-glance, no navigation required — so the surface belongs there, not behind a Training
+top-swap. This resolves `screens-features-status.md` open decision #4 in the Spots direction:
+the condensed conditions glance lives on Home alongside (or in place of) the condensed Stimulus
+Ledger.
+
+Superseded original placement, kept for context: this spec originally located Spots as the
+second mode of the Training tab, opposite Templates, behind a top-of-tab swap, reasoning that
+the tab shell was out of scope pending all-tabs research. That reasoning still applies to the
+*swap mechanism* — Training's Templates ↔ mode-swap pattern was never built — but the
+destination tab changes from Training to Home. The MVP mount point in § Surfaces (a header link
+on the Training tab) is likewise superseded — see the note there.
+
+Every surface below must still assume it will eventually mount inside a tab that has room for a
+scrollable list; navigation to detail stays a push (tap-in), not a mode change. The specific
+mount point moves from Training to Home — see the note in § Surfaces.
 
 ## Decisions locked (Dylan, 2026-07-10)
 
@@ -120,9 +133,15 @@ cloudcover + precipitation. Decide in Pass 1; derivation is the safer default.
 ## Surfaces
 
 ### 1. Spots list (Pass 2) — the mode home
-- MVP mount: a **"Spots →" header link on the Training tab**, alongside the existing
-  Benchmarks/Library/Progress/Import links (`app/(tabs)/training.tsx:108`). Deliberately thin
-  and temporary — re-homes into the Templates ↔ Pinned Spots top swap when the tab shell lands.
+- **Amended 2026-07-11:** MVP mount moves to **Home**, not Training. Original plan (superseded,
+  kept for context) was a **"Spots →" header link on the Training tab**, alongside the existing
+  Benchmarks/Library/Progress/Import links (`app/(tabs)/training.tsx:108`), re-homing into a
+  Templates ↔ Pinned Spots top swap when the tab shell landed. That swap mechanism was never
+  built, and Dylan's nav talk-through moved Spots to Home instead — see § What it is /
+  "Where it lives" above. New MVP mount: a glanceable Spots section/link directly on Home
+  (exact layout — condensed cards vs. a "Spots →" link — is a Home-layout decision, not yet
+  made; coordinate with whichever Home redesign lands in Notion first). Training tab no longer
+  hosts Spots.
 - Route: `app/spots.tsx`. Cards: title, sport icon, headline reading (gauge ft/cfs for kayak
   spots, temp + wind otherwise), updated-at stamp.
 - Grouped/filterable by sport; untagged group last with tag prompt.

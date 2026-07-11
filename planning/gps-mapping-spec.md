@@ -55,6 +55,40 @@ For comparison and sharing to work, a route must be its own record — geometry 
 
 The existing `GpsTemplateShape` in `core/src/sessionTemplate.ts` currently carries **target distance only** ("go run 5k," no geometry). The first-class-route vision needs it upgraded to hold an actual followable `GeoPoint[]` course. See § Data-model implications.
 
+### Placement — creation on Map, list in both places
+
+*Amended 2026-07-11 (Dylan, nav talk-through, prompted by a Strava "Routes" screenshot).*
+Resolves open question #1 in the Spots direction's counterpart for routes: routes are a
+**Map-tab creation flow with a Training-tab list**, not a Profile artifact (rejecting the
+Strava pattern of routes-under-Profile — Profile there is really just "your content by object
+type," not a real nav concept here).
+
+- **Creation happens on the Map tab.** "Start a new route" takes the user into the Map, where
+  they draw/track the course (live phone tracking or, per the capture ladder above, import);
+  finishing prompts a save. This is consistent with routes being map-native geometry — the Map
+  tab is where `MapLibre`/`RouteMap` already lives, so route-building reuses that surface
+  rather than duplicating a map elsewhere.
+- **Finishing a session can also save-as-route**, symmetric with Pinned Spots' save-as-spot
+  flow (`pinned-spots-spec.md` § Surfaces #4): do a session, then save its actual trace as a
+  reusable route, same promotion pattern applied to a line instead of a point.
+- **Saved routes list lives in a "Routes" surface under Training**, alongside Templates/Library
+  — the planned-vs-actual parallel this doc already draws (§ The planned-vs-actual parallel)
+  makes Training the natural home for "things you can go do again," same shelf as workout
+  templates. This is a list/browse view (cards like the Strava screenshot: name, distance,
+  elevation, static thumbnail — see § Map display layer), not a full map, and it pushes into
+  the Map tab (or a route detail push) to actually view/follow one.
+- **Groups/cohort visibility is a layer, not a separate object.** A shared/cohort route doesn't
+  get its own tab or its own list — it shows up as a togglable layer on the Map (see § Cohort
+  map (Ring 4)) and, where relevant, in the same Training "Routes" list scoped by
+  `private | cohortId` visibility (§ Privacy). One `Route` record, referenced from Map (view/
+  layer), Training (list), and cohorts (sharing scope) — not three parallel objects.
+
+Net: **Map = where a route is made and navigated. Training = where saved routes are browsed and
+reused. Cohort visibility = a permission + a layer, not a new surface.** This is a placement
+decision on top of the existing data-model plan (§ Data-model implications item 2, the
+first-class `Route` record) — it does not change the entity itself, only where the UI for it
+lives.
+
 ---
 
 ## The line: self-vs-self is a mirror; vs-strangers is a scoreboard
@@ -131,7 +165,7 @@ GPS is not a single phase — it's a capability that ladders across the existing
 
 ## Open questions
 
-1. **In-app tracking placement** — a Phase 3 fast-follow (ingestion-adjacent, both emit `route`-bearing Sessions), or a small Phase 4 GPS-surface enrichment (the GPS log form gains a "track with phone" mode)? Both defensible; resolve when the Phase 3 map-render lands and the real shape of the work is visible.
+1. **In-app tracking placement** — a Phase 3 fast-follow (ingestion-adjacent, both emit `route`-bearing Sessions), or a small Phase 4 GPS-surface enrichment (the GPS log form gains a "track with phone" mode)? Both defensible; resolve when the Phase 3 map-render lands and the real shape of the work is visible. *Nav placement resolved 2026-07-11 — see § Placement — creation on Map, list in both places; this question is now narrowly about Phase 3 vs. Phase 4 timing, not which tab.*
 2. **`Route` entity vs. `SessionTemplate`** — does a navigable route reuse the `GpsTemplateShape` upgrade, or warrant its own `Route` type that templates reference? Likely the latter (a route is shared/compared across many sessions; a template is a plan) — decide in the Phase 6 build plan.
 3. **Terrain/DEM elevation source** for phone-tracked and saved routes (no barometric altimeter) — Mapbox Terrain vs. open-elevation vs. other. Implementation decision for the build phase.
 4. **MapLibre vs. Mapbox** — open vs. polished, billing model. Decide at the display build.
