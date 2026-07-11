@@ -32,6 +32,7 @@ override stands and the flag doesn't get re-raised on the next pass.
 - `mapping-architecture-spec.md` — the 6-layer build contract for mapping & GPS
 - `mapping-systems-research.md` — Strava internals, platform landscape, recommended mapping stack
 - `sport-mapping-research.md` — sport-specific mapping data layers (free flight, whitewater, ski, wind/kite, hiking)
+- `home-tab-spec.md` — Home tab: two-tier layout (log bar + glance modules), the element picker (Log Session → Earth/Sky/Water→Map, Body→Training), empty-Home floor
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
 - `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
 - `ai-consultant-prompt.md` — Phase 7 (AI consultant)
