@@ -107,7 +107,6 @@ export function useWearableSync(onChange?: () => void): WearableSync {
   }, []);
 
   const syncNow = useCallback(async () => {
-    if (!connected) return;
     if (Date.now() - lastPollAt.current < POLL_THROTTLE_MS) return;
     if (syncLock.current) return;
     // Stamp the throttle and take the lock immediately, before any await, so
@@ -118,8 +117,16 @@ export function useWearableSync(onChange?: () => void): WearableSync {
     setSyncing(true);
     setLastError(null);
     try {
-      const reader = getWearableSource();
+      // Read persisted `connected` fresh on every call, rather than trusting
+      // this hook instance's own `connected` state: a sibling screen (e.g.
+      // Settings, which mounts its own useWearableSync instance) may have
+      // connected HealthKit without this instance ever re-hydrating — tab
+      // screens stay mounted, so a mount-only hydrate effect would otherwise
+      // leave this instance's `connected` permanently stale until app restart.
       const state = await readState();
+      setConnected(state.connected);
+      if (!state.connected) return;
+      const reader = getWearableSource();
       if (!state.backfillDone) {
         await runBackfill(reader);
       } else {
@@ -135,7 +142,7 @@ export function useWearableSync(onChange?: () => void): WearableSync {
       syncLock.current = false;
       setSyncing(false);
     }
-  }, [connected]);
+  }, []);
 
   return { connected, syncing, lastError, connect, syncNow };
 }

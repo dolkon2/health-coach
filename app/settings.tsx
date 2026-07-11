@@ -15,6 +15,7 @@ import { useTheme } from '@/theme';
 import { seedSampleData, clearSampleData } from '@/lib/devSeed';
 import { useSettings, useUpdateSettings } from '@/settings/useSettings';
 import { requestWritePermissions } from '@/lib/healthkit/writer';
+import { useWearableSync } from '@/hooks/useWearableSync';
 import type { WeightUnit, DistanceUnit } from '@/lib/units';
 import { parseCsv } from '@/lib/climbImport/csv';
 import { looksLikeBoardLibCsv, parseBoardLibCsv } from '@/lib/climbImport/boardlib';
@@ -51,6 +52,10 @@ export default function SettingsScreen() {
     deficitKcal,
   } = useSettings();
   const updateSettings = useUpdateSettings();
+  // Read-side HealthKit connection (steps/sleep) — moved here from Home
+  // (home-tab.md H3): Home only reads `connected` to decide whether its
+  // steps/sleep strip renders; the CTA to connect lives here now.
+  const wearable = useWearableSync();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [hkBusy, setHkBusy] = useState(false);
@@ -286,7 +291,24 @@ export default function SettingsScreen() {
       </Card>
 
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Apple Health</Text>
+        <Text variant="label">Steps & sleep</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          {wearable.connected
+            ? 'Connected. Steps and sleep hours import automatically — tier-1 facts only, no readiness score.'
+            : 'Connect Apple Health to bring in steps and sleep automatically.'}
+        </Text>
+        <Button
+          label={wearable.connected ? 'Connected' : wearable.syncing ? 'Connecting…' : 'Connect Apple Health'}
+          variant="outline"
+          disabled={wearable.connected}
+          onPress={() => {
+            void wearable.connect();
+          }}
+        />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Apple Health export</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           Off by default. When on, sessions you log here export to Health as
           activity type and start/end time only — never a modeled calorie
