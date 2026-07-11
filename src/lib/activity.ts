@@ -235,8 +235,10 @@ export const MORE_ACTIVITY_IDS: readonly string[] = ['ruck', 'sail'];
 
 const MORE_ACTIVITY_SET = new Set(MORE_ACTIVITY_IDS);
 
-/** Pickable = shown in pickers: not deprecated, not pending delete-review. */
-function pickable(a: Activity): boolean {
+/** Pickable = shown in pickers: not deprecated, not pending delete-review.
+ *  Exported so every activity picker (Training tab, Home's element-picker
+ *  sheet) shares this exclusion instead of each re-deriving it. */
+export function pickable(a: Activity): boolean {
   return a.deprecated !== true && !REVIEW_PENDING.has(a.id);
 }
 
