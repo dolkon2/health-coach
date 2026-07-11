@@ -169,7 +169,7 @@ export function SpotPicker({
           accessibilityLabel={open ? `Close ${label} picker` : `Choose ${label}`}
           hitSlop={8}
         >
-          <Text variant="label" color={theme.colors.sandstone}>
+          <Text variant="label" color={theme.colors.accent}>
             {open ? 'Close' : selectedName ? 'Change' : 'Choose'}
           </Text>
         </Pressable>
@@ -216,7 +216,7 @@ export function SpotPicker({
               hitSlop={8}
               style={{ alignSelf: 'flex-start', paddingVertical: theme.spacing[1] }}
             >
-              <Text variant="label" color={theme.colors.sandstone}>
+              <Text variant="label" color={theme.colors.accent}>
                 + New spot
               </Text>
             </Pressable>

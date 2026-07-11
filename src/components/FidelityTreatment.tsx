@@ -21,7 +21,7 @@ export function FidelityTreatment({ fidelity, size = 10 }: { fidelity: number; s
     return (
       <View
         accessibilityLabel={`fidelity ${t.tier.toLowerCase()}`}
-        style={{ ...base, backgroundColor: theme.colors.sandstone }}
+        style={{ ...base, backgroundColor: theme.colors.accent }}
       />
     );
   }
@@ -31,7 +31,7 @@ export function FidelityTreatment({ fidelity, size = 10 }: { fidelity: number; s
       style={{
         ...base,
         borderWidth: 1.5,
-        borderColor: theme.colors.sandstone,
+        borderColor: theme.colors.accent,
         borderStyle: t.dot === 'dotted' ? 'dashed' : 'solid',
         backgroundColor: 'transparent',
       }}

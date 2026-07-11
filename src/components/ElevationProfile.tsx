@@ -75,7 +75,7 @@ export function ElevationProfile({ points, height = 88, color }: ElevationProfil
   if (!paths) return null;
 
   const gain = elevationGainM(points);
-  const stroke = color ?? theme.colors.olive;
+  const stroke = color ?? theme.colors.positive;
   const caption = [
     gain != null ? `↑ ${gain} m` : null,
     `${Math.round(paths.minEle)}–${Math.round(paths.maxEle)} m`,

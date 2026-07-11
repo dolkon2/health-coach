@@ -33,7 +33,7 @@ export function RestTimer({ remainingSec, onSkip }: RestTimerProps) {
         paddingHorizontal: theme.spacing[4],
       }}
     >
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Rest · {formatRest(remainingSec)}
       </Text>
       <Text variant="label" color={theme.colors.textMuted}>

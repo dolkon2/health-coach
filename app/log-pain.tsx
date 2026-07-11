@@ -75,7 +75,7 @@ export default function LogPainScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Pain
       </Text>
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>

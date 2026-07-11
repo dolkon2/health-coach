@@ -164,10 +164,10 @@ export function DayMealList({
                 width: 7,
                 height: 7,
                 borderRadius: 3.5,
-                backgroundColor: theme.colors.clay,
+                backgroundColor: theme.colors.caution,
               }}
             />
-            <Text variant="bodySm" color={theme.colors.clay} style={{ flex: 1 }}>
+            <Text variant="bodySm" color={theme.colors.caution} style={{ flex: 1 }}>
               {totals.partialCount} partial{' '}
               {totals.partialCount === 1 ? 'entry' : 'entries'} — missing macros not counted
             </Text>

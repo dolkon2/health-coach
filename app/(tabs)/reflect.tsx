@@ -94,7 +94,7 @@ export default function ReflectScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Reflect
       </Text>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>

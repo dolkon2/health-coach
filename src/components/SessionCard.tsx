@@ -38,7 +38,7 @@ export function SessionCard({ session, contribution }: SessionCardProps) {
       <View
         style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
       >
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           {p.modality}
         </Text>
         <Text variant="dataSm" color={theme.colors.textSecondary}>

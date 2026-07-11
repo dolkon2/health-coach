@@ -46,7 +46,7 @@ export function Button({
   const isDisabled = disabled || loading;
 
   const bg: Record<Variant, string> = {
-    primary: theme.colors.sandstone,
+    primary: theme.colors.accent,
     secondary: theme.colors.surfaceRaised,
     outline: 'transparent',
     ghost: 'transparent',
@@ -54,8 +54,8 @@ export function Button({
   const fg: Record<Variant, string> = {
     primary: theme.colors.bg,
     secondary: theme.colors.text,
-    outline: theme.colors.sandstone,
-    ghost: theme.colors.sandstone,
+    outline: theme.colors.accent,
+    ghost: theme.colors.accent,
   };
 
   return (
@@ -81,7 +81,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? theme.colors.bg : theme.colors.sandstone}
+          color={variant === 'primary' ? theme.colors.bg : theme.colors.accent}
           size="small"
         />
       ) : (

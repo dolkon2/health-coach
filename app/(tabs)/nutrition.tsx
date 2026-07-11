@@ -103,7 +103,7 @@ export default function NutritionScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Nutrition
       </Text>
 

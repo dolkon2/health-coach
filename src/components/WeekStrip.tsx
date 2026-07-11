@@ -71,7 +71,7 @@ export function WeekStrip({
           const isToday = d === today;
           const hasFood = daysWithFood.has(d);
           const borderColor = isSelected
-            ? theme.colors.sandstone
+            ? theme.colors.accent
             : isToday
               ? theme.colors.borderStrong
               : 'transparent';
@@ -105,7 +105,7 @@ export function WeekStrip({
                   width: 4,
                   height: 4,
                   borderRadius: 2,
-                  backgroundColor: hasFood ? theme.colors.clay : 'transparent',
+                  backgroundColor: hasFood ? theme.colors.caution : 'transparent',
                 }}
               />
             </Pressable>

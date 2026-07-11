@@ -177,7 +177,7 @@ export default function ImportCsvScreen() {
 
       {error ? (
         <Card style={{ marginTop: theme.spacing[4] }}>
-          <Text variant="body" color={theme.colors.sandstone}>
+          <Text variant="body" color={theme.colors.accent}>
             {error}
           </Text>
         </Card>

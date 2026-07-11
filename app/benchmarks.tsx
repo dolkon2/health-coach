@@ -53,7 +53,7 @@ export default function BenchmarksScreen() {
         }}
       >
         <View style={{ flex: 1 }}>
-          <Text variant="label" color={theme.colors.sandstone}>
+          <Text variant="label" color={theme.colors.accent}>
             Benchmarks
           </Text>
           <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>

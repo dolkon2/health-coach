@@ -77,7 +77,7 @@ export default function BodyProfileScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Body stats
       </Text>
       <Text variant="body" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>

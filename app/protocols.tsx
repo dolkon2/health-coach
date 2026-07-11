@@ -261,7 +261,7 @@ export default function ProtocolsScreen() {
             return (
               <Card key={p.id} style={{ gap: theme.spacing[3] }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <Text variant="label" color={theme.colors.sandstone}>
+                  <Text variant="label" color={theme.colors.accent}>
                     {p.name}
                   </Text>
                   <Text variant="dataSm" color={theme.colors.textMuted}>

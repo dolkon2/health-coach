@@ -60,11 +60,11 @@ export default function TrainingProgressScreen() {
                 <View
                   style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <Text variant="label" color={theme.colors.sandstone}>
+                  <Text variant="label" color={theme.colors.accent}>
                     {lift.exercise}
                   </Text>
                   {lift.newPrKinds.includes('e1rm') ? (
-                    <Text variant="dataSm" color={theme.colors.sandstone}>
+                    <Text variant="dataSm" color={theme.colors.accent}>
                       PR
                     </Text>
                   ) : null}
@@ -138,7 +138,7 @@ export default function TrainingProgressScreen() {
             const advancement = step ? suggestLadderAdvancement(step) : null;
             return (
               <Card key={c.chainId} style={{ gap: theme.spacing[1] }}>
-                <Text variant="label" color={theme.colors.sandstone}>
+                <Text variant="label" color={theme.colors.accent}>
                   {c.chainName}
                 </Text>
                 <Text variant="body">{c.stepName}</Text>

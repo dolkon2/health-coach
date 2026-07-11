@@ -489,7 +489,7 @@ export default function LogFood() {
           // and a corrupted nav stack would leave a back-gesture stranded.
           headerLeft: () => (
             <Pressable onPress={dismiss} accessibilityRole="button" hitSlop={12}>
-              <Text variant="body" color={theme.colors.sandstone}>Cancel</Text>
+              <Text variant="body" color={theme.colors.accent}>Cancel</Text>
             </Pressable>
           ),
         }}
@@ -617,7 +617,7 @@ export default function LogFood() {
                   disabled={!(Number(barcodeGrams) > 0)}
                 />
                 <Pressable onPress={resetScan} accessibilityRole="button" hitSlop={6}>
-                  <Text variant="bodySm" color={theme.colors.sandstone}>Scan another</Text>
+                  <Text variant="bodySm" color={theme.colors.accent}>Scan another</Text>
                 </Pressable>
               </Card>
             ) : scanStatus === 'not-found' ? (
@@ -628,7 +628,7 @@ export default function LogFood() {
                 <Button label="Read the label instead" onPress={() => { resetScan(); resetLabel(); setScanTarget('label'); }} />
                 <Button label="Describe it instead" variant="outline" onPress={() => { resetScan(); fl.setMode('describe'); }} />
                 <Pressable onPress={resetScan} accessibilityRole="button" hitSlop={6}>
-                  <Text variant="bodySm" color={theme.colors.sandstone}>Scan again</Text>
+                  <Text variant="bodySm" color={theme.colors.accent}>Scan again</Text>
                 </Pressable>
               </View>
             ) : (
@@ -652,7 +652,7 @@ export default function LogFood() {
                 </View>
                 {scanStatus === 'resolving' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                    <ActivityIndicator color={theme.colors.sandstone} />
+                    <ActivityIndicator color={theme.colors.accent} />
                     <Text variant="bodySm" color={theme.colors.textMuted}>Looking up {scannedCode}…</Text>
                   </View>
                 ) : (
@@ -680,7 +680,7 @@ export default function LogFood() {
                     <ChipSelect options={PORTION_OPTIONS} value={labelBasis} onChange={setLabelBasis} />
                     <Button label="Add to meal" onPress={onAddLabel} disabled={!(Number(labelServings) > 0)} />
                     <Pressable onPress={resetLabel} accessibilityRole="button" hitSlop={6}>
-                      <Text variant="bodySm" color={theme.colors.sandstone}>Scan another label</Text>
+                      <Text variant="bodySm" color={theme.colors.accent}>Scan another label</Text>
                     </Pressable>
                   </Card>
                 ) : labelStatus === 'unreadable' ? (
@@ -702,7 +702,7 @@ export default function LogFood() {
                       />
                     ) : null}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                      <ActivityIndicator color={theme.colors.sandstone} />
+                      <ActivityIndicator color={theme.colors.accent} />
                       <Text variant="bodySm" color={theme.colors.textMuted}>Reading the label…</Text>
                     </View>
                   </View>
@@ -751,12 +751,12 @@ export default function LogFood() {
                 />
                 {fl.busy ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                    <ActivityIndicator color={theme.colors.sandstone} />
+                    <ActivityIndicator color={theme.colors.accent} />
                     <Text variant="bodySm" color={theme.colors.textMuted}>Estimating the plate…</Text>
                   </View>
                 ) : (
                   <Pressable onPress={resetPhoto} accessibilityRole="button" hitSlop={6}>
-                    <Text variant="bodySm" color={theme.colors.sandstone}>Retake</Text>
+                    <Text variant="bodySm" color={theme.colors.accent}>Retake</Text>
                   </Pressable>
                 )}
               </View>
@@ -805,7 +805,7 @@ export default function LogFood() {
         )}
 
         {fl.error ? (
-          <Text variant="bodySm" color={theme.colors.clay} style={{ marginTop: theme.spacing[2] }}>{fl.error}</Text>
+          <Text variant="bodySm" color={theme.colors.caution} style={{ marginTop: theme.spacing[2] }}>{fl.error}</Text>
         ) : null}
 
         {fl.preview ? (
@@ -909,10 +909,10 @@ export default function LogFood() {
                       {it.description ? `${it.description} · ` : ''}{it.portionText ?? `${Math.round(it.quantity)} g`}
                     </Text>
                     <Pressable onPress={() => setEditingIndex(i)} accessibilityRole="button" hitSlop={6}>
-                      <Text variant="bodySm" color={theme.colors.sandstone}>Edit</Text>
+                      <Text variant="bodySm" color={theme.colors.accent}>Edit</Text>
                     </Pressable>
                     <Pressable onPress={() => { fl.removeItem(i); setEditingIndex(null); }} accessibilityRole="button" hitSlop={6}>
-                      <Text variant="bodySm" color={theme.colors.clay}>Remove</Text>
+                      <Text variant="bodySm" color={theme.colors.caution}>Remove</Text>
                     </Pressable>
                   </View>
                   <Text variant="bodySm" color={theme.colors.textSecondary}>{itemMacroSummary(it)}</Text>

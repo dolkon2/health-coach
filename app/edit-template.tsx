@@ -535,7 +535,7 @@ export default function EditTemplateScreen() {
     const more = moreActivities().filter((a) => a.surface !== 'sky');
     return (
       <Screen scroll>
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           New template
         </Text>
         <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
@@ -590,12 +590,12 @@ export default function EditTemplateScreen() {
     <Screen scroll>
       {!isEdit ? (
         <Pressable onPress={() => setStep('activity')} accessibilityRole="button">
-          <Text variant="label" color={theme.colors.sandstone}>
+          <Text variant="label" color={theme.colors.accent}>
             ‹ {activityLabel}
           </Text>
         </Pressable>
       ) : (
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           {activityLabel}
         </Text>
       )}
@@ -667,8 +667,8 @@ export default function EditTemplateScreen() {
               height: 22,
               borderRadius: theme.radius.sm,
               borderWidth: 1.5,
-              borderColor: form.isActive ? theme.colors.sandstone : theme.colors.borderStrong,
-              backgroundColor: form.isActive ? theme.colors.sandstone : 'transparent',
+              borderColor: form.isActive ? theme.colors.accent : theme.colors.borderStrong,
+              backgroundColor: form.isActive ? theme.colors.accent : 'transparent',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -920,7 +920,7 @@ function GymTemplateBody({
               hitSlop={8}
               style={{ alignSelf: 'flex-start', paddingVertical: theme.spacing[1] }}
             >
-              <Text variant="label" color={theme.colors.sandstone}>
+              <Text variant="label" color={theme.colors.accent}>
                 + Add set
               </Text>
             </Pressable>
@@ -1194,7 +1194,7 @@ function ActivityPickTile({
         gap: theme.spacing[2],
       }}
     >
-      <Icon size={24} color={theme.colors.sandstone} strokeWidth={1.5} />
+      <Icon size={24} color={theme.colors.accent} strokeWidth={1.5} />
       <Text variant="label" color={theme.colors.text}>
         {activity.label}
       </Text>

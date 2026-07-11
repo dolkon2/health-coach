@@ -97,7 +97,7 @@ export function RoutePreview({ path, height = 84, color }: RoutePreviewProps) {
     >
       <Path
         d={d}
-        stroke={color ?? theme.colors.sandstone}
+        stroke={color ?? theme.colors.accent}
         strokeWidth={1.6}
         strokeLinecap="round"
         strokeLinejoin="round"

@@ -42,9 +42,9 @@ export function ChipSelect<T extends string | number>({
               paddingVertical: theme.spacing[2],
               paddingHorizontal: theme.spacing[3],
               borderRadius: theme.radius.full,
-              backgroundColor: selected ? theme.colors.sandstone : theme.colors.surfaceRaised,
+              backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceRaised,
               borderWidth: 1,
-              borderColor: selected ? theme.colors.sandstone : theme.colors.border,
+              borderColor: selected ? theme.colors.accent : theme.colors.border,
               alignItems: 'center',
               ...(columns ? { flexBasis: `${100 / columns - 3}%`, flexGrow: 1 } : null),
             }}

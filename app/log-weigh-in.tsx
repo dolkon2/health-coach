@@ -106,7 +106,7 @@ export default function LogWeighInScreen() {
 
   return (
     <Screen>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Weigh-in
       </Text>
       <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>

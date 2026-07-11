@@ -918,7 +918,7 @@ export default function LogSessionScreen() {
         title: isEdit ? 'Edit session' : 'Log session',
         headerLeft: () => (
           <Pressable onPress={dismiss} accessibilityRole="button" hitSlop={12}>
-            <Text variant="body" color={theme.colors.sandstone}>Cancel</Text>
+            <Text variant="body" color={theme.colors.accent}>Cancel</Text>
           </Pressable>
         ),
       }}
@@ -952,7 +952,7 @@ export default function LogSessionScreen() {
     return (
       <Screen scroll>
         {headerScreen}
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           Log session
         </Text>
         <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
@@ -1043,12 +1043,12 @@ export default function LogSessionScreen() {
             backgroundColor: theme.colors.surface,
           }}
         >
-          <Text variant="label" color={theme.colors.sandstone}>
+          <Text variant="label" color={theme.colors.accent}>
             ‹ Change activity
           </Text>
         </Pressable>
       ) : (
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           {label}
         </Text>
       )}
@@ -1539,7 +1539,7 @@ export default function LogSessionScreen() {
                     {pattern && pattern.cautions.length > 0 ? (
                       <Card style={{ gap: theme.spacing[1] }}>
                         {pattern.cautions.map((c, i) => (
-                          <Text key={i} variant="dataSm" color={theme.colors.sandstone}>
+                          <Text key={i} variant="dataSm" color={theme.colors.accent}>
                             {c}
                           </Text>
                         ))}
@@ -1699,7 +1699,7 @@ export default function LogSessionScreen() {
                           accessibilityRole="button"
                           accessibilityLabel="Confirm all detected segments"
                         >
-                          <Text variant="label" color={theme.colors.sandstone}>
+                          <Text variant="label" color={theme.colors.accent}>
                             Confirm all
                           </Text>
                         </Pressable>
@@ -1849,10 +1849,10 @@ export default function LogSessionScreen() {
                       paddingHorizontal: theme.spacing[3],
                       borderRadius: theme.radius.full,
                       backgroundColor: selected
-                        ? theme.colors.sandstone
+                        ? theme.colors.accent
                         : theme.colors.surfaceRaised,
                       borderWidth: 1,
-                      borderColor: selected ? theme.colors.sandstone : theme.colors.border,
+                      borderColor: selected ? theme.colors.accent : theme.colors.border,
                       alignItems: 'center',
                     }}
                   >

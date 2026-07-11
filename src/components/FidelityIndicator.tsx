@@ -28,7 +28,7 @@ export function FidelityIndicator({ level }: { level: FidelityLevel }) {
             width: 4,
             height: 6 + i * 3,
             borderRadius: 1,
-            backgroundColor: i < filled ? theme.colors.sandstone : theme.colors.border,
+            backgroundColor: i < filled ? theme.colors.accent : theme.colors.border,
           }}
         />
       ))}

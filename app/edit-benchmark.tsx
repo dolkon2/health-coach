@@ -285,7 +285,7 @@ export default function EditBenchmarkScreen() {
     const more = moreActivities();
     return (
       <Screen scroll>
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           New benchmark
         </Text>
         <Text variant="displayMd" style={{ marginTop: theme.spacing[2] }}>
@@ -602,12 +602,12 @@ export default function EditBenchmarkScreen() {
     <Screen scroll>
       {!isEdit ? (
         <Pressable onPress={() => setStep('dimension')} accessibilityRole="button">
-          <Text variant="label" color={theme.colors.sandstone}>
+          <Text variant="label" color={theme.colors.accent}>
             ‹ {headerLabel}
           </Text>
         </Pressable>
       ) : (
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           {headerLabel}
         </Text>
       )}
@@ -720,7 +720,7 @@ function FaceHeader({ label, sub }: { label: string; sub: string }) {
         gap: theme.spacing[3],
       }}
     >
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         {label}
       </Text>
       <Text variant="bodySm" color={theme.colors.textMuted}>
@@ -747,7 +747,7 @@ function PairFaceLink({
       accessibilityRole="button"
       style={{ marginTop: theme.spacing[4], gap: theme.spacing[1] }}
     >
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         {label}
       </Text>
       <Text variant="bodySm" color={theme.colors.textMuted}>
@@ -795,7 +795,7 @@ function PickTile({
         gap: theme.spacing[2],
       }}
     >
-      <Icon size={24} color={theme.colors.sandstone} strokeWidth={1.5} />
+      <Icon size={24} color={theme.colors.accent} strokeWidth={1.5} />
       <Text variant="label" color={theme.colors.text}>
         {label}
       </Text>

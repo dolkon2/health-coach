@@ -105,7 +105,7 @@ export default function TodayScreen() {
   return (
     <Screen scroll>
       {/* Date header — display font, uppercase, primary text */}
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Today
       </Text>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
@@ -290,9 +290,9 @@ export default function TodayScreen() {
               {foodTotals.partialCount > 0 ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
                   <View
-                    style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.clay }}
+                    style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.caution }}
                   />
-                  <Text variant="bodySm" color={theme.colors.clay} style={{ flex: 1 }}>
+                  <Text variant="bodySm" color={theme.colors.caution} style={{ flex: 1 }}>
                     {foodTotals.partialCount} partial{' '}
                     {foodTotals.partialCount === 1 ? 'entry' : 'entries'} — missing macros not counted
                   </Text>

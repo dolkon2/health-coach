@@ -167,7 +167,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
           <LineLayer
             id={LAYER_ID}
             style={{
-              lineColor: theme.colors.sandstone,
+              lineColor: theme.colors.accent,
               lineWidth: 3,
               lineCap: 'round',
               lineJoin: 'round',

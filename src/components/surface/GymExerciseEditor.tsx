@@ -97,7 +97,7 @@ export function GymExerciseEditor({
               accessibilityLabel={`Use ${entry.name}`}
               style={{ paddingVertical: theme.spacing[1] }}
             >
-              <Text variant="dataSm" color={theme.colors.sandstone}>
+              <Text variant="dataSm" color={theme.colors.accent}>
                 {entry.name}
               </Text>
             </Pressable>
@@ -209,7 +209,7 @@ function AddSetLink({ onPress }: { onPress: () => void }) {
       hitSlop={8}
       style={{ alignSelf: 'flex-start', paddingVertical: theme.spacing[1] }}
     >
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         + Add set
       </Text>
     </Pressable>
@@ -249,8 +249,8 @@ function SetDoneButton({ done, onPress }: { done: boolean; onPress: () => void }
         height: 26,
         borderRadius: theme.radius.sm,
         borderWidth: 1.5,
-        borderColor: done ? theme.colors.sandstone : theme.colors.borderStrong,
-        backgroundColor: done ? theme.colors.sandstone : 'transparent',
+        borderColor: done ? theme.colors.accent : theme.colors.borderStrong,
+        backgroundColor: done ? theme.colors.accent : 'transparent',
         alignItems: 'center',
         justifyContent: 'center',
       }}
@@ -286,8 +286,8 @@ export function Checkbox({
           height: 22,
           borderRadius: theme.radius.sm,
           borderWidth: 1.5,
-          borderColor: checked ? theme.colors.sandstone : theme.colors.borderStrong,
-          backgroundColor: checked ? theme.colors.sandstone : 'transparent',
+          borderColor: checked ? theme.colors.accent : theme.colors.borderStrong,
+          backgroundColor: checked ? theme.colors.accent : 'transparent',
           alignItems: 'center',
           justifyContent: 'center',
         }}

@@ -113,7 +113,7 @@ export default function TrainingScreen() {
           alignItems: 'center',
         }}
       >
-        <Text variant="label" color={theme.colors.sandstone}>
+        <Text variant="label" color={theme.colors.accent}>
           Training
         </Text>
         <View style={{ alignItems: 'flex-end', gap: theme.spacing[1] }}>
@@ -348,7 +348,7 @@ function ActivityTile({ activity, onPress }: { activity: Activity; onPress: () =
         gap: theme.spacing[2],
       }}
     >
-      <Icon size={24} color={theme.colors.sandstone} strokeWidth={1.5} />
+      <Icon size={24} color={theme.colors.accent} strokeWidth={1.5} />
       <Text variant="label" color={theme.colors.text}>
         {activity.label}
       </Text>

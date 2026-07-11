@@ -60,7 +60,7 @@ export default function LiftDetailScreen() {
             <Text variant="body">{p.date}</Text>
             <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
               {i === 0 && lift.newPrKinds.includes('e1rm') ? (
-                <Text variant="dataSm" color={theme.colors.sandstone}>
+                <Text variant="dataSm" color={theme.colors.accent}>
                   PR
                 </Text>
               ) : null}

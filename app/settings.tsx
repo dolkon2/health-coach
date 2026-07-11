@@ -454,7 +454,7 @@ export default function SettingsScreen() {
 
       {/* Developer-only: sample data for previewing Reflect. Removed before release. */}
       <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label" color={theme.colors.clay}>
+        <Text variant="label" color={theme.colors.caution}>
           Developer · sample data
         </Text>
         <Text variant="body" color={theme.colors.textMuted}>

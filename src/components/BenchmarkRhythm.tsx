@@ -108,7 +108,7 @@ export function BenchmarkRhythm({ counts, run, window }: BenchmarkRhythmProps) {
               x2={containerWidth}
               y1={targetY}
               y2={targetY}
-              stroke={theme.colors.sandstone}
+              stroke={theme.colors.accent}
               strokeWidth={1}
               strokeDasharray="6 4"
               strokeOpacity={0.7}

@@ -173,7 +173,7 @@ export default function GearScreen() {
 
   return (
     <Screen scroll>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         Gear
       </Text>
       <Text variant="body" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>

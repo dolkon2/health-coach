@@ -81,9 +81,9 @@ export function GpsRecorderPanel({ onCapture }: GpsRecorderPanelProps) {
       <View style={{ gap: theme.spacing[3] }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
           <View
-            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.clay }}
+            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.caution }}
           />
-          <Text variant="label" color={theme.colors.clay}>
+          <Text variant="label" color={theme.colors.caution}>
             Recording
           </Text>
         </View>
@@ -106,7 +106,7 @@ export function GpsRecorderPanel({ onCapture }: GpsRecorderPanelProps) {
           </View>
         </View>
         {tracker.points.length >= 2 ? (
-          <RoutePreview path={tracker.points} color={theme.colors.clay} />
+          <RoutePreview path={tracker.points} color={theme.colors.caution} />
         ) : (
           <Text variant="bodySm" color={theme.colors.textMuted}>
             Acquiring GPS… keep the screen on and head outside for a clear signal.

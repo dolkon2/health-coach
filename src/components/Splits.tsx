@@ -77,7 +77,7 @@ function SplitRow({
           style={{
             width: `${Math.round(frac * 100)}%`,
             height: 6,
-            backgroundColor: theme.colors.sandstone,
+            backgroundColor: theme.colors.accent,
           }}
         />
       </View>

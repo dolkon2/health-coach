@@ -75,9 +75,9 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
   // legend disambiguates (brand kit only defines four chart-series colors).
   const palette = [
     theme.colors.trendLine, // series-1, sage
-    theme.colors.sandstone, // series-2, gold
-    theme.colors.clay, // series-3, terracotta
-    theme.colors.slate, // series-4, cool stone
+    theme.colors.accent, // series-2, gold
+    theme.colors.caution, // series-3, terracotta
+    theme.colors.modeled, // series-4, cool stone
   ];
   const { patternColor, orderedPatterns } = useMemo(() => {
     const totals = new Map<MovementPattern, number>();
@@ -200,7 +200,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                       y={baselineY + 3}
                       width={slot - 4}
                       height={2}
-                      fill={theme.colors.sandstone}
+                      fill={theme.colors.accent}
                     />
                   ) : null}
                   <SvgText
@@ -210,7 +210,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                     fontFamily={theme.fonts.data.regular}
                     fill={
                       isCurrent
-                        ? theme.colors.sandstone // "you are here" anchor
+                        ? theme.colors.accent // "you are here" anchor
                         : isActive
                           ? theme.colors.text
                           : theme.colors.textMuted
@@ -290,7 +290,7 @@ function WeekDrillDown({
 
   return (
     <View style={{ gap: theme.spacing[2], marginTop: theme.spacing[2] }}>
-      <Text variant="label" color={theme.colors.sandstone}>
+      <Text variant="label" color={theme.colors.accent}>
         {isCurrent ? 'This week' : `Week of ${shortDate(week.weekStart)}`}
       </Text>
       {sessions.length === 0 ? (

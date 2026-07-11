@@ -255,7 +255,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
                   x2={model.svgWidth}
                   y1={model.targetY}
                   y2={model.targetY}
-                  stroke={theme.colors.sandstone}
+                  stroke={theme.colors.accent}
                   strokeWidth={1}
                   strokeDasharray="6 4"
                   strokeOpacity={0.7}
@@ -308,8 +308,8 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
                       cx={model.xOf(p.ms)}
                       cy={model.yOf(p.value)}
                       r={isSel ? 5 : 3}
-                      fill={isSel ? theme.colors.sandstone : dot.fill}
-                      stroke={isSel ? theme.colors.sandstone : dot.stroke}
+                      fill={isSel ? theme.colors.accent : dot.fill}
+                      stroke={isSel ? theme.colors.accent : dot.stroke}
                       strokeWidth={dot.strokeWidth}
                       strokeDasharray={dot.strokeDasharray}
                       opacity={isSel ? 1 : dot.opacity}
