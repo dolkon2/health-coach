@@ -19,6 +19,7 @@ import { dayKey } from '@core/timeline';
 import type { ObservationOf } from '@core/observation';
 import { useTheme } from '@/theme';
 import { kgToDisplay, type WeightUnit } from '@/lib/units';
+import { shortLocalDate } from '@/lib/date';
 import { Text } from './Text';
 import { FidelityIndicator, fidelityLevel } from './FidelityIndicator';
 
@@ -54,12 +55,6 @@ type WeightTrendChartProps = {
 function bandHalfWidthKg(confidence: number, gapDays: number): number {
   const gap = Math.min(gapDays, BAND_GAP_CAP_DAYS) * BAND_GAP_K_KG;
   return BAND_MIN_KG + (1 - confidence) * BAND_CONF_SPAN_KG + gap;
-}
-
-/** 'YYYY-MM-DD' -> 'M/D' for x-axis ticks. */
-function shortDate(localDate: string): string {
-  const [, m, d] = localDate.split('-');
-  return `${Number(m)}/${Number(d)}`;
 }
 
 export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTrendChartProps) {
@@ -192,7 +187,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
         {selected ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
             <Text variant="dataSm" color={theme.colors.textMuted}>
-              {shortDate(dayKey(selected.occurredAt))}
+              {shortLocalDate(dayKey(selected.occurredAt))}
             </Text>
             <Text variant="data" color={theme.colors.text}>
               {kgToDisplay(selected.payload.weightKg, weightUnit).toFixed(1)} {weightUnit}
@@ -286,7 +281,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
                   fill={theme.colors.textMuted}
                   textAnchor="middle"
                 >
-                  {shortDate(new Date(p.ms).toISOString().slice(0, 10))}
+                  {shortLocalDate(new Date(p.ms).toISOString().slice(0, 10))}
                 </SvgText>
               ))}
 

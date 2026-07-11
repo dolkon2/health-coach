@@ -1,8 +1,12 @@
 /**
- * Nutrition — the depth tab. Pass 2: week strip + tap-into-a-past-day.
+ * Nutrition — the depth tab. Intake/Trend split (rework Session 3, N1):
+ * Intake holds tier-1 facts (day nav, totals, meals, logger); Trend holds
+ * everything derived/modeled (weigh-in entry + trend chart, expenditure).
+ * A modeled value structurally cannot headline the fact surface.
  *
- * Layout (Option C, locked 2026-06-28):
+ * **Intake** (default landing — logging is the primary loop):
  *   "Nutrition"  tab identifier
+ *   [Intake | Trend]  two-segment switch, resets to Intake on tab re-entry
  *   ‹ Today ›    DayNavHeader (label cycles by selected day; tap to jump back)
  *   S M T W T F S WeekStrip (Sun-Sat; tap a cell to view, swipe to page weeks)
  *   [daily total + meals]  DayMealList (today, yesterday, tomorrow, whatever)
@@ -13,32 +17,48 @@
  * allowed (meal planning) but logging into the past/future still goes to
  * the present until Pass 2.5 ships a date picker in the logger.
  *
- * What's still deferred by design: energy balance (Pass 3), trends (Pass 4),
- * benchmarks (Phase 5 — the slot above the totals card is reserved).
+ * **Trend** — weigh-in entry + WeightTrendChart (relocated from Reflect),
+ * a weigh-in edit/delete list, and ExpenditureCard (measured daily burn).
+ *
+ * Dylan's N1 pinned answer (2026-07-11): when N2 adds the target-status
+ * card, it leads the Intake landing, above the totals card — recorded here
+ * so N2 doesn't have to re-ask.
+ *
+ * What's still deferred by design: target-status + adherence benchmark
+ * (N2), Focus lens (N3), Trend charts (N4).
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   Screen,
   Text,
   Button,
+  ChipSelect,
   DayNavHeader,
   WeekStrip,
   DayMealList,
   ExpenditureCard,
+  WeightTrendChart,
+  WeighInHistory,
 } from '@/components';
 import { useTheme } from '@/theme';
+import { useSettings } from '@/settings/useSettings';
 import { addDays, todayLocalDate, weekOf } from '@/lib/date';
 import { useFoodEntriesByDay } from '@/hooks/useFoodEntriesByDay';
 import { useBodyProfile } from '@/hooks/useBodyProfile';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useExpenditure } from '@/hooks/useExpenditure';
 
+type SubTab = 'intake' | 'trend';
+
 export default function NutritionScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { weightUnit } = useSettings();
   const today = todayLocalDate();
+
+  const [subTab, setSubTab] = useState<SubTab>('intake');
 
   // Two pieces of state — what day is being viewed, and which week the
   // strip is showing. They're separate so a user can swipe the strip to
@@ -56,11 +76,37 @@ export default function NutritionScreen() {
 
   const { entriesByDay, daysWithFood, reload } = useFoodEntriesByDay(datesToFetch);
   const { profile, reload: reloadProfile } = useBodyProfile();
-  const { points, reload: reloadTrend } = useWeightTrend();
+  const { points, raw, reload: reloadTrend } = useWeightTrend();
   const { measured, reload: reloadExpenditure } = useExpenditure(points);
+
+  // "Resets to Intake on tab re-entry" (spec) means re-entering the tab from
+  // elsewhere in the app — not returning from a modal this screen itself
+  // pushed (weigh-in edit, body-profile edit). Both dismiss back into this
+  // same useFocusEffect, so callers of the modal-opening helpers below flag
+  // the return trip here to keep the user on Trend instead of bouncing them
+  // back to Intake right after they use the weigh-in correction path.
+  const returningFromOwnModal = useRef(false);
+  const openWeighIn = useCallback(
+    (editId?: string) => {
+      returningFromOwnModal.current = true;
+      router.push(
+        editId ? { pathname: '/log-weigh-in', params: { editId } } : '/log-weigh-in'
+      );
+    },
+    [router]
+  );
+  const openBodyProfile = useCallback(() => {
+    returningFromOwnModal.current = true;
+    router.push('/body-profile');
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {
+      if (returningFromOwnModal.current) {
+        returningFromOwnModal.current = false;
+      } else {
+        setSubTab('intake');
+      }
       reload();
       reloadProfile();
       reloadTrend();
@@ -101,71 +147,112 @@ export default function NutritionScreen() {
   const isToday = selectedDate === today;
   const entries = entriesByDay.get(selectedDate) ?? [];
 
+  const latestTrendKg = points.length > 0 ? points[points.length - 1].trendKg : null;
+
   return (
     <Screen scroll>
       <Text variant="label" color={theme.colors.accent}>
         Nutrition
       </Text>
 
-      <View style={{ marginTop: theme.spacing[2] }}>
-        <DayNavHeader
-          selectedDate={selectedDate}
-          today={today}
-          onPrev={prevDay}
-          onNext={nextDay}
-          onJumpToToday={jumpToToday}
-        />
-      </View>
       <View style={{ marginTop: theme.spacing[3] }}>
-        <WeekStrip
-          selectedDate={selectedDate}
-          weekContaining={weekContaining}
-          today={today}
-          daysWithFood={daysWithFood}
-          onSelectDay={selectDay}
-          onPrevWeek={prevWeek}
-          onNextWeek={nextWeek}
+        <ChipSelect
+          options={[
+            { value: 'intake', label: 'Intake' },
+            { value: 'trend', label: 'Trend' },
+          ]}
+          value={subTab}
+          onChange={setSubTab}
+          columns={2}
         />
       </View>
 
-      {/* Benchmark slot reserved here — invisible until Phase 5 earns it. */}
+      {subTab === 'intake' ? (
+        <>
+          <View style={{ marginTop: theme.spacing[5] }}>
+            <DayNavHeader
+              selectedDate={selectedDate}
+              today={today}
+              onPrev={prevDay}
+              onNext={nextDay}
+              onJumpToToday={jumpToToday}
+            />
+          </View>
+          <View style={{ marginTop: theme.spacing[3] }}>
+            <WeekStrip
+              selectedDate={selectedDate}
+              weekContaining={weekContaining}
+              today={today}
+              daysWithFood={daysWithFood}
+              onSelectDay={selectDay}
+              onPrevWeek={prevWeek}
+              onNextWeek={nextWeek}
+            />
+          </View>
 
-      <View style={{ marginTop: theme.spacing[6] }}>
-        <DayMealList
-          entries={entries}
-          onReload={reload}
-          emptyMessage={
-            isToday ? 'No food logged today.' : 'No food logged this day.'
-          }
-        />
+          {/* Target-status card slot — N2 lands it here, above the totals
+              card (Dylan's N1 answer, recorded above). */}
 
-        <Button
-          label="Log food"
-          variant="secondary"
-          // Today → no date param, so the logger defaults to modal-open time
-          // ("now", current behavior). Any other day → pass date so the
-          // logger defaults to noon of that day, adjustable in the picker.
-          onPress={() =>
-            router.push(
-              isToday
-                ? '/log-food'
-                : { pathname: '/log-food', params: { date: selectedDate } }
-            )
-          }
-          style={{ marginTop: theme.spacing[3] }}
-        />
-      </View>
+          <View style={{ marginTop: theme.spacing[6] }}>
+            <DayMealList
+              entries={entries}
+              onReload={reload}
+              emptyMessage={
+                isToday ? 'No food logged today.' : 'No food logged this day.'
+              }
+            />
 
-      {/* Expenditure — the daily-burn estimate (baseline now; measured in Pass D). */}
-      <View style={{ marginTop: theme.spacing[8] }}>
-        <ExpenditureCard
-          profile={profile}
-          weightKg={points.length > 0 ? points[points.length - 1].trendKg : null}
-          measured={measured}
-          onEditProfile={() => router.push('/body-profile')}
-          onLogWeighIn={() => router.push('/log-weigh-in')}
-        />
-      </View>
+            <Button
+              label="Log food"
+              variant="secondary"
+              // Today → no date param, so the logger defaults to modal-open time
+              // ("now", current behavior). Any other day → pass date so the
+              // logger defaults to noon of that day, adjustable in the picker.
+              onPress={() =>
+                router.push(
+                  isToday
+                    ? '/log-food'
+                    : { pathname: '/log-food', params: { date: selectedDate } }
+                )
+              }
+              style={{ marginTop: theme.spacing[3] }}
+            />
+          </View>
+        </>
+      ) : (
+        <>
+          {/* Weigh-in — entry + trend chart + a real edit/delete path (the
+              gap Session 2 flagged: removing Home's weigh-in card left
+              nowhere in-app to correct a fat-fingered or duplicate entry). */}
+          <View style={{ marginTop: theme.spacing[6] }}>
+            <Button label="Log weigh-in" variant="secondary" onPress={() => openWeighIn()} />
+          </View>
+
+          <View style={{ marginTop: theme.spacing[6] }}>
+            <WeightTrendChart points={points} raw={raw} weightUnit={weightUnit} />
+          </View>
+
+          <View style={{ marginTop: theme.spacing[6] }}>
+            <WeighInHistory
+              raw={raw}
+              weightUnit={weightUnit}
+              onReload={reloadTrend}
+              onEdit={openWeighIn}
+            />
+          </View>
+
+          {/* Expenditure — the daily-burn estimate (baseline now; measured in Pass D). */}
+          <View style={{ marginTop: theme.spacing[8] }}>
+            <ExpenditureCard
+              profile={profile}
+              weightKg={latestTrendKg}
+              measured={measured}
+              onEditProfile={openBodyProfile}
+              onLogWeighIn={() => openWeighIn()}
+            />
+          </View>
+        </>
+      )}
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>

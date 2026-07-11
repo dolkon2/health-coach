@@ -4,6 +4,13 @@
  */
 import type { LocalDate } from '@core/observation';
 
+/** 'YYYY-MM-DD' -> 'M/D' — the compact tick/row-label form used by the weight
+ *  trend chart and weigh-in history list. */
+export function shortLocalDate(localDate: LocalDate): string {
+  const [, m, d] = localDate.split('-');
+  return `${Number(m)}/${Number(d)}`;
+}
+
 /** e.g. "Thursday, June 26" — rendered uppercase by the display type variant. */
 export function todayLocalLabel(d: Date = new Date()): string {
   return d.toLocaleDateString(undefined, {
