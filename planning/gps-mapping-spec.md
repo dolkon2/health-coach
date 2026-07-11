@@ -63,14 +63,22 @@ Resolves open question #1 in the Spots direction's counterpart for routes: route
 Strava pattern of routes-under-Profile — Profile there is really just "your content by object
 type," not a real nav concept here).
 
-- **Creation happens on the Map tab.** "Start a new route" takes the user into the Map, where
-  they draw/track the course (live phone tracking or, per the capture ladder above, import);
-  finishing prompts a save. This is consistent with routes being map-native geometry — the Map
-  tab is where `MapLibre`/`RouteMap` already lives, so route-building reuses that surface
-  rather than duplicating a map elsewhere.
-- **Finishing a session can also save-as-route**, symmetric with Pinned Spots' save-as-spot
-  flow (`pinned-spots-spec.md` § Surfaces #4): do a session, then save its actual trace as a
-  reusable route, same promotion pattern applied to a line instead of a point.
+- **Creation happens on the Map tab, via two doors into the same build mode:**
+  1. **"New Route" button** (from the Training Routes list, or a Map affordance) — an explicit
+     start-fresh entry that drops the user straight into the Map in build mode.
+  2. **Tap into it directly from the Map itself** — standing on the Map (in whatever mode it's
+     already in), the user can tap straight into route-building without detouring through
+     Training first. Same build mode as door 1; just a second on-ramp, since the Map is where
+     the user already is most of the time they'd think "I want to make a route right here."
+
+  Either door lands in the same flow: draw/track the course (live phone tracking or, per the
+  capture ladder above, import); finishing prompts a save. This is consistent with routes being
+  map-native geometry — the Map tab is where `MapLibre`/`RouteMap` already lives, so
+  route-building reuses that surface rather than duplicating a map elsewhere.
+- **Finishing a session can also save-as-route** — a third door, but after the fact rather than
+  before: symmetric with Pinned Spots' save-as-spot flow (`pinned-spots-spec.md` § Surfaces #4),
+  do a session, then save its actual trace as a reusable route, same promotion pattern applied
+  to a line instead of a point.
 - **Saved routes list lives in a "Routes" surface under Training**, alongside Templates/Library
   — the planned-vs-actual parallel this doc already draws (§ The planned-vs-actual parallel)
   makes Training the natural home for "things you can go do again," same shelf as workout
