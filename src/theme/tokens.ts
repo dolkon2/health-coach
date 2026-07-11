@@ -1,12 +1,31 @@
 /**
  * tokens.ts — the brand kit as TypeScript. Single source of visual truth.
- * Mirrors planning/brand-kit.md. Dark mode is the default; light is secondary.
+ * Design of record: planning/design-system/ (light-only, no dark mode at launch).
+ * This file still ships the placeholder desert palette pending the Gorge rebrand
+ * swap PR — see planning/rework/brand-integration.md.
  *
  * "Trail map meets tide chart." Warm earth tones, never neon. Dense but calm.
  * Three font registers: display (identity), body (utility), data (honesty).
  */
 
 // ─── Color palettes ─────────────────────────────────────────────────────────
+
+// Proper-noun desert palette — private. Semantic keys below point at these so
+// consumers never bind to a hue name directly (planning/rework/brand-integration.md
+// Pass 1). The Gorge rebrand swap replaces these values wholesale.
+const darkPalette = {
+  sandstone: '#C4A87A',
+  olive: '#7B8C68',
+  clay: '#B07858',
+  slate: '#7A8896',
+};
+
+const lightPalette = {
+  sandstone: '#A68A5B',
+  olive: '#5E7048',
+  clay: '#9A6344',
+  slate: '#62717E',
+};
 
 export const darkColors = {
   // Ground & structure
@@ -19,16 +38,30 @@ export const darkColors = {
   text: '#E6E1DB',
   textSecondary: '#9B9590',
   textMuted: '#6B6560',
-  // Earth accents
-  sandstone: '#C4A87A', // primary accent, CTAs, active nav
-  olive: '#7B8C68', // positive trends, completed
-  clay: '#B07858', // warnings, fidelity-low
-  slate: '#7A8896', // tier-3 modeled, secondary charts
-  // Semantic — earth, not traffic lights
+  // Semantic accents — earth, not traffic lights
+  accent: darkPalette.sandstone, // primary accent: CTAs, active tab, fidelity-bar fill, GPS trace
+  caution: darkPalette.clay, // warnings, fidelity-low
+  modeled: darkPalette.slate, // tier-3 demotion, secondary charts
   trendLine: '#A3B490',
-  positive: '#7B8C68',
+  positive: darkPalette.olive,
   negative: '#B86B5A',
   neutral: '#9B9590',
+  // Dimension colors — declared-throwaway placeholders drawn from the existing
+  // palette (planning/rework/brand-integration.md Pass 2). Replaced wholesale by
+  // the Gorge rebrand swap PR; never reference these as final values.
+  element: {
+    earth: darkPalette.clay,
+    sky: darkPalette.slate,
+    water: darkPalette.olive,
+    body: darkPalette.sandstone,
+  },
+  // Multi-series chart order — de-proper-nouned; same visual order as before.
+  chartSeries: ['#A3B490', darkPalette.sandstone, darkPalette.clay, darkPalette.slate] as [
+    string,
+    string,
+    string,
+    string,
+  ],
 };
 
 export const lightColors: typeof darkColors = {
@@ -40,14 +73,20 @@ export const lightColors: typeof darkColors = {
   text: '#1A1816',
   textSecondary: '#6B6560',
   textMuted: '#9B9590',
-  sandstone: '#A68A5B',
-  olive: '#5E7048',
-  clay: '#9A6344',
-  slate: '#62717E',
+  accent: lightPalette.sandstone,
+  caution: lightPalette.clay,
+  modeled: lightPalette.slate,
   trendLine: '#6B7F5A',
-  positive: '#5E7048',
+  positive: lightPalette.olive,
   negative: '#A85545',
   neutral: '#6B6560',
+  element: {
+    earth: lightPalette.clay,
+    sky: lightPalette.slate,
+    water: lightPalette.olive,
+    body: lightPalette.sandstone,
+  },
+  chartSeries: ['#6B7F5A', lightPalette.sandstone, lightPalette.clay, lightPalette.slate],
 };
 
 export type ColorTokens = typeof darkColors;
