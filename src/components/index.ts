@@ -6,6 +6,7 @@ export { Field } from './Field';
 export { ChipSelect, type ChipOption } from './ChipSelect';
 export { SessionCard } from './SessionCard';
 export { BenchmarkStatusCard, type BenchmarkStatusCardProps } from './BenchmarkStatusCard';
+export { BenchmarkDetailSheet } from './BenchmarkDetailSheet';
 export { RestTimer } from './RestTimer';
 export { StepsCard } from './StepsCard';
 export { SleepCard } from './SleepCard';
@@ -30,6 +31,7 @@ export { DimensionTag } from './DimensionTag';
 export { ElementPickerSheet } from './ElementPickerSheet';
 export { StepsSleepStrip } from './StepsSleepStrip';
 export { TemplateCard } from './TemplateCard';
+export { SpotCard, type SpotCardProps } from './SpotCard';
 export {
   GymExerciseEditor,
   RemoveButton,
