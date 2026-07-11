@@ -9,6 +9,7 @@
  */
 import type { WeightUnit, DistanceUnit } from './units';
 import type { NutritionFocus } from './foodLog';
+import { SUGGESTED_DEFICIT_KCAL } from './benchmarkSuggest';
 
 export type Settings = {
   weightUnit: WeightUnit;
@@ -16,6 +17,7 @@ export type Settings = {
   nutritionFocus: NutritionFocus; // display-only: which macro renders large in food UI
   restTimerSec: number; // default between-sets rest; the gym timer starts from this.
   defaultPoolLengthM: number; // remembered pool length; the swim form prefills it.
+  deficitKcal: number; // the "stay under" calorie-ceiling suggestion's deficit size.
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   nutritionFocus: 'calories', // the hero number; a lens over the data, never a gate on it.
   restTimerSec: 120, // 2 min between sets.
   defaultPoolLengthM: 25, // a 25 m pool is the common default.
+  deficitKcal: SUGGESTED_DEFICIT_KCAL, // 300 kcal/day — a reference point, user's to change.
 };
 
 /** Fill gaps in a stored blob with defaults — a save from an older app version
