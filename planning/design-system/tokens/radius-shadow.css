@@ -1,0 +1,18 @@
+/* RADIUS — a tight three-step scale, distinct roles, nothing in between.
+   Device bezel (36px) sits outside this scale — it's a hardware constant,
+   not a UI token. */
+:root {
+  --radius-sm: 3px;     /* dots, chip corners, macro/fidelity bar segments */
+  --radius-md: 5px;     /* cards, tiles, list rows — the default surface radius */
+  --radius-full: 9999px; /* status pills, badges, active tab — fully rounded (20px+) */
+}
+
+/* ELEVATION — minimal. The ground carries a faint desaturated basalt-photo
+   texture (see assets/basalt-texture.jpg in the design project, ~8% opacity,
+   multiply blend) for material depth; shadows are a light touch on top of
+   that, not the primary separation mechanism (that's the card border +
+   white fill). */
+:root {
+  --shadow-sm: 0 1px 2px rgba(15, 22, 24, 0.08);
+  --shadow-md: 0 4px 16px rgba(15, 22, 24, 0.12);
+}

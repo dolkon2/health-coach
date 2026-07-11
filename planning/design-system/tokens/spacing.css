@@ -1,0 +1,17 @@
+/* SPACING — 4px base ledger. Dense enough for data screens, not cramped.
+   Cards: 14–18px padding per the brand kit (use --space-4 as the default,
+   nudge to --space-3/5 for compact/loose rows), --space-2 gap between
+   internal elements. Between cards in a list: --space-2 (tight) or
+   --space-3 (standard). Section headers to content: --space-4. Screen edge
+   padding: --space-4 mobile / --space-6 tablet+. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+}

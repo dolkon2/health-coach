@@ -1,0 +1,10 @@
+/* MOTION — quiet, purposeful. Respect prefers-reduced-motion: instant
+   transitions, no chart-line animation, static trend lines when reduced. */
+:root {
+  /* enters/reveals; transitions between states; hover/press feedback; panel & tab transitions; modal enter/exit and chart line drawing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+}

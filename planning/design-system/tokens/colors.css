@@ -1,0 +1,60 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   COLOR — Health Coach (Avatar Training)
+   "A mirror, not a coach." Descriptive, never prescriptive. Color earns its
+   way in — it only appears to name the element you're in (Earth/Sky/Water/
+   Body), or to say the data cleared the noise. Everything else lives on a
+   single monochrome ramp: wet basalt, mossy cliff, glacial mist — from the
+   Columbia River Gorge.
+   Light is the one and only ground — no dark mode.
+   Source: uploads/Health Coach Brand Kit (Light).html (brand system v1)
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* --- The ground · monochrome ramp — basalt (dark) to spray (light) --- */
+  --gray-900: #0F1618; /* Basalt   — dark volcanic rock, surfaces */
+  --gray-800: #242F31; /* Charcoal — wet stone in shadow */
+  --gray-700: #3B484A; /* Slate    — gorge cliff face, damp */
+  --gray-600: #576466; /* Wet stone— mossed basalt, dividers */
+  --gray-500: #889796; /* Glacial  — silty river water */
+  --gray-400: #B4BEBC; /* Ash      — overcast mist, 3rd text */
+  --gray-300: #D2D9D6; /* Fog      — low cloud, 2nd text */
+  --gray-200: #EAEEEC; /* Spray    — waterfall mist */
+
+  /* --- Ground · light (default) — warm stone --- */
+  --color-bg: #DFE4E1;
+  --color-surface: #FFFFFF;         /* card fill — the default surface */
+  --color-surface-raised: #FFFFFF;
+  --color-border: #CFD6D2;
+  --color-border-strong: var(--gray-400);
+
+  --color-text: var(--gray-900);
+  --color-text-secondary: var(--gray-700);
+  --color-text-muted: var(--gray-500);
+
+  /* --- The four elements · the only saturation ---
+     Each maps to where sport happens. Found pigments, not picked. Body is
+     the engine room: warmest, most assertive color. */
+  --color-earth: #8A7049; /* volcanic ochre — climbing, trail running, hiking, bouldering */
+  --color-sky: #5E84A6;   /* hazy lifted blue — paragliding, wingfoiling, airborne */
+  --color-water: #4C8E85; /* glacial silt teal — kayaking, surfing, swimming, SUP */
+  --color-body: #C15A39;  /* inner fire / rust ember — gym, yoga, PT, breathwork */
+
+  /* --- Semantic --- */
+  --color-negative: #B00020;
+
+  /* --- Fidelity encoding (capture confidence) — shown as solidity, never
+     as a raw number. */
+  /* weighed, full opacity, solid fill; logged, dimmed a step; estimated, dashed hollow */
+  --fidelity-high: 1;
+  --fidelity-mid: 0.7;
+  --fidelity-low: 0.45;
+}
+
+/* --- GPS track colors — color is the label. A flight draws in sky, a
+   river run in water, a trail in earth. The gym has no track — it gets a
+   pulse instead, because it's a different kind of movement. --- */
+:root {
+  --track-earth: var(--color-earth);
+  --track-sky: var(--color-sky);
+  --track-water: var(--color-water);
+}

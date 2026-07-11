@@ -1,0 +1,33 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   TYPOGRAPHY — Health Coach
+   Four roles, four faces. Numbers carry the swagger; the body recedes.
+     Space Grotesk → numbers, headlines. Every readout and every title —
+                     one calm display face carries both.
+     Archivo       → caps labels. Structural markers only — signals what
+                     kind of thing you're looking at.
+     DM Sans       → body. All descriptions, metadata, timestamps. Recedes
+                     behind the data.
+   Source: uploads/Health Coach Brand Kit (Light).html
+   ───────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@500;600;700&family=Archivo:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+
+:root {
+  --font-mono: 'Space Mono', 'JetBrains Mono', monospace;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-caps: 'Archivo', sans-serif;
+  --font-body: 'DM Sans', -apple-system, system-ui, sans-serif;
+}
+
+/* Ready-to-use type classes — the full scale from the brand kit specimen.
+   Ranges in the source (e.g. hero 52–78px) collapse to one shipped size per
+   class; use the size var directly if a screen needs the top of the range. */
+.hc-hero-number   { font: 700 64px/1 var(--font-display); letter-spacing: -2px; }      /* 52-78px · the weight readout, primary stat */
+.hc-data-number   { font: 700 24px/1.15 var(--font-display); letter-spacing: -1px; font-variant-numeric: tabular-nums; } /* 16-30px · stats, calories, macros, deltas */
+.hc-display-head  { font: 500 30px/1.1 var(--font-display); letter-spacing: -1.2px; } /* 26-34px · page & hero headlines */
+.hc-section-head  { font: 600 24px/1.15 var(--font-display); letter-spacing: -1px; }  /* 22-28px · tab & screen titles */
+.hc-card-title    { font: 600 15px/1.3 var(--font-display); letter-spacing: -0.2px; } /* 14-16px · session & list-row titles */
+.hc-caps-label    { font: 700 12px/1.3 var(--font-caps); letter-spacing: 1.75px; text-transform: uppercase; } /* 10-13px · structural markers, categories */
+.hc-element-tag   { font: 700 11px/1.3 var(--font-caps); letter-spacing: 1.5px; text-transform: uppercase; }  /* 10-11px · element identity, in its color */
+.hc-body          { font: 400 14px/1.55 var(--font-body); }   /* 13-15px · descriptions, sentences */
+.hc-caption       { font: 400 12px/1.4 var(--font-body); }    /* 11-12px · metadata, timestamps, hints — pair with --color-text-muted */
