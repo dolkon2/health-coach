@@ -160,13 +160,6 @@ export function ExpenditureCard({
         measured number takes over.
       </Text>
 
-      {baseline.method === 'mifflin-st-jeor' ? (
-        <Pressable onPress={onEditProfile} accessibilityRole="button">
-          <Text variant="bodySm" color={theme.colors.sandstone}>
-            Add body fat % to tighten the range
-          </Text>
-        </Pressable>
-      ) : null}
       <Pressable onPress={onEditProfile} accessibilityRole="button">
         <Text variant="bodySm" color={theme.colors.textSecondary}>
           Edit body stats

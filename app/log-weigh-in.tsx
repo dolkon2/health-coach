@@ -1,9 +1,9 @@
 /**
  * Log weigh-in — the modal from Today. Pass 3: the real input.
  *
- * Enter a weight (and optionally body-fat %), save, and it persists as a tier-1,
- * fidelity-1.0 manual Observation. Today re-fetches on focus and renders it.
- * Storage is always kg; the input shows the user's preferred unit (units.ts).
+ * Enter a weight, save, and it persists as a tier-1, fidelity-1.0 manual
+ * Observation. Today re-fetches on focus and renders it. Storage is always
+ * kg; the input shows the user's preferred unit (units.ts).
  *
  * Pass 6 — accepts `?editId=…` to open in edit mode: prefills from the
  * existing observation and saves via updateObservation (hard overwrite; the
@@ -33,7 +33,6 @@ export default function LogWeighInScreen() {
   const isEdit = typeof editId === 'string' && editId.length > 0;
 
   const [weight, setWeight] = useState('');
-  const [bodyFat, setBodyFat] = useState('');
   const [original, setOriginal] = useState<ObservationOf<'weighIn'> | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +47,6 @@ export default function LogWeighInScreen() {
         const w = obs as ObservationOf<'weighIn'>;
         setOriginal(w);
         setWeight(kgToDisplay(w.payload.weightKg, weightUnit).toFixed(1));
-        if (w.payload.bodyFatPct != null) setBodyFat(String(w.payload.bodyFatPct));
       })
       .catch(() => {
         if (!cancelled) setError('Could not load weigh-in.');
@@ -59,7 +57,6 @@ export default function LogWeighInScreen() {
   }, [editId, isEdit, weightUnit]);
 
   const weightNum = parseFloat(weight);
-  const bodyFatNum = parseFloat(bodyFat);
   const weightValid = Number.isFinite(weightNum) && weightNum > 0;
 
   async function handleSave() {
@@ -72,9 +69,6 @@ export default function LogWeighInScreen() {
     const payload = {
       kind: 'weighIn' as const,
       weightKg: displayToKg(weightNum, weightUnit),
-      ...(Number.isFinite(bodyFatNum) && bodyFatNum > 0
-        ? { bodyFatPct: bodyFatNum }
-        : {}),
     };
 
     try {
@@ -138,19 +132,6 @@ export default function LogWeighInScreen() {
             {weightUnit}
           </Text>
         </View>
-      </View>
-
-      {/* Body fat (optional) */}
-      <View style={{ marginTop: theme.spacing[6] }}>
-        <Text variant="label">Body fat % (optional)</Text>
-        <TextInput
-          value={bodyFat}
-          onChangeText={setBodyFat}
-          placeholder="—"
-          placeholderTextColor={theme.colors.textMuted}
-          keyboardType="decimal-pad"
-          style={[inputStyle, { marginTop: theme.spacing[2] }]}
-        />
       </View>
 
       {error ? (

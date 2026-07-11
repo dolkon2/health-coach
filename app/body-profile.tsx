@@ -1,10 +1,10 @@
 /**
  * Body stats — the profile behind the baseline TDEE (expenditure build, Pass B).
  *
- * Height, birth year, formula sex, optional bodyfat, and the Route-1 activity
- * self-report. These feed exactly one thing: the labeled-weak predicted burn
- * that logged measurement replaces. Weight is deliberately absent — it comes
- * from weigh-ins, never a form field that can go stale.
+ * Height, birth year, formula sex, and the Route-1 activity self-report.
+ * These feed exactly one thing: the labeled-weak predicted burn that logged
+ * measurement replaces. Weight is deliberately absent — it comes from
+ * weigh-ins, never a form field that can go stale.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { View, Keyboard } from 'react-native';
@@ -141,21 +141,6 @@ export default function BodyProfileScreen() {
           Which BMR formula applies — nothing more.
         </Text>
         <ChipSelect options={SEXES} value={form.sex} onChange={(s) => set('sex', s)} />
-      </View>
-
-      {/* Bodyfat (optional) */}
-      <View style={{ marginTop: theme.spacing[6] }}>
-        <Field
-          label="Body fat % (optional)"
-          value={form.bodyFatPct}
-          onChangeText={(t) => set('bodyFatPct', t)}
-          placeholder="—"
-          suffix="%"
-        />
-        <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>
-          Give more, get sharper: with body fat the estimate uses lean mass and
-          the range tightens.
-        </Text>
       </View>
 
       {/* Activity (Route-1 self-report) */}
