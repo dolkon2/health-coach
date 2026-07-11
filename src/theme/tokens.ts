@@ -27,6 +27,9 @@ const lightPalette = {
   slate: '#62717E',
 };
 
+const darkTrendLine = '#A3B490';
+const lightTrendLine = '#6B7F5A';
+
 export const darkColors = {
   // Ground & structure
   bg: '#181614',
@@ -42,7 +45,7 @@ export const darkColors = {
   accent: darkPalette.sandstone, // primary accent: CTAs, active tab, fidelity-bar fill, GPS trace
   caution: darkPalette.clay, // warnings, fidelity-low
   modeled: darkPalette.slate, // tier-3 demotion, secondary charts
-  trendLine: '#A3B490',
+  trendLine: darkTrendLine,
   positive: darkPalette.olive,
   negative: '#B86B5A',
   neutral: '#9B9590',
@@ -56,7 +59,7 @@ export const darkColors = {
     body: darkPalette.sandstone,
   },
   // Multi-series chart order — de-proper-nouned; same visual order as before.
-  chartSeries: ['#A3B490', darkPalette.sandstone, darkPalette.clay, darkPalette.slate] as [
+  chartSeries: [darkTrendLine, darkPalette.sandstone, darkPalette.clay, darkPalette.slate] as [
     string,
     string,
     string,
@@ -76,7 +79,7 @@ export const lightColors: typeof darkColors = {
   accent: lightPalette.sandstone,
   caution: lightPalette.clay,
   modeled: lightPalette.slate,
-  trendLine: '#6B7F5A',
+  trendLine: lightTrendLine,
   positive: lightPalette.olive,
   negative: '#A85545',
   neutral: '#6B6560',
@@ -86,7 +89,7 @@ export const lightColors: typeof darkColors = {
     water: lightPalette.olive,
     body: lightPalette.sandstone,
   },
-  chartSeries: ['#6B7F5A', lightPalette.sandstone, lightPalette.clay, lightPalette.slate],
+  chartSeries: [lightTrendLine, lightPalette.sandstone, lightPalette.clay, lightPalette.slate],
 };
 
 export type ColorTokens = typeof darkColors;

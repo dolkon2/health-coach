@@ -73,12 +73,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
   // A stable pattern -> palette-color map, ranked by total volume so the biggest
   // pattern is always series-1. >4 patterns cycle the four series colors; the
   // legend disambiguates (brand kit only defines four chart-series colors).
-  const palette = [
-    theme.colors.trendLine, // series-1, sage
-    theme.colors.accent, // series-2, gold
-    theme.colors.caution, // series-3, terracotta
-    theme.colors.modeled, // series-4, cool stone
-  ];
+  const palette = theme.colors.chartSeries;
   const { patternColor, orderedPatterns } = useMemo(() => {
     const totals = new Map<MovementPattern, number>();
     for (const w of weeks) {

@@ -3,8 +3,9 @@
  * (Earth/Sky/Water/Body) an activity, logbook entry, or feed card belongs to.
  * Description, never a score or badge: it labels a fact ("this was a Water
  * session"), carries no count, streak, or ranking, and never implies mastery.
- * Reused wherever the four-dimensions framework surfaces (Training section
- * headers, Home's element picker, logbook entries → Profile → Social feed).
+ * Built ahead of its consumers (planning/rework/brand-integration.md Pass 2)
+ * so Training/Home/Profile/Social — the surfaces the four-dimensions framework
+ * touches — can mount it as each lands, rather than each hand-rolling its own.
  */
 import React from 'react';
 import { View } from 'react-native';
