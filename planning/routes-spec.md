@@ -5,6 +5,10 @@ their own home). Companion to `gps-mapping-spec.md` § Routes as a first-class o
 § Placement — creation on Map, list in both places. Codebase facts verified against the working
 tree on 2026-07-11 (branch `claude/pins-vs-routes-ycob8q`, main HEAD ancestry `17e252f`+).
 
+**Amended same day:** the entity, storage, list, and detail (P1/P2) are ready to build now. The
+map **builder + follow are DEFERRED** — folded into Dylan's in-progress Map Explore/layers work
+rather than a standalone screen; see § Surfaces 3 for the current shape of that deferral.
+
 ## What it is
 
 **A saved, reusable line.** A Route is first-class geometry — name + course + the set of your
@@ -141,27 +145,38 @@ entity, referenced.
   `routeId` dangles harmlessly — same design as spot deletion). **"Start session on this
   route"** → GPS logging surface with the route preloaded for follow (Pass 4).
 
-### 3. Builder (Pass 3) — the new machinery
-- Modal route `app/build-route.tsx`: full-screen MapLibre (same style/fallback ladder as
-  `RouteMap`; no key → friendly empty state, building disabled).
-- **Tap places a waypoint; straight segments join them.** Live readout: point count +
-  cumulative `routeDistanceM`. Controls: undo last point, clear, save (name + activity →
-  `createRoute({source:'plotted'})`).
-- ⚑ Tap gesture is net-new on our maps (same risk class as Spots' long-press). Spike MapLibre
-  v10.4.2 press events first; fallback: **center-crosshair + "Add point" button** — identical
-  data path, zero gesture risk. Coordinate the spike with Spots Pass 4 (one investigation,
-  two consumers).
-- Door 2 ("tap-in from the map") lands wherever a map is standing when this ships: at MVP
-  that's an entry button on the Routes list and (optionally) the GPS logging surface; it
-  becomes a real Map-tab affordance when the shell exists. Do not build a proto-Map-tab for it.
+### 3. Builder + follow (Pass 3/4) — DEFERRED, folds into Map's Explore surface
 
-### 4. Save-as-route + follow (Pass 4)
-- **Save-as-route:** in `app/log-session.tsx` edit mode, when the session has a track
-  (`gpsPath`/`track`) — "Save as route": strips timestamps, prefills activity, user names it,
-  writes `routeId` back onto the block so the session appears as effort #1. Sits beside
-  save-as-spot; resolves the Notion Map plan's open question #5 as **explicit later action
-  from history** (low friction), with an optional save-prompt at record-stop deferred.
-- **Follow:** `RouteMap` gains an optional second path prop (`guidePath?: RoutePoint[]`),
+*Amended 2026-07-11 (Dylan): dropped the standalone `app/build-route.tsx` modal this section
+originally specced. Dylan is already mid-build on Map's Explore/layers work (an "Explore" or
+"Now" surface — not yet documented in this repo). Rather than stand up a parallel proto-Map-tab
+for the builder, **route building and following become a mode/layer inside that existing Explore
+surface**, alongside whatever else lives there. This section is deliberately left thin — a
+placeholder for the real design once the Explore work is visible — rather than specced against
+a screen that doesn't exist yet.*
+
+**What still holds regardless of where the UI lands** (unchanged from the decisions above):
+- Build mode is tap-to-place waypoints, straight segments, no routing engine.
+- Three creation doors — new-route button, tap-in from the map, save-as-route from a session.
+- Follow renders the route as a second, muted line under the live trace; no off-route alerts.
+- Tap gesture on MapLibre v10.4.2 is unverified — crosshair-button fallback still applies
+  whatever surface it ends up on. Coordinate the spike with Spots Pass 4 (one investigation,
+  shared by both consumers).
+
+**What's now open, pending the Explore work:**
+- Where exactly build mode and follow live inside Explore — a distinct layer toggle, a mode
+  within a mode, or something else. Don't guess ahead of that design.
+- Whether "Start session on this route" still routes through Route detail → GPS logging, or
+  whether following starts directly from the Explore layer.
+- **Save-as-route** (not deferred — no map-builder dependency, it's a `log-session.tsx`
+  affordance, not a map surface): in `app/log-session.tsx` edit mode, when the session has a
+  track (`gpsPath`/`track`) — "Save as route": strips timestamps,
+  prefills activity, user names it, writes `routeId` back onto the block so the session appears
+  as effort #1. Sits beside save-as-spot; resolves the Notion Map plan's open question #5 as
+  **explicit later action from history** (low friction), with an optional save-prompt at
+  record-stop deferred.
+- **Follow (deferred, spec unchanged):** `RouteMap` gains an optional second path prop
+  (`guidePath?: RoutePoint[]`),
   rendered as its own ShapeSource/LineLayer (muted color, under the live trace).
   `GpsRecorderPanel` accepts an optional preloaded route (from "Start session on this route")
   and shows it while tracking. Finishing tags the session's block with the `routeId`. No
@@ -185,27 +200,37 @@ Single-concern commits, jest per pass, `tsc` last.
 - **P2 — list + detail:** `app/routes.tsx` + Training header link; `app/route/[id].tsx` with
   efforts query (`listSessionsForRoute` — JS scan over payloads, same rationale as
   `listSessionsForSpot`); edit/delete.
-- **P3 — builder:** `app/build-route.tsx`; tap-spike → crosshair fallback; undo/clear/save.
-- **P4 — promotion + follow:** save-as-route in `log-session.tsx`; `RouteMap.guidePath`;
-  recorder preload + `routeId` tagging on finish.
+- **P2.5 — save-as-route:** `log-session.tsx` affordance; independent of the Explore work,
+  buildable any time after P1/P2.
+- **P3/P4 — builder + follow: DEFERRED**, pending Dylan's Map Explore/layers design. Scope
+  (tap-spike → crosshair fallback; undo/clear/save; `RouteMap.guidePath`; recorder preload +
+  `routeId` tagging on finish) carries over unchanged — only the host surface (a mode/layer
+  inside Explore, not a standalone `app/build-route.tsx` modal) is now open. Re-spec the exact
+  screen once Explore's shape is visible.
 
 **Post-MVP ladder (recorded, not built):** DEM elevation for plotted routes; snap-to-trail /
 auto-routing engine; off-route indication (if ever — constitution review first); proximity
 effort-matching; save-prompt at record-stop; route → template deep integration (recurrence);
-GPX export; cohort sharing + privacy zones (Ring 4); Explore-mode routes layer.
+GPX export; cohort sharing + privacy zones (Ring 4).
 
 ## Flags ⚑ (for Dylan)
 
-1. **The drawing-cut reversal is now on the record** — straight-line only; if snap-to-trail
+1. **Builder + follow host surface is now open, not decided** (2026-07-11) — originally
+   speced as a standalone `app/build-route.tsx` modal; deferred and re-scoped to fold into
+   Map's Explore/layers work once that design exists. Everything about *what* the builder does
+   (tap-to-place, straight segments, three doors, muted follow line) is still locked; only
+   *where it lives inside Explore* is open. Don't let this quietly turn into "routes got cut" —
+   it's a placement deferral, not a scope cut.
+2. **The drawing-cut reversal is now on the record** — straight-line only; if snap-to-trail
    ever comes back, that's a new decision (routing engine, API cost, offline story).
-2. **Map tap gesture unverified** on MapLibre v10.4.2 — crosshair fallback specified; share the
-   spike with Spots Pass 4.
-3. **Plotted routes show no elevation** until a DEM source is chosen — honest gap, not a bug.
-4. **Follow needs the recorder** — foreground-only today; a 3-hour follow with the screen off
+3. **Map tap gesture unverified** on MapLibre v10.4.2 — crosshair fallback specified; share the
+   spike with Spots Pass 4 (still relevant whichever surface the builder lands in).
+4. **Plotted routes show no elevation** until a DEM source is chosen — honest gap, not a bug.
+5. **Follow needs the recorder** — foreground-only today; a 3-hour follow with the screen off
    drops fixes. Real fix is the Map-tab Record background work, not this build. Follow ships
    with that known ceiling.
-5. **Distance-unit display** reuses `metersToDisplay` + settings; list cards and builder
-   readout must respect it (easy to miss in the builder).
-6. **Efforts list vs. logbook location** — the sessions-under-route list is another partial
+6. **Distance-unit display** reuses `metersToDisplay` + settings; list cards and the eventual
+   builder readout must respect it (easy to miss in new UI).
+7. **Efforts list vs. logbook location** — the sessions-under-route list is another partial
    answer to "where does the logbook live" (same tension Spots flagged #3). Raise at the
    Training tab talk-through.
