@@ -12,16 +12,25 @@
  * connection state now — settings.tsx; Home only reads `connected` to decide
  * whether the steps/sleep strip renders).
  *
- * Pinned Spots and today's-template card (H4/H5) are NOT built in this pass —
- * both are gated on tracks that don't exist yet (Spots migration 015 + list;
- * Training's per-template recurrence property). They keep their place in
- * Dylan's confirmed shelf order (Nutrition → Spots → template → Benchmarks →
- * Steps/Sleep) once their dependencies land.
+ * Pinned Spots (H4) is built here, positioned per the spec's proposed shelf
+ * order (home-tab.md §2 ⚑1 — still unconfirmed by Dylan): above Nutrition
+ * and Benchmarks. Today's-template card (H5) is NOT built in this pass — it
+ * needs Training's per-template recurrence property, which doesn't exist yet.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, ElementPickerSheet, BenchmarkStatusCard, StepsSleepStrip } from '@/components';
+import {
+  Screen,
+  Text,
+  Card,
+  Button,
+  ElementPickerSheet,
+  BenchmarkStatusCard,
+  BenchmarkDetailSheet,
+  SpotCard,
+  StepsSleepStrip,
+} from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
@@ -30,6 +39,7 @@ import { useBenchmarkStatuses } from '@/hooks/useBenchmarkStatuses';
 import { useExpenditure } from '@/hooks/useExpenditure';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useWearableSync } from '@/hooks/useWearableSync';
+import { useSpotsGlance } from '@/hooks/useSpotsGlance';
 import { useSettings } from '@/settings/useSettings';
 import { dailyTotals, dailyFocusTotal } from '@/lib/foodLog';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
@@ -40,6 +50,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { nutritionFocus, weightUnit } = useSettings();
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [benchmarkDetailId, setBenchmarkDetailId] = useState<string | null>(null);
 
   const { foodEntriesToday, stepsToday, sleepToday, reload: reloadToday } = useTodayObservations();
   const { points: trendPoints, reload: reloadTrend } = useWeightTrend();
@@ -60,6 +71,7 @@ export default function HomeScreen() {
   // a Home visit that never opens it.
   const { sessions: recentSessions, reload: reloadSessions } = useSessionHistory();
   const mostRecent = useMemo(() => mostRecentActivityByElement(recentSessions), [recentSessions]);
+  const { spots: glanceSpots, current: spotsCurrent, reload: reloadSpots } = useSpotsGlance();
   // Depend on the stable `syncNow` callback, NOT the whole `wearable` object —
   // see the equivalent note this screen carried before the rework (Today's
   // useWearableSync reference): the hook returns a fresh object every render.
@@ -71,8 +83,9 @@ export default function HomeScreen() {
       reloadTrend();
       reloadBenchmarks();
       reloadExpenditure();
+      reloadSpots();
       syncNow();
-    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, syncNow])
+    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, reloadSpots, syncNow])
   );
 
   function openPicker() {
@@ -135,6 +148,37 @@ export default function HomeScreen() {
         onPickBody={openBodyLogger}
       />
 
+      {/* Pinned Spots — a floor module (home-tab.md § 2): the "Spots →" link
+          keeps a one-line presence even at zero spots, since it's the only
+          door to the spots list. Condensed cards (cap 3) render above it
+          once spots exist, most-recently-created first (the spec's
+          "most-recently-visited" ordering waits on a sessions-at-spot query
+          that doesn't exist yet — see useSpotsGlance). */}
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <Pressable
+          onPress={() => router.push('/spots')}
+          accessibilityRole="button"
+          accessibilityLabel="Open spots"
+          style={{ marginBottom: theme.spacing[2] }}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            Spots →
+          </Text>
+        </Pressable>
+        {glanceSpots.length > 0 ? (
+          <View style={{ gap: theme.spacing[3] }}>
+            {glanceSpots.map((s) => (
+              <SpotCard
+                key={s.id}
+                spot={s}
+                current={spotsCurrent[s.id]}
+                onPress={() => router.push({ pathname: '/spot/[id]', params: { id: s.id } })}
+              />
+            ))}
+          </View>
+        ) : null}
+      </View>
+
       {/* Nutrition today — Focus-mode aware total; absent until food is logged. */}
       {showNutritionCard ? (
         <View style={{ marginTop: theme.spacing[8] }}>
@@ -188,7 +232,7 @@ export default function HomeScreen() {
                 behavior={e.behavior}
                 outcome={e.outcome}
                 weightUnit={weightUnit}
-                onPress={() => router.push('/benchmarks')}
+                onPress={() => setBenchmarkDetailId(e.benchmark.id)}
               />
             ))}
           </View>
@@ -201,6 +245,14 @@ export default function HomeScreen() {
           <StepsSleepStrip steps={stepsToday} sleep={sleepToday} />
         </View>
       ) : null}
+
+      <BenchmarkDetailSheet
+        benchmarkId={benchmarkDetailId}
+        onClose={() => setBenchmarkDetailId(null)}
+        onChanged={reloadBenchmarks}
+        trendPoints={trendPoints}
+        measured={measured}
+      />
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
