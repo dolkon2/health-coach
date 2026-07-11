@@ -1,6 +1,6 @@
 # Screens & Features — live design status
 
-*Last synced 2026-07-06. This file is a pointer + summary, not the source of truth — the source of truth is the Notion page below, which Dylan updates continuously as he iterates on the brand kit and screen designs. Check Notion before assuming a screen's current shape.*
+*Last synced 2026-07-11. This file is a pointer + summary, not the source of truth — the source of truth is the Notion page below, which Dylan updates continuously as he iterates on the brand kit and screen designs. Check Notion before assuming a screen's current shape.*
 
 **Live Notion page:** [📱 Screens & Features](https://app.notion.com/p/39412384a063815d93ecdc301b4d35ca) (child of the Health Coach hub, sibling to Data Map & Research). Two databases there:
 - **Pages** — one row per screen/surface, hierarchical (Home/Training/Map/Nutrition/Groups/Settings are top-level; Reflect, Benchmarks, Templates & Sections, and Gear Quiver nest as sub-pages under their parent via a Parent Page/Sub-pages relation).
@@ -15,10 +15,10 @@ Dylan is mid-redesign of the core screens around a new Columbia River Gorge bran
 5 bottom tabs: **Home, Training, Map, Nutrition, Groups.** Reflect, Settings (+ the Ring 3b summoned coach), Benchmarks, Templates & Sections, and Gear Quiver are tap-in surfaces reached from those tabs, not tabs themselves. Current shipped tab bar on `main` is still **Today, Training, Nutrition, Reflect** (4 tabs, no Map, no Groups) — see `app/(tabs)/_layout.tsx`.
 
 ## Open decisions (check Notion for current status — these may resolve over time)
-1. Does tapping "Session" on the new Home log-bar open the activity picker directly?
+1. ~~Does tapping "Session" on the new Home log-bar open the activity picker directly?~~ **Resolved 2026-07-11:** element picker (Earth/Sky/Water/Body); E/S/W → Map Record with most-recent sport armed (pickable before start), Body → Training. See `home-tab-spec.md`.
 2. Does GPS capture move to live on the Map tab (vs. inside the session logger)?
-3. Where do HealthKit steps/sleep live in the new Home layout?
-4. Does the condensed Stimulus Ledger stay on Home now that Reflect is a tap-in?
+3. ~~Where do HealthKit steps/sleep live in the new Home layout?~~ **Resolved 2026-07-11:** on Home, non-headline. See `home-tab-spec.md`.
+4. Does the condensed Stimulus Ledger stay on Home now that Reflect is a tap-in? (Home spec leans no — competes with Pinned Spots.)
 5. Benchmarks need a new `type` field (Outcome / Compliance / Trend) — schema addition, not built in `src/storage/benchmarks.ts` yet.
 6. Benchmarks list layout: grouped-by-domain vs. grouped-by-type — undecided.
 7. Templates library layout: two lists (Templates vs. Sections) vs. one unified stream — undecided.
