@@ -427,6 +427,26 @@ export function heroNumber(
   }
 }
 
+/** The daily-total counterpart to `heroNumber` — which macro's DAY sum
+ *  renders large (Home's Focus-mode nutrition-today card, home-tab.md § 3).
+ *  Same null-≠-0 total each macro already carries; this just picks which one. */
+export function dailyFocusTotal(
+  totals: DailyTotals,
+  focus: NutritionFocus
+): { label: string; unit: string; total: DailyMacroTotal } {
+  switch (focus) {
+    case 'protein':
+      return { label: 'Protein', unit: 'g', total: totals.proteinG };
+    case 'carbs':
+      return { label: 'Carbs', unit: 'g', total: totals.carbsG };
+    case 'fat':
+      return { label: 'Fat', unit: 'g', total: totals.fatG };
+    case 'calories':
+    default:
+      return { label: 'Calories', unit: 'kcal', total: totals.kcal };
+  }
+}
+
 // ─── Fidelity → visual treatment (never a number) ────────────────────────────
 
 export interface FidelityTreatment {
