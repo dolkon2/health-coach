@@ -2,7 +2,7 @@
  * FidelityIndicator — the product's signature visual element.
  *
  * A small signal-strength bar showing capture confidence. Three segments:
- * filled in sandstone, empty in border color. Always visible on food-log
+ * filled in accent, empty in border color. Always visible on food-log
  * entries and any AI-estimated value. Confidence is a visual property, not
  * metadata (constitution, north star). See planning/brand-kit.md.
  */

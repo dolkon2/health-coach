@@ -3,8 +3,8 @@
  * confirms via the platform alert (no undo by design — Pass 6 contract), then
  * runs `onDelete`. Closes the swipe on cancel.
  *
- * The destructive surface uses theme.colors.negative (a muted clay, not bright
- * red) so it sits inside the brand palette instead of shouting.
+ * The destructive surface uses theme.colors.negative (a muted terracotta, not
+ * bright red) so it sits inside the brand palette instead of shouting.
  *
  * Built on react-native-gesture-handler's ReanimatedSwipeable so the gesture
  * feels native and the row springs back / snaps open the way iOS users expect.

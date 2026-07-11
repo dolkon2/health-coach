@@ -5,9 +5,9 @@
  * on the caller; the strip just renders what it's given and reports taps.
  *
  * Visual signals (each is a single, load-bearing dot):
- *   • selected day: filled outline in the sandstone accent
+ *   • selected day: filled outline in the accent color
  *   • today (when ≠ selected): a subtler thin outline (borderStrong)
- *   • day had food logged: a small clay dot below the cell (matches the
+ *   • day had food logged: a small caution dot below the cell (matches the
  *     partial-entry dot in the daily-total card)
  *
  * No future bound — Pass 2 allows future-week paging for meal planning.

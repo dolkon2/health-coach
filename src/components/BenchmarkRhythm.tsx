@@ -5,7 +5,7 @@
  * The mirror's rules, rendered (benchmarks-spec.md v0.4, "Consistency
  * counters"):
  *  - Bars are ONE color — a bar that hits target never changes hue; the
- *    palette never grades. The dashed sandstone line at target height is the
+ *    palette never grades. The dashed accent line at target height is the
  *    user's own mark, same grammar as the trend chart's target line.
  *  - The in-progress window renders at reduced opacity — it isn't a verdict
  *    yet — and its label says "now".
@@ -101,7 +101,7 @@ export function BenchmarkRhythm({ counts, run, window }: BenchmarkRhythmProps) {
             );
           })}
 
-          {/* Target — the user's own mark, dashed sandstone (chart grammar) */}
+          {/* Target — the user's own mark, dashed accent (chart grammar) */}
           {target > 0 ? (
             <Line
               x1={0}

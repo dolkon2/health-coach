@@ -3,7 +3,7 @@
  * the top-right, not a tab (the four-tab IA is the destination; we only have
  * two tabs' worth of data yet).
  *
- * Active = sandstone, inactive = text-muted (brand kit).
+ * Active = accent, inactive = text-muted (brand kit).
  */
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';

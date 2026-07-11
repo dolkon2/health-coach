@@ -45,7 +45,7 @@ type WeightTrendChartProps = {
   points: WeightTrendPoint[];
   raw: ObservationOf<'weighIn'>[];
   weightUnit: WeightUnit;
-  /** A benchmark outcome threshold (kg). Drawn as a dashed sandstone line —
+  /** A benchmark outcome threshold (kg). Drawn as a dashed accent line —
    *  the user's own mark on the mirror, always inside the y-domain so the
    *  distance to it is visible. Absent ⇒ the chart is exactly as before. */
   targetKg?: number;
@@ -246,7 +246,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
               ))}
 
               {/* Benchmark target — the user's own mark on the mirror. Dashed
-                  sandstone, behind the data: the trend crosses IT, not the
+                  accent, behind the data: the trend crosses IT, not the
                   other way round. No label; the outcome line states the
                   distance in words. */}
               {model.targetY != null ? (

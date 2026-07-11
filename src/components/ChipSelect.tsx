@@ -1,7 +1,7 @@
 /**
  * ChipSelect — a row of selectable chips for small, fixed option sets
  * (movement pattern, energy system, climb style, perceived effort). The
- * selected chip fills sandstone; the rest stay quiet surface tiles. Used where a
+ * selected chip fills accent; the rest stay quiet surface tiles. Used where a
  * native picker would feel heavier than the choice deserves.
  */
 import React from 'react';

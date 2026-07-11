@@ -1,8 +1,8 @@
 /**
  * StimulusLedger — weekly training volume by movement pattern, as a stacked bar
  * chart (one bar per ISO week, current + 7 prior). Built on the chart-series
- * palette (sage / sandstone / clay / slate) — earth tones, never green/red
- * (brand kit). Hard-edged bars: the data is unmediated.
+ * palette (trendLine / accent / caution / modeled) — earth tones, never
+ * green/red (brand kit). Hard-edged bars: the data is unmediated.
  *
  * Tap a week to drill into the sessions that contributed — each rendered through
  * the engine's own reveal() line, so the ledger and Today speak with one voice.
