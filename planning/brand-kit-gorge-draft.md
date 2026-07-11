@@ -1,5 +1,13 @@
 # Brand Kit v2 — Gorge Draft (exploration only)
 
+> **STATUS (2026-07-11): superseded in part.** Neither this file nor `brand-kit.md` is
+> authoritative any longer — the design of record is `planning/design-system/`
+> (light-only, no dark mode at launch). This draft also predates the user's current
+> Gorge element hexes (Earth `#8A7049` / Sky `#5E84A6` / Water `#4C8E85` / Body
+> `#C15A39`): its forest/river palette below has no fonts section and none of those
+> values. Kept for history only (locked #13, brand ⚑2 —
+> `planning/rework/brand-integration.md`).
+>
 > **STATUS: draft, not adopted.** `brand-kit.md` remains the live, authoritative kit. Nothing
 > here is wired into the app. This file exists so a color/font direction can be reacted to and
 > refined before any of it touches a real screen — capture the idea while it's fresh, decide

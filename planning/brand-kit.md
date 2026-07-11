@@ -1,5 +1,12 @@
 # Brand Kit — Design Tokens
 
+> **STATUS (2026-07-11): superseded in full.** The design of record is now
+> `planning/design-system/` (the claude.ai/design light kit) — light-only, no dark mode
+> at launch. This file is stale by declaration (locked #13,
+> `planning/rework/brand-integration.md`); kept for history, not as an authority for any
+> visual value. `src/theme/tokens.ts` still ships this file's placeholder values
+> pending the Gorge rebrand swap PR.
+
 *Trail map meets tide chart. Gear for an outdoor life, not a gym app.*
 
 ---
