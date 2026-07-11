@@ -93,6 +93,14 @@ export function yearLabel(d: Date = new Date()): string {
   return String(d.getFullYear());
 }
 
+/** e.g. "7h 32m" — shared by SleepCard and Home's StepsSleepStrip so a
+ *  duration-display fix only has to happen in one place. */
+export function formatDurationHm(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = Math.round(min - h * 60);
+  return `${h}h ${m}m`;
+}
+
 /** The device's IANA timezone, e.g. 'America/Los_Angeles'. Stored on every Observation. */
 export function deviceTz(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;

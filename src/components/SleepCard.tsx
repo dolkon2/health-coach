@@ -7,15 +7,10 @@
  */
 import { Card, Text } from '@/components';
 import { useTheme } from '@/theme';
+import { formatDurationHm } from '@/lib/date';
 import type { ObservationOf } from '@core/observation';
 
 type Props = { observation: ObservationOf<'sleep'> | null };
-
-function formatDuration(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = Math.round(min - h * 60);
-  return `${h}h ${m}m`;
-}
 
 export function SleepCard({ observation }: Props) {
   const theme = useTheme();
@@ -27,7 +22,7 @@ export function SleepCard({ observation }: Props) {
       </Text>
       {observation ? (
         <>
-          <Text variant="dataLg">{formatDuration(observation.payload.durationMin)}</Text>
+          <Text variant="dataLg">{formatDurationHm(observation.payload.durationMin)}</Text>
           <Text variant="dataSm" color={theme.colors.textMuted}>
             last night
           </Text>
