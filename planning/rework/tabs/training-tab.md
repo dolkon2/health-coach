@@ -36,7 +36,10 @@ week grid, ever.
 ## 2. Information architecture / layout
 
 One scrolling screen, four sections, no top swap, no history feed. Standard chrome: top-right
-avatar (Profile) + gear (Settings), like every tab.
+avatar (Profile) + gear (Settings), like every tab — plus, once T4 removes the feed, a small
+**"History →" header link → Profile › Logbook** (the mitigation specced in
+`planning/rework/tabs/profile-settings.md` §5: history moves, but Training keeps a one-tap
+door to it).
 
 ```
 Training
@@ -45,7 +48,7 @@ Training
 ├── B. Library               Templates & Sections  (3a/3b shared skeleton, ⚑2)
 │     search (appears ≥10 items) · template cards · [+ New template]
 ├── C. Routes                "Routes →" shelf                     (locked #8)
-│     2 most-recent route cards · effort counts · [+ New Route → Map build mode]
+│     2 most-recent route cards · effort counts · [+ New Route → Map build mode] (post-M6)
 └── D. Progress & tools      Training Progress → · Import CSV →
 ```
 
@@ -53,10 +56,10 @@ Training
 
 | Surface | Fate |
 |---|---|
-| Session history feed + calendar | **OUT → Profile** (locked #3; see `planning/rework/tabs/profile.md`). Only the UI moves; `useSessionHistory` and the observations query are unchanged. |
+| Session history feed + calendar | **OUT → Profile** (locked #3; see `planning/rework/tabs/profile-settings.md`). Only the UI moves; `useSessionHistory` and the observations query are unchanged. A small "History →" header link remains Training-side (§2, T4). |
 | Pinned Spots list | OUT → Home glance (pinned-spots-spec REF amendment; see `planning/rework/tabs/home-tab.md`) |
 | GPS live capture + GPX import | OUT → Map Record (locked #7; see `planning/rework/tabs/map-tab.md`). `useGpsTracker`/`GpsRecorderPanel` relocate with it. |
-| Stimulus/ledger anything | Never returns here — Settings tap-in (locked #2; `planning/rework/tabs/settings.md`) |
+| Stimulus/ledger anything | Never returns here — Settings tap-in (locked #2; `planning/rework/tabs/profile-settings.md`) |
 | Benchmarks tile | Superseded per Notion Features DB; contextual benchmark creation from Training flows survives (⚑4) |
 | Templates & Sections library | **KEEPS** — no longer a standalone tap-in; it is Training's core content |
 | Route library browsing | **KEEPS** (locked #8) — routes are reusable assets, not history |
@@ -105,10 +108,13 @@ differs — build the skeleton once (Pass T2), apply the decision as a wrapper s
 - `RouteCard`: name, activity icon, distance via `metersToDisplay` (routes-spec ⚑6), SVG
   `RoutePreview` thumbnail (never a GL map per row), effort count when >0.
 - Shelf shows the 2 most-recent (`updatedAt` desc) + "Routes →" to the full list
-  (`app/routes.tsx`); `+ New Route` → **Map build mode** (creation door 1). Route card tap →
-  route detail (`app/route/[id].tsx`, specced in routes-spec; map-hero + efforts list).
-- *Empty:* one line naming the three creation doors (build on Map · save a logged session as
-  a route · import GPX), with `+ New Route` present.
+  (`app/routes.tsx`); `+ New Route` → **Map build mode** (creation door 1) — this button
+  renders only once Map's builder pass (map-tab M6) is live; before that the shelf ships
+  without it (see T3). Route card tap → route detail (`app/route/[id].tsx`, specced in
+  routes-spec; map-hero + efforts list).
+- *Empty:* pre-M6, one line naming the creation doors that actually exist (save a logged
+  session as a route · import GPX — both builder-independent, routes-spec P2.5); once Map's
+  builder lands, the line adds "build on Map" and `+ New Route` appears.
 - *Loading/error:* skeleton cards / collapse to the "Routes →" link.
 
 **D. Progress & tools.** Plain link rows to `training-progress.tsx` (→ `lift-detail.tsx`,
@@ -162,7 +168,8 @@ routes are reusable assets, not history** (locked #8).
   unbuilt) and — when it has a track — **save-as-route** / save-as-spot (`log-session.tsx`
   affordances; routes-spec P2.5, no map dependency).
 - `+ New Route` / route detail "Start session on this route" → Map (build mode / Record with
-  the route preloaded for follow). Both are Map-owned flows; Training only links.
+  the route preloaded for follow). Both are Map-owned flows; Training only links — and only
+  once the target exists (the build-mode link is gated on map-tab M6; see §3 C and T3).
 - Recurrence set on a template surfaces **only** on Home as today's due stack; missed days
   clear silently, empty days are neutral.
 - Benchmarks: cadence benchmarks spawn contextually from Training flows (benchmarks-spec);
@@ -178,8 +185,15 @@ routes are reusable assets, not history** (locked #8).
    sheet. Home's due-stack consumes the recurrence field (its pass, not this one).
 3. **T3 — Routes shelf (S).** Mount per routes-spec P2: interim "Routes →" header link →
    `app/routes.tsx`, then the inline 2-card shelf once T1 is live. Requires routes P1/P2.
-4. **T4 — History removal (S).** Delete the feed from Training. **Hard gate: ships only
-   after the Profile logbook pass is live** — the user never loses access to history.
+   The `+ New Route → Map build mode` button is *additionally* gated on Map's builder pass
+   (map-tab M6, itself gated on M5 + Map ⚑3) — until M6 lands, T3 ships without the button
+   and the empty state names only the existing creation doors (save-as-route, GPX import),
+   so the pass stays independently shippable without linking to a build mode that doesn't
+   exist yet.
+4. **T4 — History removal (S).** Delete the feed from Training; add the small "History →"
+   header link → Profile › Logbook (§2; cross-ref `profile-settings.md` §5 — the link is
+   Training-side and ships in this pass). **Hard gate: ships only after the Profile logbook
+   pass is live** — the user never loses access to history.
 5. **T5 — Body deep-link handoff (S).** Accept the Home element-picker param; Start-focused
    presentation; retire Home's interim routing.
 6. **T6 — 3a/3b resolution + Sections first cut (M).** Apply Dylan's layout decision as the
@@ -188,10 +202,12 @@ routes are reusable assets, not history** (locked #8).
 
 ## 7. Dependencies
 
-- **Profile spec** (`planning/rework/tabs/profile.md`): logbook pass gates T4. Research:
+- **Profile spec** (`planning/rework/tabs/profile-settings.md`): logbook pass (P2) gates T4;
+  T4 also ships the "History →" header link (§2). Research:
   `planning/rework/research/profile-logbook.md` (assignment table).
-- **Map spec** (`planning/rework/tabs/map-tab.md`): routes P1/P2 gate T3; Record deep-links
-  ("start on route", builder door 1) are Map passes. Research:
+- **Map spec** (`planning/rework/tabs/map-tab.md`): routes P1/P2 gate T3; Map's builder pass
+  M6 (gated on M5 + Map ⚑3) gates T3's `+ New Route` button — the shelf itself doesn't wait
+  on it. Record deep-links ("start on route", builder door 1) are Map passes. Research:
   `planning/rework/research/routes-implementation.md`, `gps-recording-expo.md`.
 - **Home spec** (`planning/rework/tabs/home-tab.md`): element picker gates T5; due stack
   consumes T2's recurrence field.

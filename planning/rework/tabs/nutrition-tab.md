@@ -164,7 +164,8 @@ note's 1–3 s resolution floor stands as the acceptance benchmark to hold.
 
 ## 5. Interactions & cross-tab flows
 
-- **Home log bar → "Log Food → existing nutrition logger"** (locked #6, verbatim).
+- **Home log bar → Log Food → existing nutrition logger** (routing specced in
+  `home-tab.md` § 5; locked #6 covers only the Log Session element-picker routing).
   Done — no change.
 - **Home nutrition-today card** → tap lands on Nutrition **Intake**; the card reuses
   this tab's three-valued day-engine target-status component and respects Focus (a

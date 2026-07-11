@@ -15,8 +15,10 @@ Home is **today at a glance, plus the fastest path to logging** — the first ta
 locked five (Home · Training · Map · Nutrition · Social). Everything on it is pull:
 either an action the user initiates (the log bar) or a descriptive statement about
 today ("here is what today holds so far"). Home never volunteers a plan, target, or
-nudge; nothing AI-authored or prescriptive ever renders here (ambient surfaces never
-show programming — constitution § summoned coach). The element picker makes the
+nudge; nothing the app volunteers — no AI-authored content the user has not adopted —
+ever renders here (ambient surfaces never show un-adopted programming — constitution
+§ summoned coach; see the source-tag note on § 3's template card for why an adopted,
+recurrence-tagged template is not an exception). The element picker makes the
 four-dimensions framework the literal first branch of the core loop rather than a tag
 applied afterwards, and the tier rules hold throughout: steps and sleep render as
 tier-1/2 facts only, tier-3 wearable scores never appear, and no module defines what a
@@ -40,7 +42,8 @@ Two tiers, not one flat stack:
 3. **Today's template card(s)** — only when a template is tagged for today.
 4. **Pinned Spots glance** — condensed cards, capped at 3, ordered by
    most-recently-visited, under a "Spots →" header link to the full list.
-5. **Benchmark progress** — pinned/active benchmarks with current standing.
+5. **Benchmark progress** — pinned/active benchmarks with current standing, under a
+   "Benchmarks →" header link to the full management list.
 6. **Nutrition today** — calories or Focus-mode metric; target progress if targets set.
 7. **Steps + sleep strip** — one single-line row, smallest type on the page, last.
 
@@ -115,6 +118,16 @@ card (absent, not empty). This is the only place recurrence surfaces — there i
 planner anywhere. Error state: none (local read); a deleted-but-tagged template simply
 doesn't render.
 
+Source-tag note (Decision, obvious call): a recurrence-tagged template renders here
+regardless of its source tag — user-built, PT-prescribed, or coach-drafted-and-adopted.
+User adoption plus the user's own recurrence tag is what puts it in the due stack; the
+card reflects the user's schedule, not app-volunteered programming. § 1's ambient ban
+applies to *un-adopted* AI output, which never reaches the template store on its own
+(constitution § summoned coach: output is a draft that enters the library only when the
+user adopts it, exactly like a PT-prescribed plan). Builders must not "fix" § 1 by
+filtering source-tagged templates out of the due stack — that would cripple the
+connected-external-plan entry state ("two entry states, not two products").
+
 **Pinned Spots glance** — condensed card per spot: pin + title + sport tag + headline
 live reading (weather always; gauge/wind/swell when the sport maps to one). States:
 *loading* — card renders name + sport immediately, reading shows last-cached value
@@ -126,9 +139,16 @@ than vanishing). Full behavior: `pinned-spots-spec.md` (pins-routes version) and
 `map-tab.md` for creation surfaces.
 
 **Benchmark progress** — pinned/active benchmarks with current standing, reusing the
-shipped `BenchmarkStatusCard` family. Zero active benchmarks → absent (creation lives
-in Training-side flows; see `training-tab.md` and the open Benchmarks decisions,
-locked #12 — this module inherits whatever list/type decisions land there).
+shipped `BenchmarkStatusCard` family, under a **"Benchmarks →" header link** (same
+idiom as "Spots →") into the full benchmark management list. With the old Training
+tile superseded, this link is the management list's specced entry point
+(`benchmarks-templates.md` §2 surface 3, §5) — interim target is the shipped
+`app/benchmarks.tsx`, replaced by B3's list container v2 when it lands. Zero active
+benchmarks → cards absent (creation lives in Training-side flows; see
+`training-tab.md` and the open Benchmarks decisions, locked #12 — this module inherits
+whatever list/type decisions land there); Decision (obvious call): the "Benchmarks →"
+link keeps a one-line presence even at zero, same floor-module treatment as the
+zero-spot row, since it is the only door to the management surface.
 
 **Nutrition today card** — total calories; if targets are set, consumed-of-target
 primary, remaining secondary — the same card idiom and the same three-valued day
@@ -179,7 +199,11 @@ Record with sport armed; Body routes to Training template/session selection.**
   element's sport context loaded (relevant map layers, relevant Pinned Spots). Sport
   remains switchable on Map before pressing record — the picker's choice is a default,
   not a lock (whether that's a sub-tab or header control is Map's shell decision; see
-  `map-tab.md`). GPS capture lives on Map (locked #7); Home only deep-links.
+  `map-tab.md`). GPS capture lives on Map (locked #7); Home only deep-links. One open
+  carve-out (⚑4): non-GPS-surface activities that are Earth/Water by dimension (indoor
+  climbing, pool swim) may route to the logger directly instead of Map Record — until
+  that call lands, do not hard-code dimension → Map Record for the `⌄` expanded
+  activity list.
 - **`⌄` tap** → expands that element's activity list; choosing routes as above with
   that sport armed. Common case one tap; switching costs one more, never a detour.
 - **Body row tap** → Training, template/session selection. Body never routes to Map
@@ -188,14 +212,23 @@ Record with sport armed; Body routes to Training template/session selection.**
 - **Interim routing** (until the Map Record shell exists): Earth/Sky/Water route to
   the current session logger (`log-session`) with the activity pre-selected —
   functional, swapped later, so Home is never blocked on Map (⚑ carried from
-  home-tab-spec, resolved as this two-step build).
+  home-tab-spec, resolved as this two-step build). The interim applies to **E/S/W
+  only**: Body routes to Training from day one (the tab's existing template/session
+  screen — templates and session start already live there), matching locked #6; the
+  parameterized Start-focused presentation upgrades that handoff when `training-tab.md`
+  T5 lands. Body never uses the `log-session` interim. Coordination note:
+  `training-tab.md` §5 currently describes the Body interim as `log-session` and cites
+  a stale "home-tab-spec ⚑1" — that text must be aligned to this paragraph (the
+  interim-routing flag was resolved; ⚑1 in this file is the shelf layout).
 - **Log Food** → the existing nutrition logger. Done.
 - **Today's template tap** → straight into logging that session. Decision (obvious
   call): routing follows the element rule — Body-surface templates open Training-side
   logging; an Earth/Sky/Water-surface template arms Map Record with the template shape
   loaded (interim: current logger, same as above).
 - **Nutrition card tap** → Nutrition tab (Intake). **Spot card tap** → spot detail;
-  "Spots →" → spots list. **Benchmark card tap** → benchmark detail.
+  "Spots →" → spots list. **Benchmark card tap** → benchmark detail; **"Benchmarks →"**
+  → the full benchmark management list (Home's pinned strip is its entry point —
+  `benchmarks-templates.md` §5).
 - **Avatar** → Profile (logbook lives there — locked #3); **gear** → Settings
   (Stimulus Ledger tap-in lives there — locked #2).
 - **Pull-to-refresh** on Home: bypasses the conditions TTL for visible spots and
@@ -211,12 +244,13 @@ whichever lands first — pure nav work, no storage implication).
 
 - **H1 (M) — log bar + element picker.** Two-button bar; element picker sheet with
   most-recent-per-element scan, `⌄` expansion, archetype fallbacks; interim routing
-  (E/S/W → `log-session` pre-selected; Body → template selection). Prior art: the
-  Training tab's `elementSections()` grouping.
+  per §5 (E/S/W → `log-session` pre-selected; Body → Training's existing
+  template/session screen — never `log-session`). Prior art: the Training tab's
+  `elementSections()` grouping.
 - **H2 (M) — glance-tier pivot.** Remove weigh-in card, today's-sessions list, meal
   list, third button; add nutrition-today card (day-engine reuse, Focus-aware);
-  restyle pinned benchmarks as the progress module; presence rules (absent, not
-  empty).
+  restyle pinned benchmarks as the progress module with the "Benchmarks →" header
+  link (interim target `app/benchmarks.tsx`); presence rules (absent, not empty).
 - **H3 (S) — steps/sleep demotion.** Replace StepsCard + SleepCard with the
   single-line strip; move HealthKit connection state to Settings.
 - **H4 (M) — Pinned Spots glance.** Condensed cards + "Spots →" link; live readings
@@ -240,11 +274,15 @@ whichever lands first — pure nav work, no storage implication).
   state.
 - **Spots track** (`pinned-spots-spec.md`, pins-routes version): P1–P2 gate H4.
   Migration numbering: 015 spots_sport / 016 routes are reserved; Home claims none.
-- **Rebrand track** (locked #13): the element picker wants an `elements: { earth, sky,
-  water, body }` token category that does not exist in `src/theme/tokens.ts`. H1 ships
-  it as semantic token *names* with placeholder values so the Gorge kit lands as a
-  value swap — mechanics only, no visual finalization here. No Home pass blocks on the
-  rebrand.
+- **Rebrand track** (locked #13): the element picker consumes the `element: { earth,
+  sky, water, body }` token group, which does not yet exist in `src/theme/tokens.ts`.
+  That group is **owned by `brand-integration.md` Pass 2** (semantic names +
+  declared-throwaway placeholder values, both palettes) — Pass 2 is H1's soft
+  prerequisite, and H1 consumes it rather than shipping its own; if H1 lands first, it
+  creates the group *per Pass 2's definition* (same keys — the `Element` literals from
+  `src/lib/activity.ts` — and the same placeholder mapping), leaving brand-integration
+  the single owner of the token shape. Mechanics only, no visual finalization here. No
+  Home pass blocks on the rebrand itself (Pass 2 is deliberately kit-independent).
 - **Research**: none required. The MapLibre long-press spike belongs to Spots/Routes,
   not Home (the glance renders no map).
 
@@ -262,6 +300,14 @@ whichever lands first — pure nav work, no storage implication).
 - **⚑3 Template ↔ benchmark card merge**: when a benchmark is tied to today's tagged
   session, do the two cards merge into one "active today" module or stay two? Notion
   lists it open; genuinely contestable — not decided here.
+- **⚑4 Non-GPS Earth/Water starts** (shared with `training-tab.md` ⚑3 /
+  `map-tab.md` ⚑6): indoor climbing and pool swim are Earth/Water by dimension but
+  have no GPS shape, so Map Record is the wrong destination for them. Proposal on the
+  table (from those specs): routing follows the *logging surface*, not the dimension —
+  the element picker's expanded activity list sends non-GPS-surface activities to the
+  logger directly (Map Record could equally offer a "log without GPS" escape). Needs
+  your call; Home owns the picker, so H1/H6 must not bake in unconditional
+  E/S/W → Map Record for the expanded list until this lands (§5 carries the caveat).
 
 ## 9. Open questions
 
