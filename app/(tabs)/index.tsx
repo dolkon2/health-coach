@@ -1,83 +1,70 @@
 /**
- * Today — the home of the daily loop. Open it, see today, log a weigh-in, log a
- * session, leave. Food shows as the daily total + a compact list of today's
- * meals (tap → edit). Per-item breakdown and per-item delete live in the
- * Nutrition tab — Today is a glance.
+ * Home — today at a glance, plus the fastest path to logging
+ * (planning/rework/tabs/home-tab.md). Two tiers: the always-present log bar
+ * (Log Session opens the Earth/Sky/Water/Body element picker; Log Food opens
+ * the food logger directly), and a glance tier of today's modules — present
+ * only when the user actually tracks them (absent, not empty).
+ *
+ * Explicitly NOT here (moved or removed per the spec): the weigh-in card
+ * (Nutrition/Trend owns weigh-in — see nutrition.tsx's onLogWeighIn), today's
+ * session list and meal list (the logbook lives on Profile, per locked #3),
+ * the third log button, and the HealthKit "Connect" CTA (Settings owns
+ * connection state now — settings.tsx; Home only reads `connected` to decide
+ * whether the steps/sleep strip renders).
+ *
+ * Pinned Spots and today's-template card (H4/H5) are NOT built in this pass —
+ * both are gated on tracks that don't exist yet (Spots migration 015 + list;
+ * Training's per-template recurrence property). They keep their place in
+ * Dylan's confirmed shelf order (Nutrition → Spots → template → Benchmarks →
+ * Steps/Sleep) once their dependencies land.
  */
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, SessionCard, StepsCard, SleepCard, SwipeToDelete, FidelityTreatment, BenchmarkStatusCard } from '@/components';
+import { Screen, Text, Card, Button, ElementPickerSheet, BenchmarkStatusCard, StepsSleepStrip } from '@/components';
 import { useTheme } from '@/theme';
-import { todayLocalLabel, yearLabel, localTimeLabel } from '@/lib/date';
+import { todayLocalLabel, yearLabel } from '@/lib/date';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useBenchmarkStatuses } from '@/hooks/useBenchmarkStatuses';
 import { useExpenditure } from '@/hooks/useExpenditure';
-import { useTodayStimulusContributions } from '@/hooks/useTodayStimulusContributions';
+import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useWearableSync } from '@/hooks/useWearableSync';
 import { useSettings } from '@/settings/useSettings';
-import { formatWeight, formatDelta } from '@/lib/units';
-import { dailyTotals, fidelityTreatment, mealDisplayName, type DailyMacroTotal } from '@/lib/foodLog';
-import { captureLabel } from '@core/nutrition/captureTier';
-import { deleteObservation } from '@/storage/observations';
-import { deleteHealthKitExport } from '@/lib/healthkit/writer';
+import { dailyTotals, dailyFocusTotal } from '@/lib/foodLog';
+import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
+import type { Activity } from '@/lib/activity';
 
-// A captured macro renders as a rounded integer; a genuinely unknown one as "—",
-// never 0 (food-logging-spec § null ≠ 0).
-const macroStr = (v: number | null | undefined): string => (v == null ? '—' : String(Math.round(v)));
-
-/** One column of the daily-total card: the honest sum (or "—") above its label. */
-function TotalMacro({ label, total }: { label: string; total: DailyMacroTotal }) {
-  const theme = useTheme();
-  return (
-    <View>
-      <Text variant="data">{macroStr(total.value)}</Text>
-      <Text variant="label" color={theme.colors.textSecondary}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-export default function TodayScreen() {
+export default function HomeScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit } = useSettings();
+  const { nutritionFocus, weightUnit } = useSettings();
+  const [pickerVisible, setPickerVisible] = useState(false);
 
-  const {
-    weighInToday,
-    sessionsToday,
-    foodEntriesToday,
-    stepsToday,
-    sleepToday,
-    reload: reloadToday,
-  } = useTodayObservations();
-  const { points: trendPoints, delta, reload: reloadTrend } = useWeightTrend();
-  const contributions = useTodayStimulusContributions(sessionsToday);
+  const { foodEntriesToday, stepsToday, sleepToday, reload: reloadToday } = useTodayObservations();
+  const { points: trendPoints, reload: reloadTrend } = useWeightTrend();
   const foodTotals = dailyTotals(foodEntriesToday.map((o) => o.payload));
   const wearable = useWearableSync(reloadToday);
   // The measured expenditure window feeds any energy-balance outcome face —
   // the same residual the Nutrition tab's burn card shows.
   const { measured, reload: reloadExpenditure } = useExpenditure(trendPoints);
-  // Pinned benchmarks read the same smoothed points the trend chart uses —
-  // one weigh-in query serves both the weigh-in card and the outcome faces.
+  // Pinned benchmarks read the same smoothed points the trend chart uses.
   const { entries: benchmarkEntries, reload: reloadBenchmarks } =
     useBenchmarkStatuses(trendPoints, measured);
-  // Depend on the stable `syncNow` callback, NOT the whole `wearable` object.
-  // useWearableSync returns a fresh object literal every render, so depending on
-  // `wearable` would give the focus effect a new callback identity each render,
-  // re-running it on every render and looping (setLoading/setObservations →
-  // re-render → new callback → …). syncNow is a useCallback that only changes
-  // when `connected` flips, so the callback stays stable across renders.
+  // Most-recent-activity-per-element (H1): a JS scan over recent sessions.
+  // Fetched once on mount and refreshed only when the picker sheet actually
+  // opens (openPicker below) — not on every Home focus. The value is only
+  // ever read inside a closed-by-default sheet, so eagerly re-running a
+  // 365-day session scan on every focus (Training tab already runs the same
+  // query independently) would be pure waste on the far more common case of
+  // a Home visit that never opens it.
+  const { sessions: recentSessions, reload: reloadSessions } = useSessionHistory();
+  const mostRecent = useMemo(() => mostRecentActivityByElement(recentSessions), [recentSessions]);
+  // Depend on the stable `syncNow` callback, NOT the whole `wearable` object —
+  // see the equivalent note this screen carried before the rework (Today's
+  // useWearableSync reference): the hook returns a fresh object every render.
   const { syncNow } = wearable;
 
-  // Re-fetch whenever Today regains focus — e.g. after the weigh-in modal saves.
-  // Also polls HealthKit (throttled, no-op until the user has connected).
-  // Depend on the *stable* syncNow, not the whole `wearable` object — the hook
-  // returns a fresh object every render, so listing `wearable` here re-fired this
-  // effect on every render → reloadToday → setState → render → loop (which also
-  // starved the single SQLite connection). syncNow is a stable useCallback.
   useFocusEffect(
     useCallback(() => {
       reloadToday();
@@ -88,25 +75,35 @@ export default function TodayScreen() {
     }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, syncNow])
   );
 
-  const removeAndReload = useCallback(
-    async (id: string) => {
-      await deleteObservation(id);
-      // Fire-and-forget: propagates to Apple Health if this was ever
-      // exported (sessions only — a no-op for every other observation kind
-      // this shared handler also deletes, e.g. weigh-ins). Same P8
-      // propagation as Training tab's own session-delete path.
-      void deleteHealthKitExport(id).catch(() => {});
-      reloadToday();
-      reloadTrend();
-    },
-    [reloadToday, reloadTrend]
-  );
+  function openPicker() {
+    reloadSessions();
+    setPickerVisible(true);
+  }
+
+  function openActivityLogger(activity: Activity) {
+    setPickerVisible(false);
+    // Interim routing (home-tab.md § 5): Earth/Sky/Water always open the
+    // current logger with the activity pre-selected. Swapped for the real
+    // Map Record deep link at H6 — Home is never blocked on Map.
+    router.push({ pathname: '/log-session', params: { activity: activity.id } });
+  }
+
+  function openBodyLogger() {
+    setPickerVisible(false);
+    // Body never uses the log-session interim — it hands off to Training's
+    // existing template/session selection screen (locked #6).
+    router.push('/training');
+  }
+
+  const focusTotal = dailyFocusTotal(foodTotals, nutritionFocus);
+  const showNutritionCard = foodEntriesToday.length > 0;
+  const showStepsSleep = wearable.connected && (stepsToday !== null || sleepToday !== null);
 
   return (
     <Screen scroll>
-      {/* Date header — display font, uppercase, primary text */}
+      {/* Date header */}
       <Text variant="label" color={theme.colors.accent}>
-        Today
+        Home
       </Text>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
         {todayLocalLabel()}
@@ -115,14 +112,74 @@ export default function TodayScreen() {
         {yearLabel()}
       </Text>
 
-      {/* Benchmarks — pinned goals at a glance. The section exists only when
-          the user pinned something: Today never asks for a goal to be set
-          (pull, not push — benchmarks-spec.md). */}
-      {benchmarkEntries.length > 0 ? (
+      {/* Log bar — always present, needs zero data (home-tab.md § 2 tier 1). */}
+      <View style={{ flexDirection: 'row', gap: theme.spacing[3], marginTop: theme.spacing[6] }}>
+        <Button
+          label="Log session"
+          onPress={openPicker}
+          style={{ flex: 1 }}
+        />
+        <Button
+          label="Log food"
+          variant="secondary"
+          onPress={() => router.push('/log-food')}
+          style={{ flex: 1 }}
+        />
+      </View>
+
+      <ElementPickerSheet
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        mostRecent={mostRecent}
+        onPickActivity={openActivityLogger}
+        onPickBody={openBodyLogger}
+      />
+
+      {/* Nutrition today — Focus-mode aware total; absent until food is logged. */}
+      {showNutritionCard ? (
         <View style={{ marginTop: theme.spacing[8] }}>
           <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
-            Benchmarks
+            Nutrition
           </Text>
+          <Pressable
+            onPress={() => router.push('/nutrition')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Nutrition"
+          >
+            <Card style={{ gap: theme.spacing[1] }}>
+              <Text variant="dataLg">
+                {focusTotal.total.value == null
+                  ? '—'
+                  : `${Math.round(focusTotal.total.value)} ${focusTotal.unit}`}
+              </Text>
+              <Text variant="label" color={theme.colors.textSecondary}>
+                {focusTotal.label} today
+              </Text>
+              {focusTotal.total.missing > 0 ? (
+                <Text variant="bodySm" color={theme.colors.caution}>
+                  {focusTotal.total.missing} {focusTotal.total.missing === 1 ? 'entry' : 'entries'} missing this macro — not counted
+                </Text>
+              ) : null}
+            </Card>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Benchmarks — the "Benchmarks →" link is a floor module: it keeps a
+          one-line presence even at zero, since it's the only door to the
+          management list (home-tab.md § 3). */}
+      <View style={{ marginTop: theme.spacing[8] }}>
+        <Pressable
+          onPress={() => router.push('/benchmarks')}
+          accessibilityRole="button"
+          accessibilityLabel="Open benchmarks"
+          style={{ marginBottom: theme.spacing[2] }}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            Benchmarks →
+          </Text>
+        </Pressable>
+        {benchmarkEntries.length > 0 ? (
           <View style={{ gap: theme.spacing[3] }}>
             {benchmarkEntries.map((e) => (
               <BenchmarkStatusCard
@@ -135,234 +192,15 @@ export default function TodayScreen() {
               />
             ))}
           </View>
+        ) : null}
+      </View>
+
+      {/* Steps + sleep — the deliberately non-headline bottom line (H3, locked #9). */}
+      {showStepsSleep ? (
+        <View style={{ marginTop: theme.spacing[6] }}>
+          <StepsSleepStrip steps={stepsToday} sleep={sleepToday} />
         </View>
       ) : null}
-
-      {/* Weigh-in */}
-      <View
-        style={{
-          marginTop: benchmarkEntries.length > 0 ? theme.spacing[3] : theme.spacing[8],
-        }}
-      >
-        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
-          Weigh-in
-        </Text>
-        {weighInToday ? (
-          <SwipeToDelete
-            onDelete={() => removeAndReload(weighInToday.id)}
-            confirmTitle="Delete weigh-in?"
-            confirmMessage={`${formatWeight(
-              weighInToday.payload.weightKg,
-              weightUnit
-            )} — permanent.`}
-          >
-            <Card style={{ gap: theme.spacing[3] }}>
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/log-weigh-in',
-                    params: { editId: weighInToday.id },
-                  })
-                }
-                accessibilityRole="button"
-                accessibilityLabel="Edit weigh-in"
-                style={{ gap: theme.spacing[1] }}
-              >
-                <Text variant="dataLg" color={theme.colors.text}>
-                  {formatWeight(weighInToday.payload.weightKg, weightUnit)}
-                </Text>
-                {delta ? (
-                  <Text variant="dataSm" color={theme.colors.textSecondary}>
-                    {`trend: ${formatWeight(delta.trendKg, weightUnit)}, ${formatDelta(
-                      delta.deltaKg,
-                      weightUnit
-                    )} over ${delta.days} days`}
-                  </Text>
-                ) : null}
-              </Pressable>
-              <Button
-                label="Log another"
-                variant="ghost"
-                onPress={() => router.push('/log-weigh-in')}
-              />
-            </Card>
-          </SwipeToDelete>
-        ) : (
-          <Card style={{ gap: theme.spacing[3] }}>
-            <Text variant="body" color={theme.colors.textMuted}>
-              Not logged today.
-            </Text>
-            <Button label="Log weigh-in" onPress={() => router.push('/log-weigh-in')} />
-          </Card>
-        )}
-      </View>
-
-      {/* Steps + sleep — auto-imported from HealthKit, glance-only.
-          Connect CTA appears only until the user has opted in (Apple HIG:
-          permission request must arise from user interaction). */}
-      {wearable.connected ? (
-        <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-          <StepsCard observation={stepsToday} />
-          <SleepCard observation={sleepToday} />
-        </View>
-      ) : (
-        <View style={{ marginTop: theme.spacing[3] }}>
-          <Card style={{ gap: theme.spacing[3] }}>
-            <Text variant="body" color={theme.colors.textMuted}>
-              Connect Apple Health to bring in steps and sleep automatically.
-            </Text>
-            <Button
-              label={wearable.syncing ? 'Connecting…' : 'Connect Apple Health'}
-              onPress={() => {
-                wearable.connect();
-              }}
-              variant="secondary"
-            />
-          </Card>
-        </View>
-      )}
-
-      {/* Sessions */}
-      <View style={{ marginTop: theme.spacing[3] }}>
-        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
-          Today's sessions
-        </Text>
-        {sessionsToday.length > 0 ? (
-          <View style={{ gap: theme.spacing[3] }}>
-            {sessionsToday.map((session) => (
-              <SwipeToDelete
-                key={session.id}
-                onDelete={() => removeAndReload(session.id)}
-                confirmTitle="Delete session?"
-                confirmMessage={`${session.payload.modality} — permanent.`}
-              >
-                <Pressable
-                  onPress={() =>
-                    router.push({
-                      pathname: '/log-session',
-                      params: { editId: session.id },
-                    })
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={`Edit ${session.payload.modality} session`}
-                >
-                  <SessionCard
-                    session={session}
-                    contribution={contributions[session.id]}
-                  />
-                </Pressable>
-              </SwipeToDelete>
-            ))}
-          </View>
-        ) : (
-          <Card>
-            <Text variant="body" color={theme.colors.textMuted}>
-              No sessions yet.
-            </Text>
-          </Card>
-        )}
-        <Button
-          label="Log session"
-          variant="secondary"
-          onPress={() => router.push('/log-session')}
-          style={{ marginTop: theme.spacing[3] }}
-        />
-      </View>
-
-      {/* Today's food */}
-      <View style={{ marginTop: theme.spacing[3] }}>
-        <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
-          Today's food
-        </Text>
-        {foodEntriesToday.length > 0 ? (
-          <View style={{ gap: theme.spacing[3] }}>
-            {/* Daily total — the honest sum: partial entries are excluded, never zeroed. */}
-            <Card raised style={{ gap: theme.spacing[2] }}>
-              <Text variant="label" color={theme.colors.textSecondary}>
-                Daily total
-              </Text>
-              <View style={{ flexDirection: 'row', gap: theme.spacing[5] }}>
-                <TotalMacro label="Cal" total={foodTotals.kcal} />
-                <TotalMacro label="P" total={foodTotals.proteinG} />
-                <TotalMacro label="C" total={foodTotals.carbsG} />
-                <TotalMacro label="F" total={foodTotals.fatG} />
-              </View>
-              {foodTotals.partialCount > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                  <View
-                    style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: theme.colors.caution }}
-                  />
-                  <Text variant="bodySm" color={theme.colors.caution} style={{ flex: 1 }}>
-                    {foodTotals.partialCount} partial{' '}
-                    {foodTotals.partialCount === 1 ? 'entry' : 'entries'} — missing macros not counted
-                  </Text>
-                </View>
-              ) : null}
-            </Card>
-
-            {/* Compact per-meal row — tap to edit, swipe to delete. The per-item
-                breakdown + per-item delete live in the Nutrition tab. */}
-            {foodEntriesToday.map((o) => {
-              const treat = fidelityTreatment(o.fidelity);
-              const mealName = mealDisplayName(o.payload);
-              return (
-                <SwipeToDelete
-                  key={o.id}
-                  onDelete={() => removeAndReload(o.id)}
-                  confirmTitle={`Delete ${mealName}?`}
-                  confirmMessage="This is permanent."
-                >
-                  <Pressable
-                    onPress={() => router.push({ pathname: '/log-food', params: { editId: o.id } })}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Edit ${mealName}`}
-                  >
-                    <Card style={{ gap: theme.spacing[2] }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
-                        <FidelityTreatment fidelity={o.fidelity} />
-                        <Text variant="body" style={{ flex: 1 }}>
-                          {mealName}
-                        </Text>
-                        <Text variant="bodySm" color={theme.colors.textMuted}>
-                          {localTimeLabel(o.occurredAt, o.tz)}
-                        </Text>
-                      </View>
-                      <View
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
-                      >
-                        <Text
-                          variant="bodySm"
-                          color={theme.colors.textSecondary}
-                          style={{ flex: 1, opacity: treat.opacity }}
-                        >
-                          {macroStr(o.payload.kcal)} cal · {macroStr(o.payload.proteinG)} P ·{' '}
-                          {macroStr(o.payload.carbsG)} C · {macroStr(o.payload.fatG)} F
-                        </Text>
-                        {/* Capture method as the legible unit (T1/T2/T3). */}
-                        <Text variant="label" color={theme.colors.textMuted}>
-                          {captureLabel(o.payload)}
-                        </Text>
-                      </View>
-                    </Card>
-                  </Pressable>
-                </SwipeToDelete>
-              );
-            })}
-          </View>
-        ) : (
-          <Card>
-            <Text variant="body" color={theme.colors.textMuted}>
-              No food logged yet.
-            </Text>
-          </Card>
-        )}
-        <Button
-          label="Log food"
-          variant="secondary"
-          onPress={() => router.push('/log-food')}
-          style={{ marginTop: theme.spacing[3] }}
-        />
-      </View>
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>

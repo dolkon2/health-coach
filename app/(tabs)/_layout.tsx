@@ -46,7 +46,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: 'Home',
           tabBarIcon: ({ color }) => (
             <CalendarDays size={22} color={color} strokeWidth={1.5} />
           ),

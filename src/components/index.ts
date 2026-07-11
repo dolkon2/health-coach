@@ -25,6 +25,9 @@ export { WeekStrip } from './WeekStrip';
 export { DayNavHeader } from './DayNavHeader';
 export { DayMealList, type DayMealListProps } from './DayMealList';
 export { ExpenditureCard } from './ExpenditureCard';
+export { DimensionTag } from './DimensionTag';
+export { ElementPickerSheet } from './ElementPickerSheet';
+export { StepsSleepStrip } from './StepsSleepStrip';
 export {
   GymExerciseEditor,
   RemoveButton,
