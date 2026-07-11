@@ -68,10 +68,6 @@ function ThemedStack() {
         options={{ title: 'Log food', presentation: 'modal' }}
       />
       <Stack.Screen
-        name="templates"
-        options={{ title: 'Library', presentation: 'modal' }}
-      />
-      <Stack.Screen
         name="edit-template"
         options={{ title: 'Template', presentation: 'modal' }}
       />

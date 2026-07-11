@@ -1,48 +1,87 @@
 /**
- * Training — the third tab (Phase 4, Pass 1).
+ * Training — the workshop, not the archive (rework Session 4,
+ * planning/rework/tabs/training-tab.md). One scrolling screen: recent-
+ * template chips, the template library (search appears ≥10 items, cards,
+ * "+ New template"), then Progress/Import/Benchmarks tap-ins. History stays
+ * pinned at the bottom untouched (T4's removal is gated on Profile's logbook
+ * pass — Session 7's hard gate).
  *
- * Two jobs: the activity picker (the identity layer of the three-layer model —
- * the user's headline activities one tap away, the rest under "More") and the
- * session history feed below it. Tapping an activity opens the logger; the
- * registry (lib/activity.ts) maps that identity to the engine modality the logger
- * seeds from. Today keeps its own quick-log shortcut for unplanned sessions — this
- * tab is the primary, identity-first entry plus the history of what's been logged.
- * It is NOT a planning surface (that's Phase 6).
+ * Dylan's routing answer (Session 4): "Log Body Session" is a persistent
+ * button anchored above the bottom tab bar, not a section inside the scroll.
+ * Tapping it browses Body-element activities freely — no template required.
+ *
+ * ⚑ The button currently opens every activity the old elementSections()
+ * picker covered (Body + the Earth/Water Snow Sports and More trays), not
+ * literally Body-only. Earth/Sky/Water are now fully reachable from Home's
+ * element-picker expand (ElementPickerSheet), which makes Snow Sports/More
+ * redundant here — but training-tab.md's ⚑3 (non-GPS Earth/Water routing)
+ * is still an open decision, and narrowing this button to strictly Body
+ * would drop climb/pool-swim/snow-sport access from Training before that
+ * flag resolves. Flagging, not reinterpreting; narrow to Body-only once ⚑3
+ * rules on where non-GPS Earth/Water activities live.
+ *
+ * The Review — pending removal tray (activities awaiting Dylan's delete
+ * confirmation) moved down to the Progress & tools section: it's a
+ * housekeeping surface, not a Start action, and Home's pickers deliberately
+ * exclude it, so it has to stay reachable from Training.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Modal, ScrollView } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, SessionCard, SwipeToDelete } from '@/components';
+import {
+  Screen,
+  Text,
+  Card,
+  Button,
+  Field,
+  SessionCard,
+  SwipeToDelete,
+  TemplateCard,
+} from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
 import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { deleteObservation } from '@/storage/observations';
 import { deleteHealthKitExport } from '@/lib/healthkit/writer';
+import { listTemplates, deleteTemplate } from '@/storage/sessionTemplates';
 import {
-  elementSections,
+  activitiesForElement,
+  activityById,
+  elementOf,
   moreDeprioritizedActivities,
   reviewPendingActivities,
   snowSportActivities,
   type Activity,
 } from '@/lib/activity';
+import type { SessionTemplate } from '@core/sessionTemplate';
+
+const RECENT_TEMPLATE_COUNT = 3;
+const SEARCH_THRESHOLD = 10;
 
 export default function TrainingScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { sessions, reload } = useSessionHistory();
-  const [showSnow, setShowSnow] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [templates, setTemplates] = useState<SessionTemplate[] | null>(null);
+  const [search, setSearch] = useState('');
   const [showReview, setShowReview] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
 
-  // Re-fetch whenever the tab regains focus — after the logger saves or a delete.
+  const reloadTemplates = useCallback(async () => {
+    setTemplates(await listTemplates());
+  }, []);
+
+  // Re-fetch whenever the tab regains focus — after the logger or the
+  // template editor saves, or a delete.
   useFocusEffect(
     useCallback(() => {
       reload();
-    }, [reload])
+      reloadTemplates();
+    }, [reload, reloadTemplates])
   );
 
-  // The engine's "what this contributed" line per session (same source as Today).
+  // The engine's "what this contributed" line per session (same source as Home).
   const contributions = useMemo(() => {
     const out: Record<string, string> = {};
     for (const s of sessions) out[s.id] = reveal(s);
@@ -60,129 +99,146 @@ export default function TrainingScreen() {
     [reload]
   );
 
+  const removeTemplateAndReload = useCallback(
+    async (id: string) => {
+      await deleteTemplate(id);
+      reloadTemplates();
+    },
+    [reloadTemplates]
+  );
+
   function logActivity(a: Activity) {
-    // Hand the logger the chosen identity; it resolves the surface from the registry
-    // and stores the activity on the session. Swim/practice open a "coming next"
-    // stub (still a duration log) until their surfaces land (Passes 5–6).
+    // Hand the logger the chosen identity; it resolves the surface from the
+    // registry and stores the activity on the session.
+    setPickerVisible(false);
     router.push({ pathname: '/log-session', params: { activity: a.id } });
   }
 
-  // Body → Earth → Water → Sky (replaces the old headline/"More" flat
-  // outdoor grouping), plus two closeable trays carved out of Earth/Water
-  // (Snow Sports, More) and the pending-delete Review tail (2026-07-09).
-  const sections = elementSections();
-  const snowSports = snowSportActivities();
-  const moreActivitiesList = moreDeprioritizedActivities();
+  function openTemplate(t: SessionTemplate) {
+    // Interim (training-tab.md § 5): opens the logger with the template's
+    // activity pre-selected. No prefill yet — templateId back-linking on
+    // logged Observations is unbuilt (Pass 3/placement), so `templateId` is
+    // carried for whenever that lands, same "ships interim" idiom Home uses.
+    router.push({
+      pathname: '/log-session',
+      params: { activity: t.activity, templateId: t.id },
+    });
+  }
+
+  const recentTemplates = useMemo(
+    () => (templates ?? []).slice(0, RECENT_TEMPLATE_COUNT),
+    [templates]
+  );
+
+  const filteredTemplates = useMemo(() => {
+    if (!templates) return null;
+    const q = search.trim().toLowerCase();
+    if (!q) return templates;
+    return templates.filter((t) => t.name.toLowerCase().includes(q));
+  }, [templates, search]);
+
   const reviewPending = reviewPendingActivities();
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={<Button label="Log Body Session" onPress={() => setPickerVisible(true)} />}
+    >
+      <Text variant="label" color={theme.colors.accent}>
+        Training
+      </Text>
+      <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
+        Your library
+      </Text>
+
+      {/* Recent templates — last-used order (updatedAt desc), ≤3 chips. */}
+      {recentTemplates.length > 0 ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: theme.spacing[2],
+            marginTop: theme.spacing[5],
+          }}
+        >
+          {recentTemplates.map((t) => (
+            <RecentTemplateChip key={t.id} template={t} onPress={() => openTemplate(t)} />
+          ))}
+        </View>
+      ) : null}
+
+      {/* Library — shared 3a/3b skeleton (training-tab.md § 3 B): search only
+          past the clutter threshold, cards, last-used sort (listTemplates'
+          default order), "+ New template". */}
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginTop: theme.spacing[8],
         }}
       >
-        <Text variant="label" color={theme.colors.accent}>
-          Training
-        </Text>
-        <View style={{ alignItems: 'flex-end', gap: theme.spacing[1] }}>
-          <Pressable
-            onPress={() => router.push('/benchmarks')}
-            accessibilityRole="button"
-            accessibilityLabel="Open benchmarks"
-            hitSlop={8}
-          >
-            <Text variant="label" color={theme.colors.textMuted}>
-              Benchmarks →
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/templates')}
-            accessibilityRole="button"
-            accessibilityLabel="Open template library"
-            hitSlop={8}
-          >
-            <Text variant="label" color={theme.colors.textMuted}>
-              Library →
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/training-progress')}
-            accessibilityRole="button"
-            accessibilityLabel="Open training progress"
-            hitSlop={8}
-          >
-            <Text variant="label" color={theme.colors.textMuted}>
-              Progress →
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/import-csv')}
-            accessibilityRole="button"
-            accessibilityLabel="Import training history"
-            hitSlop={8}
-          >
-            <Text variant="label" color={theme.colors.textMuted}>
-              Import →
-            </Text>
-          </Pressable>
-        </View>
+        <Text variant="label">Library</Text>
+        <Button
+          label="+ New template"
+          variant="secondary"
+          size="sm"
+          onPress={() => router.push('/edit-template')}
+        />
       </View>
-      <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
-        Log a session
-      </Text>
 
-      {/* Activity picker — one section per element, fixed order */}
-      {sections.map((section) =>
-        section.activities.length > 0 ? (
-          <View key={section.element}>
-            <Text variant="label" style={{ marginTop: theme.spacing[6] }}>
-              {section.title}
+      {templates !== null && templates.length >= SEARCH_THRESHOLD ? (
+        <Field
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search templates"
+          keyboardType="default"
+          style={{ marginTop: theme.spacing[3] }}
+        />
+      ) : null}
+
+      <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        {filteredTemplates === null ? null : filteredTemplates.length === 0 ? (
+          <Card>
+            <Text variant="body" color={theme.colors.textMuted}>
+              {templates && templates.length > 0
+                ? 'No templates match your search.'
+                : 'Your library is empty. Save a session as a template, or build one from scratch.'}
             </Text>
-            <View
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: theme.spacing[3],
-                marginTop: theme.spacing[3],
-              }}
+          </Card>
+        ) : (
+          filteredTemplates.map((t) => (
+            <SwipeToDelete
+              key={t.id}
+              onDelete={() => removeTemplateAndReload(t.id)}
+              confirmTitle="Delete template?"
+              confirmMessage={`${t.name} — permanent.`}
             >
-              {section.activities.map((a) => (
-                <ActivityTile key={a.id} activity={a} onPress={() => logActivity(a)} />
-              ))}
-            </View>
-          </View>
-        ) : null
-      )}
+              <TemplateCard
+                template={t}
+                onPress={() =>
+                  router.push({ pathname: '/edit-template', params: { templateId: t.id } })
+                }
+              />
+            </SwipeToDelete>
+          ))
+        )}
+      </View>
 
-      {/* Snow Sports — carved out of Earth's flat list into its own closeable
-          tray (Dylan, 2026-07-09): Ski, Snowboard, XC Ski, Snowshoe, Ski-touring. */}
-      <CollapsibleTray
-        title="Snow Sports"
-        activities={snowSports}
-        expanded={showSnow}
-        onToggle={() => setShowSnow((v) => !v)}
-        onLogActivity={logActivity}
-      />
+      {/* Progress & tools (training-tab.md § 3 D) — plain link rows. */}
+      <Text variant="label" style={{ marginTop: theme.spacing[8], marginBottom: theme.spacing[2] }}>
+        Progress & tools
+      </Text>
+      <View style={{ gap: theme.spacing[2] }}>
+        <LinkRow label="Benchmarks →" onPress={() => router.push('/benchmarks')} />
+        <LinkRow label="Progress →" onPress={() => router.push('/training-progress')} />
+        <LinkRow label="Import training history →" onPress={() => router.push('/import-csv')} />
+      </View>
 
-      {/* More — Ruck and Sail, decluttered from Earth/Water's main lists but
-          still fully loggable and dimension-built (Dylan, 2026-07-09). NOT a
-          delete-review tray — unlike Review below, nothing here is queued
-          for removal. */}
-      <CollapsibleTray
-        title="More"
-        activities={moreActivitiesList}
-        expanded={showMore}
-        onToggle={() => setShowMore((v) => !v)}
-        onLogActivity={logActivity}
-      />
-
-      {/* Pending-delete review (2026-07-09 prune): activities not in the
-          Training Database and untouched by the dimension builds. Collapsed
-          by default; they can still be logged from here until the delete is
-          confirmed — nothing is removed silently. */}
+      {/* Pending-delete review (2026-07-09 prune, relocated here Session 4):
+          activities not in the Training Database and untouched by the
+          dimension builds. Collapsed by default; still loggable until the
+          delete is confirmed — nothing removed silently. */}
       <CollapsibleTray
         title="Review — pending removal"
         caption="Not in the Training Database — queued for deletion once you confirm."
@@ -192,7 +248,8 @@ export default function TrainingScreen() {
         onLogActivity={logActivity}
       />
 
-      {/* History */}
+      {/* History — stays here, unchanged, until Profile's logbook pass ships
+          (T4's hard gate, Session 7). */}
       <Text
         variant="label"
         style={{ marginTop: theme.spacing[8], marginBottom: theme.spacing[2] }}
@@ -231,15 +288,140 @@ export default function TrainingScreen() {
         </Card>
       )}
 
-      <View style={{ height: theme.spacing[10] }} />
+      {/* Mounted only while open — cheap here, but the search field above
+          re-renders this tree on every keystroke otherwise, and its two
+          collapsible trays do their own registry scans on mount. */}
+      {pickerVisible ? (
+        <BodyActivitySheet
+          visible={pickerVisible}
+          onClose={() => setPickerVisible(false)}
+          onLogActivity={logActivity}
+        />
+      ) : null}
     </Screen>
+  );
+}
+
+function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}>
+      <Text variant="label" color={theme.colors.textMuted}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function RecentTemplateChip({
+  template,
+  onPress,
+}: {
+  template: SessionTemplate;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const activity = activityById(template.activity);
+  const tint = theme.colors.element[activity ? elementOf(activity) : 'body'];
+  const Icon = iconFor(activity?.icon ?? 'dumbbell');
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Start ${template.name}`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.spacing[2],
+        paddingVertical: theme.spacing[2],
+        paddingHorizontal: theme.spacing[3],
+        borderRadius: theme.radius.full,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surface,
+      }}
+    >
+      <Icon size={16} color={tint} strokeWidth={1.5} />
+      <Text variant="label">{template.name}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * The "Log Body Session" sheet — free browse, no template required. Opened
+ * from the anchored footer button. Carries Body's own picker plus the
+ * Earth/Water Snow Sports and More trays until ⚑3 (non-GPS Earth/Water
+ * routing) rules on their permanent home (see file header).
+ */
+function BodyActivitySheet({
+  visible,
+  onClose,
+  onLogActivity,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onLogActivity: (a: Activity) => void;
+}) {
+  const theme = useTheme();
+  const [showSnow, setShowSnow] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const bodyActivities = useMemo(() => activitiesForElement('body'), []);
+  const snowSports = useMemo(() => snowSportActivities(), []);
+  const moreActivitiesList = useMemo(() => moreDeprioritizedActivities(), []);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable
+        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+        onPress={onClose}
+        accessibilityLabel="Close"
+      />
+      <View
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderTopLeftRadius: theme.radius.lg,
+          borderTopRightRadius: theme.radius.lg,
+          padding: theme.spacing[5],
+          maxHeight: '80%',
+        }}
+      >
+        <Text
+          variant="label"
+          color={theme.colors.textSecondary}
+          style={{ marginBottom: theme.spacing[4] }}
+        >
+          Log a session
+        </Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[3] }}>
+            {bodyActivities.map((a) => (
+              <ActivityTile key={a.id} activity={a} onPress={() => onLogActivity(a)} />
+            ))}
+          </View>
+
+          <CollapsibleTray
+            title="Snow Sports"
+            activities={snowSports}
+            expanded={showSnow}
+            onToggle={() => setShowSnow((v) => !v)}
+            onLogActivity={onLogActivity}
+          />
+          <CollapsibleTray
+            title="More"
+            activities={moreActivitiesList}
+            expanded={showMore}
+            onToggle={() => setShowMore((v) => !v)}
+            onLogActivity={onLogActivity}
+          />
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
 /**
  * A closeable activity tray — a toggle line plus, when expanded, an optional
- * caption and the tile grid. Backs Snow Sports / More / Review on the
- * Training tab (2026-07-09); renders nothing when there's nothing to show.
+ * caption and the tile grid. Renders nothing when there's nothing to show.
  */
 function CollapsibleTray({
   title,

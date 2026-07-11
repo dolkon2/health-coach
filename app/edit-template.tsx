@@ -1,8 +1,9 @@
 /**
  * Edit Template — create or edit a saved training shape (Phase 6 Pass 1).
  *
- * Reached from /templates as a push: with `?templateId=…` to edit, without to
- * create. On create, step 1 picks an activity (identity → surface); step 2 is
+ * Reached from the Training tab's library as a push: with `?templateId=…` to
+ * edit, without to create. On create, step 1 picks an activity (identity →
+ * surface); step 2 is
  * the surface-specific shape editor plus shared fields (name, optional day,
  * active toggle). On edit, the activity is fixed and the screen opens straight
  * into step 2.

@@ -280,6 +280,15 @@ export function moreDeprioritizedActivities(): Activity[] {
 }
 
 /**
+ * Every pickable activity in one element, flat (no snow/more carve-out) —
+ * the full functional list for that element. Shared by Home's element-picker
+ * expand and Training's Body-only Start picker (rework Session 4).
+ */
+export function activitiesForElement(element: Element): Activity[] {
+  return ACTIVITIES.filter((a) => pickable(a) && elementOf(a) === element);
+}
+
+/**
  * The headline activities, in the given id order (defaults to HEADLINE_DEFAULT_IDS).
  * Deprecated activities never surface in a picker, even if a stored preference
  * still lists them — they only resolve by id for historic sessions.

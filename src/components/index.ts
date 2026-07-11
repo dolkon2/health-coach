@@ -29,6 +29,7 @@ export { WeighInHistory } from './WeighInHistory';
 export { DimensionTag } from './DimensionTag';
 export { ElementPickerSheet } from './ElementPickerSheet';
 export { StepsSleepStrip } from './StepsSleepStrip';
+export { TemplateCard } from './TemplateCard';
 export {
   GymExerciseEditor,
   RemoveButton,

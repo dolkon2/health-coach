@@ -26,12 +26,9 @@ import { useTheme } from '@/theme';
 import { Text } from './Text';
 import { iconFor } from './activityIcons';
 import {
-  elementOf,
-  pickable,
+  activitiesForElement,
   ELEMENT_LABELS,
-  ACTIVITIES,
   type Activity,
-  type Element,
 } from '@/lib/activity';
 import {
   defaultActivityForElement,
@@ -39,15 +36,6 @@ import {
 } from '@/lib/mostRecentActivity';
 
 const MAP_ELEMENTS: readonly MapElement[] = ['earth', 'sky', 'water'];
-
-/** Same exclusion the Training tab's pickers use (`pickable`): activities
- *  pending delete-review (⚑ awaiting Dylan's confirmation) never surface in
- *  ANY picker, Home's included. Unlike Training's `elementSections()`, this
- *  does NOT carve out the snow-sport/"More" trays — Home's `⌄` expand is
- *  meant to be that element's full functional list, not a decluttered one. */
-function activitiesForElement(element: Element): Activity[] {
-  return ACTIVITIES.filter((a) => pickable(a) && elementOf(a) === element);
-}
 
 type ElementPickerSheetProps = {
   visible: boolean;
