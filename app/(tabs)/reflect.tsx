@@ -26,6 +26,7 @@ import {
   WeightTrendChart,
   StimulusLedger,
   BenchmarkRhythm,
+  BenchmarkDayGrid,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
@@ -64,11 +65,18 @@ export default function ReflectScreen() {
   const balanceIsHero = lens?.hero === 'outcome' && outcomeMetric === 'energyBalance';
   const rhythm =
     lens?.windowCounts && lens.benchmark.behavior ? (
-      <BenchmarkRhythm
-        counts={lens.windowCounts}
-        run={lens.run}
-        window={lens.benchmark.behavior.window}
-      />
+      <>
+        <BenchmarkRhythm
+          counts={lens.windowCounts}
+          run={lens.run}
+          window={lens.benchmark.behavior.window}
+        />
+        {lens.dayGrid ? (
+          <View style={{ marginTop: theme.spacing[4] }}>
+            <BenchmarkDayGrid days={lens.dayGrid} />
+          </View>
+        ) : null}
+      </>
     ) : null;
 
   const weightChart = (

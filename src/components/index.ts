@@ -19,6 +19,7 @@ export { RouteMap } from './RouteMap';
 export { GpsRecorderPanel } from './GpsRecorderPanel';
 export { StimulusLedger } from './StimulusLedger';
 export { BenchmarkRhythm } from './BenchmarkRhythm';
+export { BenchmarkDayGrid } from './BenchmarkDayGrid';
 export { SwipeToDelete } from './SwipeToDelete';
 export { WeekStrip } from './WeekStrip';
 export { DayNavHeader } from './DayNavHeader';

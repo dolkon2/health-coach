@@ -22,11 +22,12 @@
  */
 import type { Benchmark, BehaviorFace } from '@core/benchmark';
 import type { LocalDate, ObservationOf } from '@core/observation';
-import { captureTierShare, evaluateDaysWindow } from '@core/nutrition/days';
+import { captureTierShare, evaluateDaysWindow, type DayVerdict } from '@core/nutrition/days';
 import {
   currentWindowRange,
   nutritionDaysInRange,
   sessionMatchesDimension,
+  windowDates,
   type WindowRange,
 } from './benchmarkStatus';
 
@@ -167,4 +168,31 @@ export function consecutiveAtTarget(counts: WindowCount[]): number {
     else break;
   }
   return run;
+}
+
+export type DayCell = { date: LocalDate; verdict: DayVerdict | 'pending' };
+
+/**
+ * The CURRENT window's days, one cell per calendar date — a per-day upgrade
+ * over the rhythm bar's per-window grain, for 'days' measures only (flag:
+ * day-grain rhythm; the verdicts already exist in evaluateDaysWindow.byDate).
+ * A date past today but still inside the window renders 'pending' — distinct
+ * from 'unknowable' (the day happened but proved nothing either way). Null
+ * for measures other than 'days'.
+ */
+export function currentWindowDayGrid(
+  face: BehaviorFace,
+  entries: ObservationOf<'foodEntry'>[],
+  nowIso: string,
+  todayDate: LocalDate
+): DayCell[] | null {
+  if (face.measure.type !== 'days') return null;
+  const range = currentWindowRange(face.window, nowIso);
+  const { days } = nutritionDaysInRange(entries, range, todayDate);
+  const { byDate } = evaluateDaysWindow(days, face.measure.condition, face.measure.target);
+  const verdictByDate = new Map(byDate.map((d) => [d.date, d.verdict]));
+  return windowDates(range).map((date) => ({
+    date,
+    verdict: verdictByDate.get(date) ?? 'pending',
+  }));
 }
