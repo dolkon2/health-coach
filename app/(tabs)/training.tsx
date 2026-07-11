@@ -9,23 +9,11 @@
  * tab is the primary, identity-first entry plus the history of what's been logged.
  * It is NOT a planning surface (that's Phase 6).
  */
-import { useCallback, useMemo, useState, type ComponentType } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import {
-  Dumbbell,
-  Footprints,
-  Bike,
-  Mountain,
-  Waves,
-  Wind,
-  Snowflake,
-  Flower2,
-  Backpack,
-  HeartPulse,
-  Activity as ActivityIcon,
-} from 'lucide-react-native';
 import { Screen, Text, Card, SessionCard, SwipeToDelete } from '@/components';
+import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
 import { reveal } from '@core/stimulus';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
@@ -38,23 +26,6 @@ import {
   snowSportActivities,
   type Activity,
 } from '@/lib/activity';
-
-type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-
-// Registry `icon` names → lucide components, resolved here so lib/activity.ts
-// stays platform-free. Unknown names fall back to a generic mark.
-const ICONS: Record<string, IconCmp> = {
-  dumbbell: Dumbbell,
-  footprints: Footprints,
-  bike: Bike,
-  mountain: Mountain,
-  waves: Waves,
-  wind: Wind,
-  snowflake: Snowflake,
-  flower: Flower2,
-  backpack: Backpack,
-  'heart-pulse': HeartPulse,
-};
 
 export default function TrainingScreen() {
   const theme = useTheme();
@@ -330,7 +301,7 @@ function CollapsibleTray({
 
 function ActivityTile({ activity, onPress }: { activity: Activity; onPress: () => void }) {
   const theme = useTheme();
-  const Icon = ICONS[activity.icon] ?? ActivityIcon;
+  const Icon = iconFor(activity.icon);
   return (
     <Pressable
       onPress={onPress}
