@@ -21,7 +21,6 @@ export type BodyProfile = {
   heightCm: number;
   birthYear: number;
   sex: Sex;
-  bodyFatPct?: number; // absent ≠ 0 — omitted entirely when not given
   activityLevel: ActivityLevel;
 };
 
@@ -35,7 +34,6 @@ export type BodyProfileForm = {
   heightIn: string;
   birthYear: string;
   sex: Sex | null;
-  bodyFatPct: string; // optional; blank = not given
   activityLevel: ActivityLevel | null;
 };
 
@@ -47,7 +45,6 @@ export function emptyBodyProfileForm(heightUnit: HeightUnit = 'cm'): BodyProfile
     heightIn: '',
     birthYear: '',
     sex: null,
-    bodyFatPct: '',
     activityLevel: null,
   };
 }
@@ -116,13 +113,6 @@ export function validateBodyProfileForm(form: BodyProfileForm, nowYear: number):
 
   if (form.sex == null) return 'Pick which formula sex applies.';
 
-  if (form.bodyFatPct.trim() !== '') {
-    const bf = parseFloat(form.bodyFatPct);
-    if (!Number.isFinite(bf) || bf <= 0 || bf >= 100) {
-      return 'Body fat should be between 0 and 100 — or leave it blank.';
-    }
-  }
-
   if (form.activityLevel == null) return 'Pick how active you typically are.';
   return null;
 }
@@ -132,12 +122,10 @@ export function validateBodyProfileForm(form: BodyProfileForm, nowYear: number):
 export function buildBodyProfile(form: BodyProfileForm, nowYear: number): BodyProfile {
   const reason = validateBodyProfileForm(form, nowYear);
   if (reason) throw new Error(`buildBodyProfile: ${reason}`);
-  const bodyFat = form.bodyFatPct.trim() === '' ? undefined : parseFloat(form.bodyFatPct);
   return {
     heightCm: parseHeightCm(form)!,
     birthYear: parseInt(form.birthYear, 10),
     sex: form.sex!,
-    ...(bodyFat != null ? { bodyFatPct: bodyFat } : {}),
     activityLevel: form.activityLevel!,
   };
 }
@@ -153,7 +141,6 @@ export function formFromProfile(profile: BodyProfile, heightUnit: HeightUnit = '
     heightIn: String(inches),
     birthYear: String(profile.birthYear),
     sex: profile.sex,
-    bodyFatPct: profile.bodyFatPct != null ? String(profile.bodyFatPct) : '',
     activityLevel: profile.activityLevel,
   };
 }
@@ -166,6 +153,5 @@ export function metricsFrom(profile: BodyProfile, weightKg: number, nowYear: num
     age: ageFrom(profile.birthYear, nowYear),
     sex: profile.sex,
     weightKg,
-    ...(profile.bodyFatPct != null ? { bodyFatPct: profile.bodyFatPct } : {}),
   };
 }

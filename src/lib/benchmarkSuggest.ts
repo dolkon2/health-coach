@@ -14,9 +14,11 @@
 /** ≈ 0.8 g protein per lb bodyweight (the handoff's example rule), in g/kg. */
 export const PROTEIN_G_PER_KG = 1.76;
 
-/** ⚑ Suggested deficit under a "stay under" calorie benchmark. The handoff
+/** Suggested deficit under a "stay under" calorie benchmark. The handoff
  *  locks "deficit for a weight goal" but not its size; 300 kcal/day is the
- *  honest middle default (modest, sustainable) — flagged, not silently decided. */
+ *  honest middle default (modest, sustainable) — a reference point, not a
+ *  silent decision. Editable in Settings (appSettings.ts `deficitKcal`),
+ *  which defaults to this constant. */
 export const SUGGESTED_DEFICIT_KCAL = 300;
 
 const round5 = (x: number): number => Math.round(x / 5) * 5;
@@ -29,10 +31,14 @@ export function suggestProteinGrams(weightKg: number | null): number | null {
 }
 
 /** Suggested "stay under" calorie ceiling: the current TDEE estimate (measured
- *  when available, else the predicted baseline) minus a modest deficit. */
-export function suggestCalorieCeiling(tdeeKcal: number | null): number | null {
+ *  when available, else the predicted baseline) minus a deficit — the user's
+ *  own Settings value when given, else the reference default. */
+export function suggestCalorieCeiling(
+  tdeeKcal: number | null,
+  deficitKcal: number = SUGGESTED_DEFICIT_KCAL
+): number | null {
   if (tdeeKcal == null || !Number.isFinite(tdeeKcal) || tdeeKcal <= 0) return null;
-  return round10(tdeeKcal - SUGGESTED_DEFICIT_KCAL);
+  return round10(tdeeKcal - deficitKcal);
 }
 
 // ─── Ladder advancement (Body P6) ────────────────────────────────────────────

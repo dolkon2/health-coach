@@ -12,6 +12,7 @@
  */
 import type { WeightUnit, DistanceUnit } from './units';
 import type { NutritionFocus } from './foodLog';
+import { SUGGESTED_DEFICIT_KCAL } from './benchmarkSuggest';
 
 export type Settings = {
   weightUnit: WeightUnit;
@@ -25,6 +26,7 @@ export type Settings = {
   // rating is ever fabricated.
   ushpaNumber?: string;
   ushpaRating?: string;
+  deficitKcal: number; // the "stay under" calorie-ceiling suggestion's deficit size.
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   restTimerSec: 120, // 2 min between sets.
   defaultPoolLengthM: 25, // a 25 m pool is the common default.
   healthkitWriteEnabled: false, // opt-in only — never writes until the user turns it on.
+  deficitKcal: SUGGESTED_DEFICIT_KCAL, // 300 kcal/day — a reference point, user's to change.
 };
 
 /** Fill gaps in a stored blob with defaults — a save from an older app version

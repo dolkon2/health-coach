@@ -49,11 +49,7 @@ import {
   type OutcomePairDim,
   type TrendDirection,
 } from '@/lib/benchmarkForm';
-import {
-  suggestCalorieCeiling,
-  suggestProteinGrams,
-  SUGGESTED_DEFICIT_KCAL,
-} from '@/lib/benchmarkSuggest';
+import { suggestCalorieCeiling, suggestProteinGrams } from '@/lib/benchmarkSuggest';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useBodyProfile } from '@/hooks/useBodyProfile';
 import { useExpenditure } from '@/hooks/useExpenditure';
@@ -133,7 +129,7 @@ const pairedActivityOptions: ChipOption<string>[] = [
 export default function EditBenchmarkScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit } = useSettings();
+  const { weightUnit, deficitKcal } = useSettings();
   const { benchmarkId } = useLocalSearchParams<{ benchmarkId?: string }>();
   const isEdit = typeof benchmarkId === 'string' && benchmarkId.length > 0;
 
@@ -199,7 +195,7 @@ export default function EditBenchmarkScreen() {
       };
       // Calculator-suggested, user-owned: prefill only an empty field.
       if (kind === 'calories' && !f.calorieKcal.trim()) {
-        const s = suggestCalorieCeiling(tdeeKcal);
+        const s = suggestCalorieCeiling(tdeeKcal, deficitKcal);
         if (s != null) next.calorieKcal = String(s);
       }
       if (kind === 'macro' && !f.macroGrams.trim() && f.macro === 'protein') {
@@ -524,8 +520,8 @@ export default function EditBenchmarkScreen() {
           />
           {tdeeKcal != null ? (
             <Text variant="bodySm" color={theme.colors.textMuted}>
-              Pre-filled from your current burn estimate − {SUGGESTED_DEFICIT_KCAL} cal.
-              Yours to change.
+              Pre-filled from your current burn estimate − {deficitKcal} cal (Settings ›
+              Deficit target). Yours to change.
             </Text>
           ) : null}
           {daysField}

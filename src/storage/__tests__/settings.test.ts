@@ -28,7 +28,6 @@ const PROFILE: BodyProfile = {
   heightCm: 180,
   birthYear: 1996,
   sex: 'male',
-  bodyFatPct: 18.5,
   activityLevel: 'moderate',
 };
 
@@ -48,11 +47,9 @@ describe('settings key/value store', () => {
     expect(await getBodyProfile(db)).toEqual(PROFILE);
 
     const updated: BodyProfile = { ...PROFILE, activityLevel: 'active' };
-    delete (updated as { bodyFatPct?: number }).bodyFatPct;
     await setBodyProfile(updated, db);
     const back = await getBodyProfile(db);
     expect(back?.activityLevel).toBe('active');
-    expect(back && 'bodyFatPct' in back).toBe(false); // shed field stays shed
   });
 
   it('degrades corrupt JSON to null instead of guessing', async () => {

@@ -1,7 +1,6 @@
 /**
  * Baseline-TDEE tests (expenditure build, Pass A). Proof:
  *   - known Mifflin–St Jeor BMR values reproduce by hand;
- *   - bodyfat% upgrades to Katch–McArdle AND tightens the band (give more, get sharper);
  *   - the band is always wide and the fidelity always 'LOW' — day one is never
  *     a bare confident number;
  *   - activity factors order sensibly and reference adults land in a sane range.
@@ -10,8 +9,6 @@ import { describe, it, expect } from '@jest/globals';
 import {
   estimateBaselineTdee,
   ACTIVITY_FACTORS,
-  MIFFLIN_BAND_PCT,
-  KATCH_BAND_PCT,
   type ActivityLevel,
   type BodyMetrics,
 } from '@core/baselineTdee';
@@ -31,7 +28,6 @@ describe('estimateBaselineTdee — Mifflin–St Jeor floor', () => {
     const r = estimateBaselineTdee(MALE, 'moderate');
     // 1780 × 1.55 = 2759 → 2760 at the honest display grain.
     expect(r.tdeeKcal).toBe(2760);
-    expect(r.method).toBe('mifflin-st-jeor');
     expect(r.activityFactor).toBe(ACTIVITY_FACTORS.moderate);
   });
 
@@ -57,32 +53,6 @@ describe('estimateBaselineTdee — Mifflin–St Jeor floor', () => {
   });
 });
 
-describe('estimateBaselineTdee — Katch–McArdle upgrade on bodyfat', () => {
-  it('reproduces a known Katch–McArdle BMR by hand', () => {
-    // LBM = 80·(1 − 0.20) = 64 → 370 + 21.6·64 = 1752.4 → 1752
-    const r = estimateBaselineTdee({ ...MALE, bodyFatPct: 20 }, 'sedentary');
-    expect(r.bmrKcal).toBe(1752);
-    expect(r.method).toBe('katch-mcardle');
-  });
-
-  it('give more, get sharper: bodyfat narrows the relative band', () => {
-    const without = estimateBaselineTdee(MALE, 'moderate');
-    const withBf = estimateBaselineTdee({ ...MALE, bodyFatPct: 20 }, 'moderate');
-    const relWidth = (r: { tdeeKcal: number; range: { low: number; high: number } }): number =>
-      (r.range.high - r.range.low) / r.tdeeKcal;
-    expect(relWidth(withBf)).toBeLessThan(relWidth(without));
-    expect(KATCH_BAND_PCT).toBeLessThan(MIFFLIN_BAND_PCT);
-    // Still the weak predicted kind — sharper, never certain.
-    expect(withBf.fidelity).toBe('LOW');
-  });
-
-  it('Katch–McArdle is sex-blind: same LBM → same BMR', () => {
-    const m = estimateBaselineTdee({ ...MALE, bodyFatPct: 25 }, 'sedentary');
-    const f = estimateBaselineTdee({ ...MALE, sex: 'female', bodyFatPct: 25 }, 'sedentary');
-    expect(m.bmrKcal).toBe(f.bmrKcal);
-  });
-});
-
 describe('estimateBaselineTdee — sanity + input guards', () => {
   it('reference adults land in a sane TDEE range at every level', () => {
     const levels: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'veryActive'];
@@ -99,7 +69,5 @@ describe('estimateBaselineTdee — sanity + input guards', () => {
     expect(() => estimateBaselineTdee({ ...MALE, heightCm: 0 }, 'moderate')).toThrow();
     expect(() => estimateBaselineTdee({ ...MALE, age: -1 }, 'moderate')).toThrow();
     expect(() => estimateBaselineTdee({ ...MALE, weightKg: NaN }, 'moderate')).toThrow();
-    expect(() => estimateBaselineTdee({ ...MALE, bodyFatPct: 0 }, 'moderate')).toThrow();
-    expect(() => estimateBaselineTdee({ ...MALE, bodyFatPct: 100 }, 'moderate')).toThrow();
   });
 });

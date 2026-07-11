@@ -198,7 +198,6 @@ export type ObservationSource =
 export type WeighInPayload = {
   kind: 'weighIn';
   weightKg: number;
-  bodyFatPct?: number; // if scale measures it
 };
 
 export type LiftingBlock = {

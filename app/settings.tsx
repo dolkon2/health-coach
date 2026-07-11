@@ -7,7 +7,7 @@
  * populated Reflect can be previewed instantly. It writes tagged rows and clears
  * only those — never real logged data. Remove this card before any real release.
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Button, ChipSelect, Field } from '@/components';
@@ -42,8 +42,14 @@ const DISTANCE_UNITS: Array<{ value: DistanceUnit; label: string }> = [
 export default function SettingsScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { weightUnit, distanceUnit, healthkitWriteEnabled, ushpaNumber, ushpaRating } =
-    useSettings();
+  const {
+    weightUnit,
+    distanceUnit,
+    healthkitWriteEnabled,
+    ushpaNumber,
+    ushpaRating,
+    deficitKcal,
+  } = useSettings();
   const updateSettings = useUpdateSettings();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -84,6 +90,14 @@ export default function SettingsScreen() {
       ushpaRating: skyDraft.ushpaRating,
     });
   }
+
+  // Local buffer so the field doesn't fight the user's own typing — synced
+  // once from the persisted value (which loads async), then left alone.
+  const [deficitText, setDeficitText] = useState(String(deficitKcal));
+  const [deficitTouched, setDeficitTouched] = useState(false);
+  useEffect(() => {
+    if (!deficitTouched) setDeficitText(String(deficitKcal));
+  }, [deficitKcal, deficitTouched]);
 
   async function onSeed() {
     setBusy(true);
@@ -283,6 +297,28 @@ export default function SettingsScreen() {
           variant="outline"
           onPress={onToggleHealthkitWrite}
           loading={hkBusy}
+        />
+      </Card>
+
+      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        <Text variant="label">Deficit target</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Used to suggest a "stay under" calorie ceiling: your current burn
+          estimate minus this number. 300 is a reasonable reference point —
+          yours to change; every benchmark's calorie field stays editable
+          either way.
+        </Text>
+        <Field
+          value={deficitText}
+          onChangeText={(t) => {
+            setDeficitTouched(true);
+            setDeficitText(t);
+            const n = parseInt(t, 10);
+            if (Number.isFinite(n) && n >= 0) void updateSettings({ deficitKcal: n });
+          }}
+          placeholder="300"
+          suffix="cal/day"
+          keyboardType="number-pad"
         />
       </Card>
 

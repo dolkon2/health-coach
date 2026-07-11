@@ -54,19 +54,6 @@ describe('weigh-in flow (Pass 3)', () => {
     expect(weighIns[0].payload.weightKg).toBeCloseTo(81.6466, 3); // 180 lb in kg
   });
 
-  it('persists an optional body-fat % in the payload (captured even if not yet shown)', async () => {
-    const db = makeTestDb();
-    await runMigrations(db);
-
-    const obs = weighInFromLb('w1', 180, '2026-06-26T15:00:00Z');
-    obs.payload = { ...obs.payload, bodyFatPct: 18.5 };
-    await createObservation(obs, db);
-
-    const rows = await listObservations({ kinds: ['weighIn'] }, db);
-    const weighIns = rows.filter((o): o is ObservationOf<'weighIn'> => isKind(o, 'weighIn'));
-    expect(weighIns[0].payload.bodyFatPct).toBe(18.5);
-  });
-
   it('one weigh-in yields no trend delta (honest: not enough data)', async () => {
     const db = makeTestDb();
     await runMigrations(db);

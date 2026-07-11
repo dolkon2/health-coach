@@ -15,15 +15,14 @@
  * will be: training data is correlated against the measured burn, never fed
  * forward to predict it.
  *
- * Formulas:
- *   - Mifflin–St Jeor (the floor): BMR = 10·kg + 6.25·cm − 5·age + (M +5 / F −161).
- *   - Katch–McArdle (bodyfat% given): BMR = 370 + 21.6·LBM — sharper because the
- *     user gave more (give more, get sharper), so its band is narrower.
+ * Formula: Mifflin–St Jeor — BMR = 10·kg + 6.25·cm − 5·age + (M +5 / F −161).
+ * (Bodyfat-based Katch–McArdle was cut: bodyfat% isn't captured anywhere in
+ * the app, so there was never a real second formula to reach.)
  *
  * Heuristics (constitution: documented, tunable guesses):
  *   - ACTIVITY_FACTORS: the standard 1.2–1.9 multiplier table.
- *   - MIFFLIN_BAND_PCT = 0.20, KATCH_BAND_PCT = 0.15: population TDEE predictions
- *     run 300–500 kcal off real expenditure; the band says so out loud.
+ *   - MIFFLIN_BAND_PCT = 0.20: population TDEE predictions run 300–500 kcal
+ *     off real expenditure; the band says so out loud.
  *   - Output rounds to 10 kcal — unit-kcal precision on a prediction is fake.
  */
 import type { FidelityTier } from './nutrition/fidelity';
@@ -38,8 +37,6 @@ export interface BodyMetrics {
   age: number;
   sex: Sex;
   weightKg: number;
-  /** Optional; when given the estimate upgrades to Katch–McArdle. */
-  bodyFatPct?: number;
 }
 
 export interface BaselineTdee {
@@ -48,7 +45,6 @@ export interface BaselineTdee {
   range: { low: number; high: number };
   /** Always LOW — a population prediction is the weak kind by definition. */
   fidelity: Extract<FidelityTier, 'LOW'>;
-  method: 'mifflin-st-jeor' | 'katch-mcardle';
   bmrKcal: number;
   activityFactor: number;
 }
@@ -62,10 +58,8 @@ export const ACTIVITY_FACTORS: Record<ActivityLevel, number> = {
   veryActive: 1.9,
 };
 
-/** ± band as a fraction of TDEE when only Mifflin–St Jeor inputs exist. */
+/** ± band as a fraction of TDEE. */
 export const MIFFLIN_BAND_PCT = 0.2;
-/** ± band with bodyfat% (Katch–McArdle) — more given, sharper returned. */
-export const KATCH_BAND_PCT = 0.15;
 
 const round0 = (x: number): number => Math.round(x);
 const round10 = (x: number): number => Math.round(x / 10) * 10;
@@ -81,9 +75,6 @@ function assertInDomain(m: BodyMetrics): void {
       throw new Error(`estimateBaselineTdee: ${name} must be a positive number, got ${v}`);
     }
   }
-  if (m.bodyFatPct != null && !(Number.isFinite(m.bodyFatPct) && m.bodyFatPct > 0 && m.bodyFatPct < 100)) {
-    throw new Error(`estimateBaselineTdee: bodyFatPct must be in (0, 100), got ${m.bodyFatPct}`);
-  }
 }
 
 /**
@@ -94,23 +85,20 @@ function assertInDomain(m: BodyMetrics): void {
 export function estimateBaselineTdee(metrics: BodyMetrics, activityLevel: ActivityLevel): BaselineTdee {
   assertInDomain(metrics);
 
-  const katch = metrics.bodyFatPct != null;
-  const bmr = katch
-    ? 370 + 21.6 * (metrics.weightKg * (1 - metrics.bodyFatPct! / 100))
-    : 10 * metrics.weightKg +
-      6.25 * metrics.heightCm -
-      5 * metrics.age +
-      (metrics.sex === 'male' ? 5 : -161);
+  const bmr =
+    10 * metrics.weightKg +
+    6.25 * metrics.heightCm -
+    5 * metrics.age +
+    (metrics.sex === 'male' ? 5 : -161);
 
   const activityFactor = ACTIVITY_FACTORS[activityLevel];
   const tdee = bmr * activityFactor;
-  const margin = tdee * (katch ? KATCH_BAND_PCT : MIFFLIN_BAND_PCT);
+  const margin = tdee * MIFFLIN_BAND_PCT;
 
   return {
     tdeeKcal: round10(tdee),
     range: { low: round10(tdee - margin), high: round10(tdee + margin) },
     fidelity: 'LOW',
-    method: katch ? 'katch-mcardle' : 'mifflin-st-jeor',
     bmrKcal: round0(bmr),
     activityFactor,
   };

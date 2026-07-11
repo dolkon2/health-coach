@@ -19,7 +19,11 @@ import {
   outcomeStatus,
   outcomeLine,
 } from '@/lib/benchmarkStatus';
-import { consecutiveAtTarget, nutritionWindowCounts } from '@/lib/benchmarkReflect';
+import {
+  consecutiveAtTarget,
+  nutritionWindowCounts,
+  currentWindowDayGrid,
+} from '@/lib/benchmarkReflect';
 
 // Wednesday 2026-07-01; the ISO week runs Mon 06-29 → Sun 07-05.
 const NOW = '2026-07-01T18:00:00.000Z';
@@ -181,5 +185,44 @@ describe('nutritionWindowCounts — three-valued rhythm', () => {
     const [lastWeek, thisWeek] = counts;
     expect(lastWeek).toMatchObject({ count: 0, complete: false }); // no entries → hazed zero
     expect(thisWeek).toMatchObject({ count: 100, target: 80, current: true });
+  });
+});
+
+describe('currentWindowDayGrid — per-day cells (day-grain rhythm)', () => {
+  it('one cell per calendar date in the window; days not yet reached are pending', () => {
+    const entries = [
+      // Monday: 120 g complete → hit
+      mealObs('2026-06-29T12:00:00Z', { proteinG: 120 }),
+      // Tuesday: partial, known 60 < 100 → unknowable
+      mealObs('2026-06-30T12:00:00Z', { proteinG: 60 }),
+      mealObs('2026-06-30T18:00:00Z', { proteinG: null }),
+      // Wednesday (today, in progress): 50 so far → unknowable
+      mealObs('2026-07-01T12:00:00Z', { proteinG: 50 }),
+    ];
+    const grid = currentWindowDayGrid(PROTEIN_FACE, entries, NOW, TODAY)!;
+    expect(grid.map((c) => c.date)).toEqual([
+      '2026-06-29',
+      '2026-06-30',
+      '2026-07-01',
+      '2026-07-02',
+      '2026-07-03',
+      '2026-07-04',
+      '2026-07-05',
+    ]);
+    // Thu–Sun haven't happened yet — 'pending', distinct from 'unknowable'
+    // (a day that happened but proved nothing).
+    expect(grid.map((c) => c.verdict)).toEqual([
+      'hit',
+      'unknowable',
+      'unknowable',
+      'pending',
+      'pending',
+      'pending',
+      'pending',
+    ]);
+  });
+
+  it('null for measures other than days (share, count)', () => {
+    expect(currentWindowDayGrid(FIDELITY_FACE, [], NOW, TODAY)).toBeNull();
   });
 });

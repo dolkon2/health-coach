@@ -90,29 +90,16 @@ describe('validation (user-facing reasons)', () => {
       validateBodyProfileForm({ ...completeForm(), birthYear: '1850' }, NOW_YEAR)
     ).not.toBeNull();
   });
-
-  it('bodyfat is optional, but a nonsense value is rejected', () => {
-    expect(validateBodyProfileForm({ ...completeForm(), bodyFatPct: '' }, NOW_YEAR)).toBeNull();
-    expect(validateBodyProfileForm({ ...completeForm(), bodyFatPct: '20' }, NOW_YEAR)).toBeNull();
-    expect(
-      validateBodyProfileForm({ ...completeForm(), bodyFatPct: '120' }, NOW_YEAR)
-    ).not.toBeNull();
-    expect(
-      validateBodyProfileForm({ ...completeForm(), bodyFatPct: '0' }, NOW_YEAR)
-    ).not.toBeNull();
-  });
 });
 
 describe('build ↔ hydrate', () => {
   it('builds a profile and hydrates it back to an equivalent form', () => {
     const form = completeForm();
-    form.bodyFatPct = '18.5';
     const profile = buildBodyProfile(form, NOW_YEAR);
     expect(profile).toEqual({
       heightCm: 180,
       birthYear: 1996,
       sex: 'male',
-      bodyFatPct: 18.5,
       activityLevel: 'moderate',
     });
 
@@ -120,15 +107,9 @@ describe('build ↔ hydrate', () => {
     expect(parseHeightCm(back)).toBe(180);
     expect(back.birthYear).toBe('1996');
     expect(back.sex).toBe('male');
-    expect(back.bodyFatPct).toBe('18.5');
     expect(back.activityLevel).toBe('moderate');
     // Both height representations are prefilled so a unit toggle needs no re-entry.
     expect(back.heightFt).not.toBe('');
-  });
-
-  it('omits bodyfat when blank (absent ≠ 0)', () => {
-    const profile = buildBodyProfile(completeForm(), NOW_YEAR);
-    expect('bodyFatPct' in profile).toBe(false);
   });
 
   it('throws on an invalid form (screen validates first)', () => {

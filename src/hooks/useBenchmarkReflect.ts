@@ -32,7 +32,9 @@ import {
   behaviorWindowCounts,
   nutritionWindowCounts,
   consecutiveAtTarget,
+  currentWindowDayGrid,
   type WindowCount,
+  type DayCell,
 } from '@/lib/benchmarkReflect';
 
 // How far back the rhythm view reaches: mirrors the stimulus ledger's
@@ -47,6 +49,8 @@ export type BenchmarkLens = {
   windowCounts: WindowCount[] | null;
   /** The revealed run — consecutive verdict-revealed windows at target. */
   run: number;
+  /** The current window, one cell per day. Null unless the behavior face is a 'days' measure. */
+  dayGrid: DayCell[] | null;
   /** Observed movement of the outcome face. Null when the lens has no outcome face. */
   outcome: OutcomeStatus | null;
 };
@@ -162,6 +166,7 @@ export function useBenchmarkReflect(
       hero: heroFaceOf(lensBenchmark),
       windowCounts: counts,
       run: counts ? consecutiveAtTarget(counts) : 0,
+      dayGrid: beh ? currentWindowDayGrid(beh, foodEntries, nowIso, todayLocalDate()) : null,
       outcome: lensBenchmark.outcome
         ? outcomeStatus(lensBenchmark.outcome, trendPoints, measured)
         : null,
