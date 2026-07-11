@@ -31,6 +31,11 @@ Best to floor. Every rung produces a map except the last, and the wearable buys 
 4. **Manual numbers, no map** *(the honest floor)*. Distance + duration + effort, no geometry, no fabricated trace. The right state for a treadmill run or a forgotten-to-track session. This is what `training-logging-spec.md` already calls the GPS manual fallback; this doc just makes explicit that the floor renders **no map**, not a fake one.
 
 > **Explicitly cut:** "drawing" a route by tracing it on the map by hand after the fact (the Footpath/plotaroute pattern). Niche, high-friction, and not wanted. In-app tracking covers the watchless case instead.
+>
+> **Partially reversed 2026-07-11 (Dylan, deliberate override — flagged and considered):** with
+> Routes getting a first-class home, a **minimal build mode** is back in: tap-to-place waypoints
+> with straight segments, no routing engine, no snap-to-trail. What stays cut is the full
+> Footpath pattern (auto-routed tracing). See `routes-spec.md` § Decisions locked.
 
 ---
 
@@ -174,7 +179,7 @@ GPS is not a single phase — it's a capability that ladders across the existing
 ## Open questions
 
 1. **In-app tracking placement** — a Phase 3 fast-follow (ingestion-adjacent, both emit `route`-bearing Sessions), or a small Phase 4 GPS-surface enrichment (the GPS log form gains a "track with phone" mode)? Both defensible; resolve when the Phase 3 map-render lands and the real shape of the work is visible. *Nav placement resolved 2026-07-11 — see § Placement — creation on Map, list in both places; this question is now narrowly about Phase 3 vs. Phase 4 timing, not which tab.*
-2. **`Route` entity vs. `SessionTemplate`** — does a navigable route reuse the `GpsTemplateShape` upgrade, or warrant its own `Route` type that templates reference? Likely the latter (a route is shared/compared across many sessions; a template is a plan) — decide in the Phase 6 build plan.
+2. **`Route` entity vs. `SessionTemplate`** — ~~does a navigable route reuse the `GpsTemplateShape` upgrade, or warrant its own `Route` type that templates reference?~~ **Resolved 2026-07-11:** its own `Route` entity; templates reference it via `GpsTemplateShape.routeId`. Full build spec: `routes-spec.md`.
 3. **Terrain/DEM elevation source** for phone-tracked and saved routes (no barometric altimeter) — Mapbox Terrain vs. open-elevation vs. other. Implementation decision for the build phase.
 4. **MapLibre vs. Mapbox** — open vs. polished, billing model. Decide at the display build.
 5. **Real-time location / Beacon** — entirely deferred; noted so the cohort map doesn't accidentally foreclose it. Safety feature, separate privacy model.

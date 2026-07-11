@@ -26,6 +26,7 @@ override stands and the flag doesn't get re-raised on the next pass.
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)
 - `outdoor-integrations.md` — outdoor-sport data sources (IGC, water levels, wind gauges, buoys/tides, snow/avalanche, trail names, GPS); logbook-first, identity grouping; OS-floor audit + sports-gap triage
 - `gps-mapping-spec.md` — GPS capture without a wearable, routes as first-class navigable/comparable objects, map display, cohort map (companion to `wearable-ingestion-spec.md`, which owns import)
+- `routes-spec.md` — Routes build spec: Route entity, Training list, straight-line map builder, save-as-route, basic follow
 - `climbing-apps-research.md` — climbing app deep dive (indoor/outdoor/boards/training); import paths, OpenBeta reference DB, the converged ascent record
 - `outdoor-sports-master-plan.md` — consolidation of the GPS + Garmin + outdoor-sports sessions: how the layered route model and capture ladder fit, what's decided vs ⚑ flagged, sport-expansion plan, build sequence
 - `four-dimensions-framework.md` — Earth/Sky/Water/Body, the organizing lens behind the constitution's four-dimensions section
