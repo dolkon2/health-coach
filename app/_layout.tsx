@@ -87,6 +87,14 @@ function ThemedStack() {
         name="gear"
         options={{ title: 'Gear', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="spots"
+        options={{ title: 'Spots', presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="spot/[id]"
+        options={{ title: 'Spot', presentation: 'modal' }}
+      />
     </Stack>
   );
 }

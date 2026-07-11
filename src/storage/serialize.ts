@@ -224,6 +224,7 @@ export type SpotRow = {
   lat: number | null;
   lng: number | null;
   kind: string;
+  sport: string | null; // migration 015
   meta: string | null; // JSON
   riverName: string | null;
   sectionName: string | null;
@@ -245,6 +246,7 @@ export function spotToRow(s: Spot, createdAt: string, updatedAt: string): SpotRo
     lat: s.lat ?? null,
     lng: s.lng ?? null,
     kind: s.kind,
+    sport: s.sport ?? null,
     meta: s.meta ? JSON.stringify(s.meta) : null,
     riverName: s.riverName ?? null,
     sectionName: s.sectionName ?? null,
@@ -263,6 +265,7 @@ export function rowToSpot(r: SpotRow): Spot {
     // Omit-when-absent — a spot without coords stays coord-less (null ≠ 0).
     ...(r.lat !== null ? { lat: r.lat } : {}),
     ...(r.lng !== null ? { lng: r.lng } : {}),
+    ...(r.sport ? { sport: r.sport } : {}),
     ...(r.meta != null ? { meta: JSON.parse(r.meta) as Record<string, unknown> } : {}),
     ...(r.riverName ? { riverName: r.riverName } : {}),
     ...(r.sectionName ? { sectionName: r.sectionName } : {}),

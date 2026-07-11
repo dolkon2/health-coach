@@ -21,6 +21,15 @@ export interface Spot {
   id: string;
   name: string; // "White Salmon — Green Truss", "Hood River sandbar"
   kind: string; // 'river-section' | 'launch' | 'flying-site' | …
+  /**
+   * User-facing sport tag (Pinned Spots P1, migration 015) — an activity id
+   * from the existing registry (src/lib/activity.ts), not a new enum.
+   * Resolves the spot's conditions feed (feedForSport.ts): tag it 'kayak'
+   * and the gauge card appears, no manual feed picking. `kind` stays the
+   * structural discriminator legacy flows key on; the two fields collapse
+   * eventually (⚑ pinned-spots-spec.md flag 1). Absent = untagged.
+   */
+  sport?: string;
   /** Required in practice for launch/flying-site spots — the wind/aloft fetch needs coords. */
   lat?: number;
   lng?: number;

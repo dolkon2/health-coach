@@ -232,6 +232,10 @@ export type EnduranceBlock = {
   avgHr?: number;
   energySystem: EnergySystem;
   gpsPath?: GeoPoint[]; // if synced from device
+  // Backlink to a saved Spot (pinned-spots-spec.md P1's save-as-spot pass),
+  // set from gpsPath[0] (the start point) at save time. Optional — most
+  // endurance sessions never get promoted to a spot.
+  spotId?: string;
 };
 
 /**
@@ -299,6 +303,10 @@ export type ClimbingBlock = {
   // unilaterally here would invite a merge collision. Promote pin -> Spot when
   // Spot lands. `name` is free text the user may add; never reverse-geocoded.
   location?: LatLng & { name?: string };
+  // Promote-pin-to-Spot backlink (pinned-spots-spec.md P1/P4, fulfills the
+  // TODO above): set once `location` is saved as a Spot from the logbook.
+  // `location` itself stays untouched — this is additive, never a replacement.
+  spotId?: string;
 };
 
 export type PaddlingBlock = {

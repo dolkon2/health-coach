@@ -40,6 +40,7 @@ const CANONICAL_SPOTS_COLS = [
   'meta',
   'name',
   'notes',
+  'sport',
   'riverName',
   'sectionName',
   'updatedAt',

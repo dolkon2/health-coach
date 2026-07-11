@@ -125,6 +125,9 @@ export function SpotPicker({
       kind,
       ...(kind === 'river-section'
         ? {
+            // Same tag migration 015 backfills onto legacy river-section
+            // spots — new ones created here shouldn't land untagged.
+            sport: 'kayak',
             ...(derivedRiverSection!.riverName ? { riverName: derivedRiverSection!.riverName } : {}),
             ...(derivedRiverSection!.sectionName ? { sectionName: derivedRiverSection!.sectionName } : {}),
             ...(gaugeSite ? { gaugeSiteId: gaugeSite.siteId } : {}),

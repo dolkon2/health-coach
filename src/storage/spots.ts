@@ -19,7 +19,7 @@ import { getDb, type SqlDatabase, type SqlParam } from './db';
 import { spotToRow, rowToSpot, type SpotRow } from './serialize';
 
 const COLUMNS =
-  'id, name, lat, lng, kind, meta, riverName, sectionName, gaugeSiteId, notes, createdAt, updatedAt';
+  'id, name, lat, lng, kind, sport, meta, riverName, sectionName, gaugeSiteId, notes, createdAt, updatedAt';
 
 export async function createSpot(
   spot: Spot,
@@ -31,13 +31,14 @@ export async function createSpot(
   const r = spotToRow(spot, spot.createdAt ?? now, now);
   await d.runAsync(
     `INSERT INTO spots (${COLUMNS})
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
     [
       r.id,
       r.name,
       r.lat,
       r.lng,
       r.kind,
+      r.sport,
       r.meta,
       r.riverName,
       r.sectionName,
@@ -52,6 +53,7 @@ export async function createSpot(
 
 export type ListSpotsOptions = {
   kind?: string;
+  sport?: string;
 };
 
 export async function listSpots(
@@ -64,6 +66,10 @@ export async function listSpots(
   if (opts.kind) {
     where.push('kind = ?');
     params.push(opts.kind);
+  }
+  if (opts.sport) {
+    where.push('sport = ?');
+    params.push(opts.sport);
   }
   const rows = await d.getAllAsync<SpotRow>(
     `SELECT ${COLUMNS} FROM spots
@@ -133,7 +139,7 @@ export async function updateSpot(
   const r = spotToRow(merged, merged.createdAt ?? now, now); // r.createdAt unused — the UPDATE never touches it
   await d.runAsync(
     `UPDATE spots
-     SET name = ?, lat = ?, lng = ?, kind = ?, meta = ?, riverName = ?, sectionName = ?,
+     SET name = ?, lat = ?, lng = ?, kind = ?, sport = ?, meta = ?, riverName = ?, sectionName = ?,
          gaugeSiteId = ?, notes = ?, updatedAt = ?
      WHERE id = ?;`,
     [
@@ -141,6 +147,7 @@ export async function updateSpot(
       r.lat,
       r.lng,
       r.kind,
+      r.sport,
       r.meta,
       r.riverName,
       r.sectionName,

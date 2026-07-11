@@ -231,6 +231,7 @@ export default function TrainingScreen() {
       </Text>
       <View style={{ gap: theme.spacing[2] }}>
         <LinkRow label="Benchmarks →" onPress={() => router.push('/benchmarks')} />
+        <LinkRow label="Spots →" onPress={() => router.push('/spots')} />
         <LinkRow label="Progress →" onPress={() => router.push('/training-progress')} />
         <LinkRow label="Import training history →" onPress={() => router.push('/import-csv')} />
       </View>

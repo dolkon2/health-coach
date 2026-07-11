@@ -14,7 +14,7 @@
  * own bottom inset.
  */
 import React from 'react';
-import { View, ScrollView, type ViewStyle } from 'react-native';
+import { View, ScrollView, RefreshControl, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme';
 
 type ScreenProps = {
@@ -22,9 +22,12 @@ type ScreenProps = {
   scroll?: boolean;
   style?: ViewStyle;
   footer?: React.ReactNode;
+  /** Pull-to-refresh — only meaningful with `scroll`. Omit both to skip it. */
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
-export function Screen({ children, scroll, style, footer }: ScreenProps) {
+export function Screen({ children, scroll, style, footer, refreshing, onRefresh }: ScreenProps) {
   const theme = useTheme();
 
   const padding: ViewStyle = {
@@ -39,6 +42,11 @@ export function Screen({ children, scroll, style, footer }: ScreenProps) {
       contentContainerStyle={[padding, style]}
       keyboardShouldPersistTaps="handled"
       automaticallyAdjustKeyboardInsets
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl refreshing={refreshing ?? false} onRefresh={onRefresh} tintColor={theme.colors.accent} />
+        ) : undefined
+      }
     >
       {children}
     </ScrollView>
