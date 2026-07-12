@@ -13,6 +13,10 @@ import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, fontMap, darkColors, useTheme } from '@/theme';
+// Side-effect import: registers the background recording task at module
+// scope (Map Record M2). Must live at the app root — a task defined any
+// later silently never fires on a cold background launch (research §2).
+import '@/lib/recording/recordingTask';
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontMap);
