@@ -39,7 +39,7 @@ Before building any feature, check it against these:
 *Amended 2026-07-02.* This app is built for users who don't need prescriptive planning — but for those who ask, it's there. If someone says "give me a plan, here are my goals," give them the plan. The exception stays an exception through architecture, not labeling:
 
 - **Summoned only.** It exists when the user opens it and asks. It never initiates, never follows up unprompted, never appears because "it's been a while."  
-- **A separate room, not the mirror.** The coach lives in its own explicit mode. Ambient surfaces (Today, Reflect, the ledger) never show AI-authored programming.  
+- **A separate room, not the mirror.** The coach lives in its own explicit mode. Ambient surfaces (Home, the logbook, Nutrition Trend, the ledger — whatever the descriptive surfaces are called in the current shell) never show AI-authored programming.  
 - **Output is a draft.** A generated plan enters exactly like a PT-prescribed one: source-tagged, browsable, edited or discarded by the user, logged only when they actually do it. It never writes to the ledger on its own and never overrides a logged fact.  
 - **Grounded, not generic.** It reasons from the user's own data — restrictions, medications, history, benchmarks, forensics. Where the data can't support a claim, it says so.  
 - **Not medical advice.** Programming suggestions, never diagnosis or treatment.
@@ -107,6 +107,8 @@ core/
 
     index.ts         Barrel exports.
 
+*(Founding modules, listed for the shape of the idea — the engine has since grown: gear, spots, conditions, routes, swim, climbing grades, session templates, and more. `core/src/` is the live index.)*
+
 Data flow: things happen \-\> become Observations \-\> timeline orders them \-\> engines turn them into facts (trend \-\> expenditure; stimulus) \-\> only those facts, with confidence attached, are ever shown.
 
 A workout saved from the library is a draft Session — no timestamp, browsable by stimulus intent. It becomes a real Session when the user actually does it and logs the outcome. The system never pushes "recommended for you" content from the library.
@@ -125,9 +127,9 @@ Two entry states, not two products: users with an existing plan who want it conn
 1. **Correlation engine \+ stimulus** — the core. Stimulus is done; the correlation step (relating stimulus to outcomes on the shared timeline) is the next piece and stays in this stack-agnostic core.  
 2. **Food via API** — integrate a nutrition database via API; do not build one from scratch.  
 3. **Sleep \+ steps via HealthKit / Health Connect** — ingestion adapters that emit Observations. Trust step count and sleep hours; treat staged sleep scores as tier-3.  
-4. **AI coach, then social layer** — later rings. The coach obeys rule 3 absolutely. Social is framed around showing up, never around outcomes.
+4. **AI coach, then social layer** — later rings. The coach obeys rule 3 absolutely. Social follows the amended rule-5/rule-6 boundary: a full opt-in public layer (sharing, kudos with counts, member-made groups and segments) walled off from the mirror — see `planning/rework/research/social-expansion-plan.md` for the S0–S9 ladder. *(The original "showing up, never outcomes" framing was deliberately overridden 2026-07-11.)*
 
-**Forward reference — Ring 4 shapes Rings 1–3:** Cross-user accountability (cohorts, shared events) is likely the primary retention driver. It ships last, but session and observation data must be designed with sharing/privacy scoping in mind from the start — visibility toggling should be a permission change, not a schema migration. See `product-overview.md` § Social layer and `cohorts-spec.md`.
+**Forward reference — Ring 4 shapes Rings 1–3:** Cross-user accountability is likely the primary retention driver, and session/observation data must be designed with sharing/privacy scoping in mind — visibility toggling should be a permission change, not a schema migration. *Updated 2026-07-11:* the social layer is no longer "ships last" — it's an active build ladder (S0–S9) with its own backend spec. Current source of truth: `planning/rework/research/social-expansion-plan.md` (plan + amended-rule rationale), `supabase-backend-spec.md` (backend), `activity-groups-spec.md` (groups/segments). `cohorts-spec.md` and `product-overview.md` § Social layer are the pre-override documents — historical context only.
 
 ## Planning docs
 
@@ -139,7 +141,9 @@ See `planning/` for the full product context:
 - `training-logging-spec.md` — session logging architecture (gym, climbing, GPS, swim, practice)  
 - `four-dimensions-framework.md` — Earth/Sky/Water/Body, the organizing lens behind § The four dimensions  
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key  
-- `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)  
+- `rework/master-plan.md` — **the current product shape**: 5-tab shell (Home/Training/Map/Nutrition/Social), Profile + Settings, phased build order — read this before trusting any older nav/layout claim  
+- `rework/research/social-expansion-plan.md` — the social layer as actually decided (S0–S9; supersedes `cohorts-spec.md`)  
+- `cohorts-spec.md` — pre-override Ring 4 social sketch (superseded, historical)  
 - `ai-consultant-prompt.md` — Ring 3 / Phase 7 AI consultant  
 - `competitive-landscape.md` — Cora, trainhybrid, Edge, etc.  
 - `brand-kit.md` — design tokens and visual direction  

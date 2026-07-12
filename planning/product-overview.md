@@ -98,6 +98,8 @@ Everything on one timeline: gym sessions, runs, climbs, kayak laps, surf session
 
 ### Social layer (ring 4 — later)
 
+> **Superseded 2026-07-11.** Dylan deliberately overrode the no-outcomes/no-counts framing below: the social layer is now a full opt-in public system (public accounts, kudos with counts, member-made groups and segments), recorded in amended constitution rules 5+6. Current source of truth: `rework/research/social-expansion-plan.md`. What survives from this section unchanged: no app-generated nudges, no shareable body-change content, the mirror itself stays countless.
+
 The shareable unit is the act of showing up, not outcomes or body transformation. But the real wedge of the social layer is **cross-user accountability**: a friend texting "you hitting the gym today?" is a kind of motivation an AI coach structurally can't generate. Routing accountability through actual human relationships is the only philosophy-consistent way to get the accountability function at all — and it's a function the engagement-driven competitors can only fake with notifications.
 
 Two rails to keep this clean:
@@ -119,7 +121,7 @@ A later, still-unscoped extension of the cohort hub: a world map of friends' act
 2. **Food via API** — integrate a nutrition database; do not build one from scratch.  
 3. **Sleep \+ steps \+ multi-sport ingestion via HealthKit / Health Connect** — adapters that emit Observations across modalities.  
 4. **AI coach** — *summoned, never self-initiating* (pull, not push). Obeys all rules absolutely. May prescribe **on request**, grounded in the user's own data, with output owned by the user (`benchmarks-spec.md`, "Summoned coach"). Once summoned, speaks only when the data earns it.  
-5. **Social layer** — framed around showing up and cross-user accountability, never around outcomes or app-generated nudges.
+5. **Social layer** — opt-in public sharing, kudos, groups and member-set segments per amended constitution rules 5+6 (`rework/research/social-expansion-plan.md`); never app-generated nudges, never scores on the mirror.
 
 ---
 

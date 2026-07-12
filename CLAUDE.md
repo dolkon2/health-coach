@@ -33,11 +33,19 @@ override stands and the flag doesn't get re-raised on the next pass.
 - `mapping-systems-research.md` — Strava internals, platform landscape, recommended mapping stack
 - `sport-mapping-research.md` — sport-specific mapping data layers (free flight, whitewater, ski, wind/kite, hiking)
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
-- `cohorts-spec.md` — Ring 4 social layer (events, challenges, profile)
+- `rework/master-plan.md` — **the current product shape — read this for design/nav status**: 5-tab shell (Home/Training/Map/Nutrition/Social), Profile + Settings drawer, phased build order; every file under `planning/rework/` is a spoke off this hub
+- `rework/research/social-expansion-plan.md` — the social layer as decided 2026-07-11 (S0–S9 ladder, public accounts, kudos with counts, amended constitution rules 5+6; supersedes `cohorts-spec.md`)
+- `rework/research/supabase-backend-spec.md` — social backend (upload-on-share, RLS, projections)
+- `rework/research/activity-groups-spec.md` — groups/channels/events/segments (G1–G4)
+- `rework/research/session-photos-spec.md` — session photos (migration 018)
+- `profile-spec.md` — Profile as identity home + Logbook (session=post, per-entry privacy)
+- `pinned-spots-spec.md` — watchlist of go-to places with live conditions (Training tab mode 2)
+- `nutrition-tab-v2-spec.md` — Intake/Trend split, self-set targets, Focus mode
+- `cohorts-spec.md` — pre-override Ring 4 social sketch (superseded, historical)
 - `ai-consultant-prompt.md` — Phase 7 (AI consultant)
 - `competitive-landscape.md` — Cora, trainhybrid, Edge, etc.
-- `brand-kit.md` — design tokens and visual direction
-- `screens-features-status.md` — **read this for current design/nav status** — Dylan's screen redesign is live in Notion and moves faster than this repo; points to the live Notion page + summarizes open nav decisions and the brand-kit-vs-code gap
+- `brand-kit.md` — original design tokens (the Gorge rebrand has since landed in code — `constants/tokens.ts` is the live source; app is light-only, dark mode retired 2026-07-11)
+- `screens-features-status.md` — Notion screen-redesign snapshot (largely superseded by `rework/master-plan.md`; still points at the live Notion page)
 - `phase-1-build-spec.md` — what we built first (the minimum useful loop)
 - `game-plan-and-prompts.md` — build sequence + ring↔phase↔pass legend
 - `backlog.md` — deferred items, open constraints, known quirks
