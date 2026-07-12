@@ -30,7 +30,7 @@ export type Activity = {
   label: string; // user-facing, e.g. 'Calisthenics'
   surface: Surface; // which logging surface it routes to
   modality: Modality; // nearest engine modality — what the stimulus engine reads
-  icon: string; // lucide icon name; the UI resolves it to a component
+  icon: string; // a GlyphKey (src/components/activityGlyphs.tsx); the UI resolves it to a component
   defaultEnergySystem?: EnergySystem; // GPS / swim default (consumed Pass 2+)
   defaultIdentityTags?: string[]; // seeds identity tags (consumed Pass 8)
   // Hidden from the pickers but NEVER removed: activityById must keep resolving
@@ -42,58 +42,65 @@ export type Activity = {
 
 export const ACTIVITIES: Activity[] = [
   // ── gym surface ──
-  { id: 'gym', label: 'Gym', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['strength'] },
-  { id: 'strength', label: 'Strength', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['strength'] },
-  { id: 'calisthenics', label: 'Calisthenics', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['calisthenics'] },
-  { id: 'crossfit', label: 'CrossFit', surface: 'gym', modality: 'gym', icon: 'dumbbell', defaultIdentityTags: ['functional'] },
+  // 'strength'/'crossfit' have no bespoke glyph in the 28-icon set (2026-07-12
+  // makeover) — fall back to 'gym', the nearest sibling; cosmetic reuse only.
+  { id: 'gym', label: 'Gym', surface: 'gym', modality: 'gym', icon: 'gym', defaultIdentityTags: ['strength'] },
+  { id: 'strength', label: 'Strength', surface: 'gym', modality: 'gym', icon: 'gym', defaultIdentityTags: ['strength'] },
+  { id: 'calisthenics', label: 'Calisthenics', surface: 'gym', modality: 'gym', icon: 'calisthenics', defaultIdentityTags: ['calisthenics'] },
+  { id: 'crossfit', label: 'CrossFit', surface: 'gym', modality: 'gym', icon: 'gym', defaultIdentityTags: ['functional'] },
   // ── gps surface (Run/Ride/Hike/Paddle render today; Surf/Wingfoil/Ski land with the GPS surface, Pass 2) ──
-  { id: 'run', label: 'Run', surface: 'gps', modality: 'run', icon: 'footprints', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
-  { id: 'ride', label: 'Ride', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'aerobic', gearCategories: ['bike'] },
-  { id: 'hike', label: 'Hike', surface: 'gps', modality: 'hike', icon: 'mountain', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
-  { id: 'paddle', label: 'Paddle', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
-  { id: 'surf', label: 'Surf', surface: 'gps', modality: 'surf', icon: 'waves', defaultEnergySystem: 'mixed' },
-  { id: 'wingfoil', label: 'Wingfoil', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'ski', label: 'Ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
+  // 'paddle'/'surf' fall back to 'kayak', the water-paddle-family glyph.
+  { id: 'run', label: 'Run', surface: 'gps', modality: 'run', icon: 'run', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
+  { id: 'ride', label: 'Ride', surface: 'gps', modality: 'ride', icon: 'ride', defaultEnergySystem: 'aerobic', gearCategories: ['bike'] },
+  { id: 'hike', label: 'Hike', surface: 'gps', modality: 'hike', icon: 'hike', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
+  { id: 'paddle', label: 'Paddle', surface: 'gps', modality: 'paddle', icon: 'kayak', defaultEnergySystem: 'aerobic' },
+  { id: 'surf', label: 'Surf', surface: 'gps', modality: 'surf', icon: 'kayak', defaultEnergySystem: 'mixed' },
+  { id: 'wingfoil', label: 'Wingfoil', surface: 'gps', modality: 'other', icon: 'wingfoil', defaultEnergySystem: 'mixed' },
+  { id: 'ski', label: 'Ski', surface: 'gps', modality: 'other', icon: 'ski', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
   // ── gps surface, sport-expansion batch (outdoor-integrations.md v0.2 "add-now" triage) ──
-  { id: 'walk', label: 'Walk', surface: 'gps', modality: 'hike', icon: 'footprints', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
-  { id: 'ruck', label: 'Ruck', surface: 'gps', modality: 'hike', icon: 'backpack', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['rucking'], gearCategories: ['boots', 'shoes'] },
-  { id: 'trail-run', label: 'Trail run', surface: 'gps', modality: 'run', icon: 'mountain', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
-  { id: 'mtb', label: 'Mountain bike', surface: 'gps', modality: 'ride', icon: 'bike', defaultEnergySystem: 'mixed', gearCategories: ['bike'] },
-  { id: 'kayak', label: 'Kayak', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
-  { id: 'whitewater', label: 'Whitewater', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'mixed', defaultIdentityTags: ['whitewater'] },
-  { id: 'sup', label: 'SUP', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
-  { id: 'canoe', label: 'Canoe', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
-  { id: 'row', label: 'Row', surface: 'gps', modality: 'paddle', icon: 'waves', defaultEnergySystem: 'aerobic' },
-  { id: 'sail', label: 'Sail', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'aerobic' },
-  { id: 'windsurf', label: 'Windsurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'kitesurf', label: 'Kitesurf', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'parawing', label: 'Parawing', surface: 'gps', modality: 'other', icon: 'wind', defaultEnergySystem: 'mixed' },
-  { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
-  { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'], gearCategories: ['skis'] },
-  { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'snowflake', defaultEnergySystem: 'aerobic', gearCategories: ['skis'] },
-  { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowflake', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
-  { id: 'skate', label: 'Skate', surface: 'gps', modality: 'other', icon: 'footprints', defaultEnergySystem: 'mixed' },
+  // 'sup'/'canoe'/'row' fall back to 'kayak'; 'skate' falls back to 'walk'.
+  { id: 'walk', label: 'Walk', surface: 'gps', modality: 'hike', icon: 'walk', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
+  { id: 'ruck', label: 'Ruck', surface: 'gps', modality: 'hike', icon: 'ruck', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['rucking'], gearCategories: ['boots', 'shoes'] },
+  { id: 'trail-run', label: 'Trail run', surface: 'gps', modality: 'run', icon: 'trailRun', defaultEnergySystem: 'aerobic', gearCategories: ['shoes'] },
+  { id: 'mtb', label: 'Mountain bike', surface: 'gps', modality: 'ride', icon: 'mountainBike', defaultEnergySystem: 'mixed', gearCategories: ['bike'] },
+  { id: 'kayak', label: 'Kayak', surface: 'gps', modality: 'paddle', icon: 'kayak', defaultEnergySystem: 'aerobic' },
+  { id: 'whitewater', label: 'Whitewater', surface: 'gps', modality: 'paddle', icon: 'whitewater', defaultEnergySystem: 'mixed', defaultIdentityTags: ['whitewater'] },
+  { id: 'sup', label: 'SUP', surface: 'gps', modality: 'paddle', icon: 'kayak', defaultEnergySystem: 'aerobic' },
+  { id: 'canoe', label: 'Canoe', surface: 'gps', modality: 'paddle', icon: 'kayak', defaultEnergySystem: 'aerobic' },
+  { id: 'row', label: 'Row', surface: 'gps', modality: 'paddle', icon: 'kayak', defaultEnergySystem: 'aerobic' },
+  { id: 'sail', label: 'Sail', surface: 'gps', modality: 'other', icon: 'sail', defaultEnergySystem: 'aerobic' },
+  { id: 'windsurf', label: 'Windsurf', surface: 'gps', modality: 'other', icon: 'windsurf', defaultEnergySystem: 'mixed' },
+  { id: 'kitesurf', label: 'Kitesurf', surface: 'gps', modality: 'other', icon: 'kitesurf', defaultEnergySystem: 'mixed' },
+  { id: 'parawing', label: 'Parawing', surface: 'gps', modality: 'other', icon: 'parawing', defaultEnergySystem: 'mixed' },
+  { id: 'snowboard', label: 'Snowboard', surface: 'gps', modality: 'other', icon: 'snowboard', defaultEnergySystem: 'mixed', gearCategories: ['skis'] },
+  { id: 'ski-touring', label: 'Ski touring', surface: 'gps', modality: 'hike', icon: 'skiTouring', defaultEnergySystem: 'aerobic', defaultIdentityTags: ['backcountry'], gearCategories: ['skis'] },
+  { id: 'xc-ski', label: 'XC ski', surface: 'gps', modality: 'other', icon: 'xcSki', defaultEnergySystem: 'aerobic', gearCategories: ['skis'] },
+  { id: 'snowshoe', label: 'Snowshoe', surface: 'gps', modality: 'hike', icon: 'snowshoe', defaultEnergySystem: 'aerobic', gearCategories: ['boots', 'shoes'] },
+  { id: 'skate', label: 'Skate', surface: 'gps', modality: 'other', icon: 'walk', defaultEnergySystem: 'mixed' },
   // ── sky surface (Sky dimension: paragliding/hike&fly/speedflying/parakiting; segmented tracks, USHPA ledger) ──
-  { id: 'paragliding', label: 'Paraglide', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
-  { id: 'hikeAndFly', label: 'Hike & Fly', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
-  { id: 'speedflying', label: 'Speedfly', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
-  { id: 'parakiting', label: 'Parakite', surface: 'sky', modality: 'other', icon: 'wind', defaultIdentityTags: ['flying'] },
+  // None of the four flight activities has a bespoke glyph — all fall back to
+  // 'parawing', the nearest wing-canopy shape in the 28-icon set.
+  { id: 'paragliding', label: 'Paraglide', surface: 'sky', modality: 'other', icon: 'parawing', defaultIdentityTags: ['flying'] },
+  { id: 'hikeAndFly', label: 'Hike & Fly', surface: 'sky', modality: 'other', icon: 'parawing', defaultIdentityTags: ['flying'] },
+  { id: 'speedflying', label: 'Speedfly', surface: 'sky', modality: 'other', icon: 'parawing', defaultIdentityTags: ['flying'] },
+  { id: 'parakiting', label: 'Parakite', surface: 'sky', modality: 'other', icon: 'parawing', defaultIdentityTags: ['flying'] },
   // ── swim surface (form lands Pass 5) ──
-  { id: 'swim', label: 'Swim', surface: 'swim', modality: 'swim', icon: 'waves', defaultEnergySystem: 'aerobic' },
+  { id: 'swim', label: 'Swim', surface: 'swim', modality: 'swim', icon: 'swim', defaultEnergySystem: 'aerobic' },
   // ── climbing surface ──
-  { id: 'climb', label: 'Climb', surface: 'climbing', modality: 'climb', icon: 'mountain', defaultIdentityTags: ['climbing'] },
+  { id: 'climb', label: 'Climb', surface: 'climbing', modality: 'climb', icon: 'climb', defaultIdentityTags: ['climbing'] },
   // ── practice surface (form lands Pass 6) ──
-  { id: 'yoga', label: 'Yoga', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
-  { id: 'pilates', label: 'Pilates', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
-  { id: 'mobility', label: 'Mobility', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mobility'] },
-  { id: 'meditation', label: 'Meditation', surface: 'practice', modality: 'mobility', icon: 'flower', defaultIdentityTags: ['mindfulness'] },
+  // 'pilates'/'martial-arts' fall back to 'mobility'; 'meditation' to 'breathwork'.
+  { id: 'yoga', label: 'Yoga', surface: 'practice', modality: 'mobility', icon: 'yoga', defaultIdentityTags: ['mobility'] },
+  { id: 'pilates', label: 'Pilates', surface: 'practice', modality: 'mobility', icon: 'mobility', defaultIdentityTags: ['mobility'] },
+  { id: 'mobility', label: 'Mobility', surface: 'practice', modality: 'mobility', icon: 'mobility', defaultIdentityTags: ['mobility'] },
+  { id: 'meditation', label: 'Meditation', surface: 'practice', modality: 'mobility', icon: 'breathwork', defaultIdentityTags: ['mindfulness'] },
   // Dropped from the 7 Body sports (Dylan, 2026-07-05 2nd check-in) — deprecated,
   // not removed, so historic martial-arts sessions keep resolving (see Activity.deprecated).
-  { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'flower', defaultIdentityTags: ['martial-arts'], deprecated: true },
-  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'dance', icon: 'flower', defaultIdentityTags: ['dance'] },
+  { id: 'martial-arts', label: 'Martial arts', surface: 'practice', modality: 'other', icon: 'mobility', defaultIdentityTags: ['martial-arts'], deprecated: true },
+  { id: 'dance', label: 'Dance', surface: 'practice', modality: 'dance', icon: 'dance', defaultIdentityTags: ['dance'] },
   // ── practice surface, Body dimension batch (dimension-body-build.md P1a) ──
-  { id: 'breathwork', label: 'Breathwork', surface: 'practice', modality: 'mobility', icon: 'wind', defaultIdentityTags: ['mindfulness'] },
-  { id: 'pt', label: 'PT', surface: 'practice', modality: 'mobility', icon: 'heart-pulse', defaultIdentityTags: ['recovery'] },
+  { id: 'breathwork', label: 'Breathwork', surface: 'practice', modality: 'mobility', icon: 'breathwork', defaultIdentityTags: ['mindfulness'] },
+  { id: 'pt', label: 'PT', surface: 'practice', modality: 'mobility', icon: 'pt', defaultIdentityTags: ['recovery'] },
 ];
 
 /**

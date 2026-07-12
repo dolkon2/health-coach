@@ -219,7 +219,7 @@ function ElementRow({
 function BodyRow({ onPress }: { onPress: () => void }) {
   const theme = useTheme();
   const tint = theme.colors.element.body;
-  const Icon = iconFor('dumbbell');
+  const Icon = iconFor('gym');
   return (
     <Pressable
       onPress={onPress}

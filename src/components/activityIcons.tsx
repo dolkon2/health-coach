@@ -1,45 +1,40 @@
 /**
  * activityIcons.tsx — maps `Activity.icon` (a name, kept platform-free in
- * lib/activity.ts) to its lucide component. Shared by every activity-tile
+ * lib/activity.ts) to its rendered component. Shared by every activity-tile
  * picker (Training tab, Home's element-picker sheet) so the icon set has one
  * place to update.
+ *
+ * 2026-07-12: `icon` now names one of the 28 brand glyphs in
+ * `activityGlyphs.tsx` (the design system's own geometric icon vocabulary)
+ * instead of a lucide icon — see that file for the shape defs. `iconFor()`
+ * keeps its exact prior signature so no consumer needed to change.
  */
 import type { ComponentType } from 'react';
-import {
-  Dumbbell,
-  Footprints,
-  Bike,
-  Mountain,
-  Waves,
-  Wind,
-  Snowflake,
-  Flower2,
-  Backpack,
-  HeartPulse,
-  MapPin,
-  Activity as ActivityIcon,
-} from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
 import { activityById } from '@/lib/activity';
+import { ActivityGlyph, GLYPH_KEYS, isGlyphKey, type GlyphKey } from './activityGlyphs';
 
 export type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
-export const ACTIVITY_ICONS: Record<string, IconCmp> = {
-  dumbbell: Dumbbell,
-  footprints: Footprints,
-  bike: Bike,
-  mountain: Mountain,
-  waves: Waves,
-  wind: Wind,
-  snowflake: Snowflake,
-  flower: Flower2,
-  backpack: Backpack,
-  'heart-pulse': HeartPulse,
-};
+type GlyphIconProps = { size?: number; color?: string; strokeWidth?: number };
 
-/** Unknown icon names fall back to a generic activity mark. */
+function makeGlyphIcon(key: GlyphKey): IconCmp {
+  return function GlyphIcon({ size, color, strokeWidth }: GlyphIconProps) {
+    return <ActivityGlyph glyphKey={key} size={size} color={color} strokeWidth={strokeWidth} />;
+  };
+}
+
+// Built once at module load — stable component references per key, so an
+// icon's identity doesn't change across renders (avoids remount churn a
+// fresh-closure-per-call approach would cause).
+const GLYPH_COMPONENTS: Record<GlyphKey, IconCmp> = Object.fromEntries(
+  GLYPH_KEYS.map((key) => [key, makeGlyphIcon(key)])
+) as Record<GlyphKey, IconCmp>;
+
+/** Unknown icon names fall back to a generic activity mark (hike). */
 export function iconFor(name: string): IconCmp {
-  return ACTIVITY_ICONS[name] ?? ActivityIcon;
+  return GLYPH_COMPONENTS[isGlyphKey(name) ? name : 'hike'];
 }
 
 /** A spot's pin/sport icon: its tagged sport's icon, else a generic map pin.

@@ -30,7 +30,7 @@ export function TemplateCard({ template, onPress }: TemplateCardProps) {
   const activity = activityById(template.activity);
   const element = activity ? elementOf(activity) : 'body';
   const tint = theme.colors.element[element];
-  const Icon = iconFor(activity?.icon ?? 'dumbbell');
+  const Icon = iconFor(activity?.icon ?? 'gym');
   const repeatsDay =
     template.isActive && template.dayAssignment != null
       ? DAYS_OF_WEEK.find((d) => d.value === template.dayAssignment)?.label

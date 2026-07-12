@@ -16,21 +16,11 @@
  * The library ships empty (constitution). Saved shapes survive across launches
  * via the session_templates SQLite table (migration 002).
  */
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Pressable, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import {
-  Dumbbell,
-  Footprints,
-  Bike,
-  Mountain,
-  Waves,
-  Wind,
-  Snowflake,
-  Flower2,
-  Activity as ActivityIcon,
-} from 'lucide-react-native';
 import { Screen, Text, Button, Card, Field, ChipSelect } from '@/components';
+import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import {
@@ -73,19 +63,6 @@ import type {
 } from '@core/sessionTemplate';
 import type { ClimbStyle, SwimMode } from '@/lib/session';
 import type { EnergySystem, MovementPattern, SwimStroke } from '@core/observation';
-
-type IconCmp = ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
-
-const ICONS: Record<string, IconCmp> = {
-  dumbbell: Dumbbell,
-  footprints: Footprints,
-  bike: Bike,
-  mountain: Mountain,
-  waves: Waves,
-  wind: Wind,
-  snowflake: Snowflake,
-  flower: Flower2,
-};
 
 // ─── Form state ─────────────────────────────────────────────────────────────
 // Numeric fields are strings (raw TextInput values); parsed at save time.
@@ -1177,7 +1154,7 @@ function ActivityPickTile({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const Icon = ICONS[activity.icon] ?? ActivityIcon;
+  const Icon = iconFor(activity.icon);
   return (
     <Pressable
       onPress={onPress}
