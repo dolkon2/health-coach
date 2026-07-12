@@ -15,16 +15,57 @@
 import type { ReactNode } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import {
-  Apple,
-  CalendarDays,
-  Dumbbell,
-  MapPin,
-  Settings,
-  User,
-  Users,
-} from 'lucide-react-native';
+import { Settings, User } from 'lucide-react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useTheme } from '@/theme';
+
+/**
+ * Tab icons — the brand's own geometric vocabulary (ring, diamond, dot-path,
+ * triangle, two-circles), ported from the design system's `TabBar.jsx`
+ * reference / `ui_kits/mobile-app`'s own tab bar (2026-07-12), replacing the
+ * generic lucide set (calendar/dumbbell/pin/apple/people) this shipped with
+ * originally. Shape carries identity; color stays the tab's active/inactive
+ * tint, never an element hue.
+ */
+function HomeTabIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 20 20">
+      <Circle cx={10} cy={10} r={7} fill="none" stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
+function TrainingTabIcon({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 18 18">
+      <Path d="M9 2 L16 9 L9 16 L2 9 Z" fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
+    </Svg>
+  );
+}
+function MapTabIcon({ color }: { color: string }) {
+  return (
+    <Svg width={20} height={16} viewBox="0 0 16 13">
+      <Circle cx={2} cy={9} r={1.6} fill={color} />
+      <Circle cx={7} cy={6} r={1.6} fill={color} />
+      <Circle cx={12} cy={8} r={1.6} fill={color} />
+      <Path d="M1 11 L7 4 L15 2" fill="none" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+function NutritionTabIcon({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={16} viewBox="0 0 14 12">
+      <Path d="M7 0.5 L13.5 11.5 L0.5 11.5 Z" fill={color} />
+    </Svg>
+  );
+}
+function SocialTabIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={16} viewBox="0 0 18 13">
+      <Circle cx={6} cy={6.5} r={4} fill="none" stroke={color} strokeWidth={2} />
+      <Circle cx={12} cy={6.5} r={4} fill="none" stroke={color} strokeWidth={2} />
+    </Svg>
+  );
+}
 
 export default function TabsLayout() {
   const theme = useTheme();
@@ -54,18 +95,14 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <CalendarDays size={22} color={color} strokeWidth={1.5} />
-          ),
+          tabBarIcon: ({ color }) => <HomeTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="training"
         options={{
           title: 'Training',
-          tabBarIcon: ({ color }) => (
-            <Dumbbell size={22} color={color} strokeWidth={1.5} />
-          ),
+          tabBarIcon: ({ color }) => <TrainingTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
@@ -77,27 +114,21 @@ export default function TabsLayout() {
           // control renders as an in-screen overlay.
           headerTransparent: true,
           headerStyle: { backgroundColor: 'transparent' },
-          tabBarIcon: ({ color }) => (
-            <MapPin size={22} color={color} strokeWidth={1.5} />
-          ),
+          tabBarIcon: ({ color }) => <MapTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="nutrition"
         options={{
           title: 'Nutrition',
-          tabBarIcon: ({ color }) => (
-            <Apple size={22} color={color} strokeWidth={1.5} />
-          ),
+          tabBarIcon: ({ color }) => <NutritionTabIcon color={color} />,
         }}
       />
       <Tabs.Screen
         name="social"
         options={{
           title: 'Social',
-          tabBarIcon: ({ color }) => (
-            <Users size={22} color={color} strokeWidth={1.5} />
-          ),
+          tabBarIcon: ({ color }) => <SocialTabIcon color={color} />,
         }}
       />
     </Tabs>

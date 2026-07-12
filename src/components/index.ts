@@ -36,6 +36,7 @@ export { StepsSleepStrip } from './StepsSleepStrip';
 export { TemplateCard } from './TemplateCard';
 export { SpotCard, type SpotCardProps } from './SpotCard';
 export { RouteCard, type RouteCardProps } from './RouteCard';
+export { PillActionButton, DiamondGlyph, TriangleGlyph } from './PillActionButton';
 export {
   GymExerciseEditor,
   RemoveButton,

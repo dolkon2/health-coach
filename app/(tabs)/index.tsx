@@ -5,6 +5,15 @@
  * the food logger directly), and a glance tier of today's modules — present
  * only when the user actually tracks them (absent, not empty).
  *
+ * The log bar is a persistent footer (Dylan, 2026-07-12 — matches the
+ * mockup's `LogBar` and Training's already-shipped footer-button pattern),
+ * not inline content — it stays visible while the glance tier scrolls under
+ * it. Uses `PillActionButton` (`src/components/PillActionButton.tsx`), not
+ * the shared `Button` component: the mockup's quiet dual-button treatment
+ * (small glyph + label, light surface fill) doesn't match any of Button's
+ * existing variants. `PillActionButton` is the same one Training's footer
+ * and Nutrition's Log food use — one consistent system across all three.
+ *
  * Explicitly NOT here (moved or removed per the spec): the weigh-in card
  * (Nutrition/Trend owns weigh-in — see nutrition.tsx's onLogWeighIn), today's
  * session list and meal list (the logbook lives on Profile, per locked #3),
@@ -12,10 +21,9 @@
  * connection state now — settings.tsx; Home only reads `connected` to decide
  * whether the steps/sleep strip renders).
  *
- * Pinned Spots (H4) is built here, positioned per the spec's proposed shelf
- * order (home-tab.md §2 ⚑1 — still unconfirmed by Dylan): above Nutrition
- * and Benchmarks. Today's-template card (H5) is NOT built in this pass — it
- * needs Training's per-template recurrence property, which doesn't exist yet.
+ * Glance-tier order: Nutrition → Pinned Spots → Benchmarks (Dylan, 2026-07-12
+ * — Nutrition leads). Today's-template card (H5) is NOT built in this pass —
+ * it needs Training's per-template recurrence property, which doesn't exist yet.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
@@ -24,12 +32,14 @@ import {
   Screen,
   Text,
   Card,
-  Button,
   ElementPickerSheet,
   BenchmarkStatusCard,
   BenchmarkDetailSheet,
   SpotCard,
   StepsSleepStrip,
+  PillActionButton,
+  DiamondGlyph,
+  TriangleGlyph,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { todayLocalLabel, yearLabel } from '@/lib/date';
@@ -113,7 +123,23 @@ export default function HomeScreen() {
   const showStepsSleep = wearable.connected && (stepsToday !== null || sleepToday !== null);
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      footer={
+        <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
+          <PillActionButton
+            icon={<DiamondGlyph color={theme.colors.textSecondary} />}
+            label="Log Session"
+            onPress={openPicker}
+          />
+          <PillActionButton
+            icon={<TriangleGlyph color={theme.colors.textSecondary} />}
+            label="Log Food"
+            onPress={() => router.push('/log-food')}
+          />
+        </View>
+      }
+    >
       {/* Date header */}
       <Text variant="label" color={theme.colors.accent}>
         Home
@@ -125,21 +151,6 @@ export default function HomeScreen() {
         {yearLabel()}
       </Text>
 
-      {/* Log bar — always present, needs zero data (home-tab.md § 2 tier 1). */}
-      <View style={{ flexDirection: 'row', gap: theme.spacing[3], marginTop: theme.spacing[6] }}>
-        <Button
-          label="Log session"
-          onPress={openPicker}
-          style={{ flex: 1 }}
-        />
-        <Button
-          label="Log food"
-          variant="secondary"
-          onPress={() => router.push('/log-food')}
-          style={{ flex: 1 }}
-        />
-      </View>
-
       <ElementPickerSheet
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
@@ -148,13 +159,49 @@ export default function HomeScreen() {
         onPickBody={openBodyLogger}
       />
 
+      {/* Nutrition today — Focus-mode aware total; absent until food is
+          logged. Leads the glance tier (Dylan, 2026-07-12). */}
+      {showNutritionCard ? (
+        <View style={{ marginTop: theme.spacing[6] }}>
+          <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+            Nutrition
+          </Text>
+          <Pressable
+            onPress={() => router.push('/nutrition')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Nutrition"
+          >
+            <Card style={{ gap: theme.spacing[1] }}>
+              <Text variant="dataLg">
+                {focusTotal.total.value == null
+                  ? '—'
+                  : `${Math.round(focusTotal.total.value)} ${focusTotal.unit}`}
+              </Text>
+              <MacroBar
+                proteinG={foodTotals.proteinG.value}
+                carbsG={foodTotals.carbsG.value}
+                fatG={foodTotals.fatG.value}
+              />
+              <Text variant="label" color={theme.colors.textSecondary}>
+                {focusTotal.label} today
+              </Text>
+              {focusTotal.total.missing > 0 ? (
+                <Text variant="bodySm" color={theme.colors.caution}>
+                  {focusTotal.total.missing} {focusTotal.total.missing === 1 ? 'entry' : 'entries'} missing this macro — not counted
+                </Text>
+              ) : null}
+            </Card>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* Pinned Spots — a floor module (home-tab.md § 2): the "Spots →" link
           keeps a one-line presence even at zero spots, since it's the only
           door to the spots list. Condensed cards (cap 3) render above it
           once spots exist, most-recently-created first (the spec's
           "most-recently-visited" ordering waits on a sessions-at-spot query
           that doesn't exist yet — see useSpotsGlance). */}
-      <View style={{ marginTop: theme.spacing[8] }}>
+      <View style={{ marginTop: showNutritionCard ? theme.spacing[8] : theme.spacing[6] }}>
         <Pressable
           onPress={() => router.push('/spots')}
           accessibilityRole="button"
@@ -178,36 +225,6 @@ export default function HomeScreen() {
           </View>
         ) : null}
       </View>
-
-      {/* Nutrition today — Focus-mode aware total; absent until food is logged. */}
-      {showNutritionCard ? (
-        <View style={{ marginTop: theme.spacing[8] }}>
-          <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
-            Nutrition
-          </Text>
-          <Pressable
-            onPress={() => router.push('/nutrition')}
-            accessibilityRole="button"
-            accessibilityLabel="Open Nutrition"
-          >
-            <Card style={{ gap: theme.spacing[1] }}>
-              <Text variant="dataLg">
-                {focusTotal.total.value == null
-                  ? '—'
-                  : `${Math.round(focusTotal.total.value)} ${focusTotal.unit}`}
-              </Text>
-              <Text variant="label" color={theme.colors.textSecondary}>
-                {focusTotal.label} today
-              </Text>
-              {focusTotal.total.missing > 0 ? (
-                <Text variant="bodySm" color={theme.colors.caution}>
-                  {focusTotal.total.missing} {focusTotal.total.missing === 1 ? 'entry' : 'entries'} missing this macro — not counted
-                </Text>
-              ) : null}
-            </Card>
-          </Pressable>
-        </View>
-      ) : null}
 
       {/* Benchmarks — the "Benchmarks →" link is a floor module: it keeps a
           one-line presence even at zero, since it's the only door to the
@@ -254,7 +271,49 @@ export default function HomeScreen() {
         measured={measured}
       />
 
-      <View style={{ height: theme.spacing[10] }} />
     </Screen>
+  );
+}
+
+/**
+ * A compact protein/carb/fat bar for Home's Nutrition card — glance-tier
+ * visual only, no gram numbers (the full P/C/F breakdown already lives on
+ * Nutrition's own Daily total card). Colors follow `chartSeries`' own stated
+ * macro-breakdown order (`tokens.ts`: "rust, teal, ochre, then sky") —
+ * protein/carb/fat map to body/water/earth, not invented hues. Renders
+ * nothing when every macro is unknown: no bar is the honest state, never a
+ * fabricated even split (food-logging-spec § null ≠ 0).
+ */
+function MacroBar({
+  proteinG,
+  carbsG,
+  fatG,
+}: {
+  proteinG: number | null;
+  carbsG: number | null;
+  fatG: number | null;
+}) {
+  const theme = useTheme();
+  const segments = [
+    { grams: proteinG ?? 0, color: theme.colors.element.body },
+    { grams: carbsG ?? 0, color: theme.colors.element.water },
+    { grams: fatG ?? 0, color: theme.colors.element.earth },
+  ];
+  if (segments.every((s) => s.grams <= 0)) return null;
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        height: 6,
+        borderRadius: theme.radius.sm,
+        overflow: 'hidden',
+        gap: 2,
+      }}
+    >
+      {segments.map((s, i) =>
+        s.grams > 0 ? <View key={i} style={{ flex: s.grams, backgroundColor: s.color }} /> : null
+      )}
+    </View>
   );
 }

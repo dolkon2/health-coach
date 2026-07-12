@@ -41,6 +41,8 @@ import {
   ExpenditureCard,
   WeightTrendChart,
   WeighInHistory,
+  PillActionButton,
+  TriangleGlyph,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
@@ -150,7 +152,32 @@ export default function NutritionScreen() {
   const latestTrendKg = points.length > 0 ? points[points.length - 1].trendKg : null;
 
   return (
-    <Screen scroll>
+    <Screen
+      scroll
+      // Log food lives in the persistent footer, matching Home's log bar and
+      // Training's footer action — the same `PillActionButton` system across
+      // all three (Dylan, 2026-07-12). Only on Intake: logging doesn't apply
+      // to Trend's derived/modeled surface. Wrapped in a `flexDirection: 'row'`
+      // View — `PillActionButton`'s `flex: 1` needs a row parent to size
+      // itself correctly (see training.tsx's identical fix).
+      footer={
+        subTab === 'intake' ? (
+          <View style={{ flexDirection: 'row' }}>
+            <PillActionButton
+              icon={<TriangleGlyph color={theme.colors.textSecondary} />}
+              label="Log food"
+              onPress={() =>
+                router.push(
+                  isToday
+                    ? '/log-food'
+                    : { pathname: '/log-food', params: { date: selectedDate } }
+                )
+              }
+            />
+          </View>
+        ) : undefined
+      }
+    >
       <Text variant="label" color={theme.colors.accent}>
         Nutrition
       </Text>
@@ -200,22 +227,6 @@ export default function NutritionScreen() {
               emptyMessage={
                 isToday ? 'No food logged today.' : 'No food logged this day.'
               }
-            />
-
-            <Button
-              label="Log food"
-              variant="secondary"
-              // Today → no date param, so the logger defaults to modal-open time
-              // ("now", current behavior). Any other day → pass date so the
-              // logger defaults to noon of that day, adjustable in the picker.
-              onPress={() =>
-                router.push(
-                  isToday
-                    ? '/log-food'
-                    : { pathname: '/log-food', params: { date: selectedDate } }
-                )
-              }
-              style={{ marginTop: theme.spacing[3] }}
             />
           </View>
         </>
