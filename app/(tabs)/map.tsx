@@ -32,6 +32,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronDown } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
+import type { Route } from '@core/route';
 import {
   Text,
   Card,
@@ -46,6 +47,7 @@ import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { listSpots } from '@/storage/spots';
+import { getRoute } from '@/storage/routes';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
 import { useBatteryOptPrompt } from '@/hooks/useBatteryOptPrompt';
@@ -89,6 +91,23 @@ export default function MapScreen() {
   const [justSaved, setJustSaved] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  // The route Record was deep-linked to follow (routes-spec M4) — seeded
+  // from the routeId param, live-reactive to the sport-arm control (a re-arm
+  // away from the route's sport un-follows it — see activeFollowRoute).
+  const [followRoute, setFollowRoute] = useState<Route | null>(null);
+  // The route actually pinned to the recording that's currently live —
+  // captured once, in onRecord(), from activeFollowRoute at the moment
+  // Record was tapped. Deliberately NOT re-read live from followRoute at
+  // stop time: a re-arm or a stale routeId param after Record was pressed
+  // must not retroactively relabel a recording already in flight (review
+  // finding — a live followRoute read at stop time could tag the WRONG
+  // route onto a session, not just lose the tag). Kept in React state, not
+  // the recorder (the recording_sessions buffer table, migration 017, has
+  // no routeId column and is shipped — never hand-edit a shipped migration
+  // — so a kill-and-recover through the orphan banner loses the follow
+  // context entirely rather than risk mislabeling; ⚑ flagged in the
+  // dev-log, not reinterpreted: acceptable for this S-sized pass).
+  const [pinnedFollowRoute, setPinnedFollowRoute] = useState<Route | null>(null);
   const loc = useForegroundLocation();
   const recorder = useBackgroundRecorder();
   const { distanceUnit } = useSettings();
@@ -144,6 +163,40 @@ export default function MapScreen() {
     setArmOverride(null);
   }, [params.activity, params.element]);
 
+  // Load (or clear) the followed route whenever the routeId param changes —
+  // a route detail's "Start session on this route" deep link, or navigating
+  // back to a plain Map tab with no route.
+  useEffect(() => {
+    const id = paramStr(params.routeId);
+    if (!id) {
+      setFollowRoute(null);
+      return;
+    }
+    let cancelled = false;
+    getRoute(id)
+      .then((r) => {
+        if (!cancelled) setFollowRoute(r);
+      })
+      .catch(() => {
+        if (!cancelled) setFollowRoute(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.routeId]);
+
+  const isRecording = recorder.status === 'tracking' || recorder.status === 'starting';
+
+  // The route Record would arm right now IF you pressed Record — absent
+  // when the loaded route is for a different sport than the current arm
+  // (re-arming away from a route un-follows it, honestly, both in this
+  // preview and in what onRecord() will actually pin).
+  const activeFollowRoute =
+    followRoute && followRoute.activityId === armed.id ? followRoute : null;
+  // What the guide line / "Following X" text should show right now: the
+  // live preview before Record is pressed, the pinned route once it is.
+  const displayFollowRoute = isRecording ? pinnedFollowRoute : activeFollowRoute;
+
   const mostRecent = useMemo(() => mostRecentActivityByElement(sessions), [sessions]);
   const pins = useMemo(() => spotsWithCoords(spots), [spots]);
   // Stable handler so the (memoized) native map isn't reconciled every time
@@ -182,6 +235,9 @@ export default function MapScreen() {
       return;
     }
     setJustSaved(false);
+    // Pin the route this recording is following (if any) NOW, at the moment
+    // it actually starts — never read live at stop time (see pinnedFollowRoute).
+    setPinnedFollowRoute(activeFollowRoute);
     void recorder.start({ activityId: armed.id, element: recordingElementOf(armed) });
   }
 
@@ -256,8 +312,14 @@ export default function MapScreen() {
   /** Stop (live or recovered) → save sheet. The sheet gets the activity the
    *  recording was STARTED under (off the buffer row), never the current
    *  `armed` — a Home deep-link landing mid-recording must not relabel a
-   *  session already in progress (review finding). */
-  async function onStopToSave() {
+   *  session already in progress (review finding).
+   *
+   *  `fromRecovery` (review finding): a recovered orphan predates this
+   *  screen instance's own onRecord() call — it was never paired with
+   *  pinnedFollowRoute, so whatever route happens to be loaded now (from an
+   *  unrelated later deep-link) must NOT be attributed to it. Recovered
+   *  recordings always save routeless; only a live Stop can tag a route. */
+  async function onStopToSave(opts: { fromRecovery?: boolean } = {}) {
     const result = await recorder.stop();
     if (result == null) return;
     if (result.points.length < 2) {
@@ -273,16 +335,22 @@ export default function MapScreen() {
         points: result.points,
         origin: { kind: 'record' },
         recordingId: result.recordingId,
+        ...(!opts.fromRecovery && pinnedFollowRoute ? { routeId: pinnedFollowRoute.id } : {}),
       },
     });
   }
 
   const ArmIcon = iconFor(armed.icon);
-  const isRecording = recorder.status === 'tracking' || recorder.status === 'starting';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-      <MapSurface center={center} zoom={zoom} pins={pins} onPressPin={onPressPin} />
+      <MapSurface
+        center={center}
+        zoom={zoom}
+        pins={pins}
+        onPressPin={onPressPin}
+        guidePath={displayFollowRoute?.points}
+      />
 
       {/* Sport-arm control — floats below the header band, left side. Hidden
           while recording: the sport is part of the running recording (the
@@ -329,6 +397,8 @@ export default function MapScreen() {
             recorder={recorder}
             armed={armed}
             distanceUnit={distanceUnit}
+            guidePath={pinnedFollowRoute?.points}
+            followName={pinnedFollowRoute?.name}
             onStop={() => void onStopToSave()}
             onDiscard={() => {
               Alert.alert('Discard this recording?', 'The track will be deleted.', [
@@ -336,7 +406,10 @@ export default function MapScreen() {
                 {
                   text: 'Discard',
                   style: 'destructive',
-                  onPress: () => void recorder.discard(),
+                  onPress: () => {
+                    setPinnedFollowRoute(null);
+                    void recorder.discard();
+                  },
                 },
               ]);
             }}
@@ -348,7 +421,7 @@ export default function MapScreen() {
                 activityLabel={
                   activityById(recorder.recoverable.activityId)?.label ?? 'session'
                 }
-                onFinish={() => void onStopToSave()}
+                onFinish={() => void onStopToSave({ fromRecovery: true })}
                 onDiscard={() => {
                   Alert.alert(
                     'Discard the unfinished recording?',
@@ -385,6 +458,11 @@ export default function MapScreen() {
             {justSaved ? (
               <Text variant="label" color={theme.colors.positive}>
                 Session saved.
+              </Text>
+            ) : null}
+            {activeFollowRoute ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Following {activeFollowRoute.name}
               </Text>
             ) : null}
             {loc.status === 'undetermined' ? (
@@ -437,17 +515,22 @@ export default function MapScreen() {
         onSaved={() => {
           setSaveDraft(null);
           setJustSaved(true);
+          setPinnedFollowRoute(null);
           reloadSessions();
           void recorder.attach(); // re-probe: a failed buffer clear surfaces NOW, not later
         }}
         onDiscarded={() => {
           setSaveDraft(null);
+          setPinnedFollowRoute(null);
           void recorder.attach(); // row is gone; clears any recoverable state
         }}
         onClose={() => {
           // Backing out is NOT a discard: the stopped recording's buffer row
-          // survives, so re-probe surfaces it as the recovery banner.
+          // survives, so re-probe surfaces it as the recovery banner. The
+          // pin clears anyway — if it re-surfaces via the recovery banner,
+          // onStopToSave's fromRecovery path never tags a route regardless.
           setSaveDraft(null);
+          setPinnedFollowRoute(null);
           void recorder.attach();
         }}
       />
@@ -461,12 +544,16 @@ function LiveRecordingPanel({
   recorder,
   armed,
   distanceUnit,
+  guidePath,
+  followName,
   onStop,
   onDiscard,
 }: {
   recorder: BackgroundRecorder;
   armed: Activity;
   distanceUnit: 'km' | 'mi';
+  guidePath?: Route['points'];
+  followName?: string;
   onStop: () => void;
   onDiscard: () => void;
 }) {
@@ -507,6 +594,12 @@ function LiveRecordingPanel({
         </Text>
       </View>
 
+      {followName ? (
+        <Text variant="bodySm" color={theme.colors.textMuted}>
+          Following {followName}
+        </Text>
+      ) : null}
+
       <View style={{ flexDirection: 'row', gap: theme.spacing[6] }}>
         <View>
           <Text variant="label" color={theme.colors.textMuted}>
@@ -536,7 +629,7 @@ function LiveRecordingPanel({
       </View>
 
       {recorder.points.length >= 2 ? (
-        <RoutePreview path={recorder.points} height={84} />
+        <RoutePreview path={recorder.points} guidePath={guidePath} height={84} />
       ) : (
         <Text variant="bodySm" color={theme.colors.textMuted}>
           Waiting for a GPS fix — recording continues with the screen off or the app closed.
