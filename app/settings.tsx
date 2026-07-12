@@ -1,13 +1,23 @@
 /**
- * Settings — a gear-icon screen, not a tab. Pass 1 ships a working theme toggle
- * (exercises the ThemeProvider) and placeholders for the rest. Units, modality
- * picker, and JSON export are wired in later passes.
+ * Settings — the gear-icon screen (profile-settings.md P3). Sectioned private
+ * configuration and parked machinery: preferences, connections, imports, engine
+ * inputs, and the Views tenant section where deferred surfaces live.
  *
- * The Developer card (sample data) is a testing aid added in Pass 5 so a
- * populated Reflect can be previewed instantly. It writes tagged rows and clears
- * only those — never real logged data. Remove this card before any real release.
+ * The restructure is presentation-only — every handler (HealthKit toggles, units,
+ * deficit, climbing import, sample data, sky-pilot fields) is unchanged from the
+ * flat version; the cards are just grouped under section headers. Empty sections
+ * (Thresholds, Account, Coach) don't render until their feature lands — naming a
+ * section before it has content would be an empty promise (§3 empty-section rule).
+ *
+ * The Views section carries the **Stimulus Ledger** (locked #2 — parked here,
+ * highly deferred by design) and, temporarily, **Reflect**: the 5-tab shell swap
+ * removed Reflect's tab slot but not the screen, which stays reachable here until
+ * its gated retirement (P8). The gear link is kept but marked moving to Profile.
+ *
+ * The Developer card (sample data) is a testing aid: it writes tagged rows and
+ * clears only those — never real logged data. Remove it before any real release.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Button, ChipSelect, Field } from '@/components';
@@ -109,7 +119,7 @@ export default function SettingsScreen() {
     setMsg(null);
     try {
       await seedSampleData();
-      setMsg('Sample data loaded. Open Reflect to see the trend and ledger.');
+      setMsg('Sample data loaded. See the trend on Nutrition and the Stimulus ledger.');
     } catch {
       setMsg('Could not load sample data.');
     } finally {
@@ -256,7 +266,10 @@ export default function SettingsScreen() {
 
   return (
     <Screen scroll>
-      <Card style={{ gap: theme.spacing[3] }}>
+      {/* ═══ Preferences ═══════════════════════════════════════════════════ */}
+      <SectionHeader first>Preferences</SectionHeader>
+
+      <Section>
         <Text variant="label">Theme</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           Currently {theme.scheme}. Dark is the default.
@@ -266,63 +279,41 @@ export default function SettingsScreen() {
           variant="outline"
           onPress={theme.toggleScheme}
         />
-      </Card>
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Body stats</Text>
+      <Section>
+        <Text variant="label">Units</Text>
         <Text variant="body" color={theme.colors.textMuted}>
-          Height, birth year, and how active you typically are — behind the
-          predicted daily burn, until measurement takes over.
+          How weights and distances read. Storage stays kg and metres — this
+          only changes what you see.
         </Text>
-        <Button
-          label="Edit body stats"
-          variant="outline"
-          onPress={() => router.push('/body-profile')}
-        />
-      </Card>
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="bodySm" color={theme.colors.textSecondary}>
+            Weight
+          </Text>
+          <ChipSelect
+            options={WEIGHT_UNITS}
+            value={weightUnit}
+            onChange={(u) => {
+              void updateSettings({ weightUnit: u });
+            }}
+          />
+        </View>
+        <View style={{ gap: theme.spacing[2] }}>
+          <Text variant="bodySm" color={theme.colors.textSecondary}>
+            Distance
+          </Text>
+          <ChipSelect
+            options={DISTANCE_UNITS}
+            value={distanceUnit}
+            onChange={(u) => {
+              void updateSettings({ distanceUnit: u });
+            }}
+          />
+        </View>
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Plans</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Your own home-exercise plans — define them here, tick them off daily
-          from the same screen.
-        </Text>
-        <Button label="Open plans" variant="outline" onPress={() => router.push('/protocols')} />
-      </Card>
-
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Steps & sleep</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          {wearable.connected
-            ? 'Connected. Steps and sleep hours import automatically — tier-1 facts only, no readiness score.'
-            : 'Connect Apple Health to bring in steps and sleep automatically.'}
-        </Text>
-        <Button
-          label={wearable.connected ? 'Connected' : wearable.syncing ? 'Connecting…' : 'Connect Apple Health'}
-          variant="outline"
-          disabled={wearable.connected}
-          onPress={() => {
-            void wearable.connect();
-          }}
-        />
-      </Card>
-
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Apple Health export</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Off by default. When on, sessions you log here export to Health as
-          activity type and start/end time only — never a modeled calorie
-          estimate.
-        </Text>
-        <Button
-          label={healthkitWriteEnabled ? 'Turn off Health export' : 'Turn on Health export'}
-          variant="outline"
-          onPress={onToggleHealthkitWrite}
-          loading={hkBusy}
-        />
-      </Card>
-
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+      <Section>
         <Text variant="label">Deficit target</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           Used to suggest a "stay under" calorie ceiling: your current burn
@@ -342,18 +333,60 @@ export default function SettingsScreen() {
           suffix="cal/day"
           keyboardType="number-pad"
         />
-      </Card>
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Gear</Text>
+      {/* ═══ Connections ═══════════════════════════════════════════════════ */}
+      <SectionHeader>Connections</SectionHeader>
+
+      <Section>
+        <Text variant="label">Steps & sleep</Text>
         <Text variant="body" color={theme.colors.textMuted}>
-          The quiver — shoes, bikes, skis. Sessions tag gear; mileage and days
-          are read from those tags, never stored.
+          {wearable.connected
+            ? 'Connected. Steps and sleep hours import automatically — tier-1 facts only, no readiness score.'
+            : 'Connect Apple Health to bring in steps and sleep automatically.'}
         </Text>
-        <Button label="Gear" variant="outline" onPress={() => router.push('/gear')} />
-      </Card>
+        <Button
+          label={wearable.connected ? 'Connected' : wearable.syncing ? 'Connecting…' : 'Connect Apple Health'}
+          variant="outline"
+          disabled={wearable.connected}
+          onPress={() => {
+            void wearable.connect();
+          }}
+        />
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+      <Section>
+        <Text variant="label">Apple Health export</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Off by default. When on, sessions you log here export to Health as
+          activity type and start/end time only — never a modeled calorie
+          estimate.
+        </Text>
+        <Button
+          label={healthkitWriteEnabled ? 'Turn off Health export' : 'Turn on Health export'}
+          variant="outline"
+          onPress={onToggleHealthkitWrite}
+          loading={hkBusy}
+        />
+      </Section>
+
+      {/* ═══ Privacy & sharing ═════════════════════════════════════════════ */}
+      {/* Present from day one even though it's placeholder-only: visibility must
+          be a permission change, not a schema migration (profile-settings.md §2). */}
+      <SectionHeader>Privacy & sharing</SectionHeader>
+
+      <Section>
+        <Text variant="label">Default audience</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Private. Nothing you log is shared with anyone. Sharing controls arrive
+          with the social features — until then, everything stays on this device.
+        </Text>
+      </Section>
+
+      {/* ═══ Imports ═══════════════════════════════════════════════════════ */}
+      <SectionHeader>Imports</SectionHeader>
+
+      <Section>
         <Text variant="label">Climbing history import</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           A BoardLib logbook CSV (Kilter/Tension/Moon boards — run{' '}
@@ -403,45 +436,56 @@ export default function SettingsScreen() {
             {climbImportMsg}
           </Text>
         ) : null}
-      </Card>
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Units</Text>
+      {/* ═══ Protocols ═════════════════════════════════════════════════════ */}
+      <SectionHeader>Protocols</SectionHeader>
+
+      <Section>
+        <Text variant="label">Plans</Text>
         <Text variant="body" color={theme.colors.textMuted}>
-          How weights and distances read. Storage stays kg and metres — this
-          only changes what you see.
+          Your own home-exercise plans — define them here, tick them off daily
+          from the same screen.
         </Text>
-        <View style={{ gap: theme.spacing[2] }}>
-          <Text variant="bodySm" color={theme.colors.textSecondary}>
-            Weight
-          </Text>
-          <ChipSelect
-            options={WEIGHT_UNITS}
-            value={weightUnit}
-            onChange={(u) => {
-              void updateSettings({ weightUnit: u });
-            }}
-          />
-        </View>
-        <View style={{ gap: theme.spacing[2] }}>
-          <Text variant="bodySm" color={theme.colors.textSecondary}>
-            Distance
-          </Text>
-          <ChipSelect
-            options={DISTANCE_UNITS}
-            value={distanceUnit}
-            onChange={(u) => {
-              void updateSettings({ distanceUnit: u });
-            }}
-          />
-        </View>
-      </Card>
+        <Button label="Open plans" variant="outline" onPress={() => router.push('/protocols')} />
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
-        <Text variant="label">Sky pilot</Text>
+      {/* ═══ Body profile ══════════════════════════════════════════════════ */}
+      <SectionHeader>Body profile</SectionHeader>
+
+      <Section>
+        <Text variant="label">Body stats</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Height, birth year, and how active you typically are — behind the
+          predicted daily burn, until measurement takes over.
+        </Text>
+        <Button
+          label="Edit body stats"
+          variant="outline"
+          onPress={() => router.push('/body-profile')}
+        />
+      </Section>
+
+      {/* ═══ Gear (moving to Profile) ══════════════════════════════════════ */}
+      <SectionHeader>Gear</SectionHeader>
+
+      <Section>
+        <Text variant="label">Gear</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          The quiver — shoes, bikes, skis. Sessions tag gear; mileage and days
+          are read from those tags, never stored. Moving to your profile.
+        </Text>
+        <Button label="Gear" variant="outline" onPress={() => router.push('/gear')} />
+      </Section>
+
+      {/* ═══ Sky pilot ═════════════════════════════════════════════════════ */}
+      <SectionHeader>Sky pilot</SectionHeader>
+
+      <Section>
+        <Text variant="label">USHPA</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           Descriptive only — never checked against your logged flights, never
-          enforced. See your actual numbers on the USHPA ledger.
+          enforced. See your actual numbers on the USHPA ledger below.
         </Text>
         <Field
           label="USHPA number (optional)"
@@ -460,22 +504,58 @@ export default function SettingsScreen() {
         {skyDraftDirty ? (
           <Button label="Save" variant="secondary" onPress={saveSkyDraft} />
         ) : null}
+      </Section>
+
+      {/* ═══ Views — the tenant section for parked/deferred surfaces ═══════ */}
+      <SectionHeader>Views</SectionHeader>
+
+      <Section>
+        <Text variant="label">Stimulus ledger</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          A week-by-week read of the training you logged, grouped by pattern.
+          Highly deferred — it lives here rather than on the bar.
+        </Text>
+        <Button
+          label="Open stimulus ledger"
+          variant="outline"
+          onPress={() => router.push('/stimulus-ledger')}
+        />
+      </Section>
+
+      <Section>
+        <Text variant="label">USHPA ledger</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          Your logged flights against the USHPA rating requirements — a private
+          compliance record, descriptive only.
+        </Text>
         <Button
           label="Open USHPA ledger"
           variant="outline"
           onPress={() => router.push('/sky-ledger')}
         />
-      </Card>
+      </Section>
 
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[2] }}>
+      <Section>
+        <Text variant="label">Reflect</Text>
+        <Text variant="body" color={theme.colors.textMuted}>
+          The benchmark long-view. It left the tab bar and is finding a new home;
+          for now it opens here so nothing goes dark.
+        </Text>
+        <Button label="Open Reflect" variant="outline" onPress={() => router.push('/reflect')} />
+      </Section>
+
+      {/* ═══ Data ══════════════════════════════════════════════════════════ */}
+      <SectionHeader>Data</SectionHeader>
+
+      <Section>
         <Text variant="label">Your data</Text>
         <Text variant="body" color={theme.colors.textMuted}>
           One-button JSON export lands with the storage layer. You own your data.
         </Text>
-      </Card>
+      </Section>
 
-      {/* Developer-only: sample data for previewing Reflect. Removed before release. */}
-      <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+      {/* Developer-only: sample data. Removed before release. */}
+      <Section>
         <Text variant="label" color={theme.colors.caution}>
           Developer · sample data
         </Text>
@@ -491,9 +571,29 @@ export default function SettingsScreen() {
             {msg}
           </Text>
         ) : null}
-      </Card>
+      </Section>
 
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
   );
+}
+
+/** A section divider label. `first` drops the top margin for the leading one. */
+function SectionHeader({ children, first }: { children: string; first?: boolean }) {
+  const theme = useTheme();
+  return (
+    <Text
+      variant="label"
+      color={theme.colors.accent}
+      style={{ marginTop: first ? 0 : theme.spacing[8], marginBottom: theme.spacing[1] }}
+    >
+      {children}
+    </Text>
+  );
+}
+
+/** A settings card — the standard spacing every row shares. */
+function Section({ children }: { children: ReactNode }) {
+  const theme = useTheme();
+  return <Card style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>{children}</Card>;
 }

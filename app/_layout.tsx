@@ -54,7 +54,12 @@ function ThemedStack() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="profile" options={{ title: 'Profile' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      {/* Reflect left the tab bar with the 5-tab shell swap; the legacy screen
+          stays routable (via Settings › Views) until its gated retirement, P8. */}
+      <Stack.Screen name="reflect" options={{ title: 'Reflect' }} />
+      <Stack.Screen name="stimulus-ledger" options={{ title: 'Stimulus ledger' }} />
       <Stack.Screen
         name="log-weigh-in"
         options={{ title: 'Log weigh-in', presentation: 'modal' }}
