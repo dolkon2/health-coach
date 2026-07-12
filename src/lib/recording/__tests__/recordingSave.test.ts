@@ -219,6 +219,46 @@ describe('recordingSessionForm — import origin', () => {
   });
 });
 
+describe('route-follow finish-tagging (routes-spec M4)', () => {
+  it('tags a gps-surface recording with the followed routeId', () => {
+    const { form } = recordingSessionForm({
+      activity: act('run'),
+      points: track(10),
+      origin: { kind: 'record' },
+      distanceUnit: 'mi',
+      routeId: 'route-1',
+    });
+    expect(form.endurance.routeId).toBe('route-1');
+    const obs = buildSessionObservation(form, ctx);
+    expect(obs.payload.endurance?.routeId).toBe('route-1');
+  });
+
+  it('tags a sky recording with the followed routeId', () => {
+    const { form } = recordingSessionForm({
+      activity: act('paragliding'),
+      points: track(20, true),
+      origin: { kind: 'record' },
+      distanceUnit: 'mi',
+      routeId: 'route-2',
+    });
+    expect(form.sky.routeId).toBe('route-2');
+    const obs = buildSessionObservation(form, ctx);
+    expect(obs.payload.sky?.routeId).toBe('route-2');
+  });
+
+  it('omits routeId entirely when the recording was never a follow', () => {
+    const { form } = recordingSessionForm({
+      activity: act('run'),
+      points: track(10),
+      origin: { kind: 'record' },
+      distanceUnit: 'mi',
+    });
+    expect(form.endurance.routeId).toBeUndefined();
+    const obs = buildSessionObservation(form, ctx);
+    expect(obs.payload.endurance).not.toHaveProperty('routeId');
+  });
+});
+
 describe('routing follows the logging surface (⚑6)', () => {
   it('gps + sky surfaces record on the map; climbing/swim/gym keep the log-session door', () => {
     expect(recordsOnMap(act('run'))).toBe(true);

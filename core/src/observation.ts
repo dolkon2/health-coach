@@ -236,6 +236,10 @@ export type EnduranceBlock = {
   // set from gpsPath[0] (the start point) at save time. Optional — most
   // endurance sessions never get promoted to a spot.
   spotId?: string;
+  // Backlink to a Route this session followed (routes-spec P1/M4, Session 9):
+  // set when Record was armed with a routeId and the session finished.
+  // Optional — most endurance sessions are never a follow.
+  routeId?: string;
 };
 
 /**
@@ -519,6 +523,9 @@ export type SkyBlock = {
   segments?: SkySegment[]; // absent when there's no track to segment
   gearRefs?: SkyGearUse[];
   spotId?: string;
+  // Backlink to a Route this flight followed (routes-spec P1/M4, Session 9) —
+  // same pattern as spotId. Optional — most flights are never a follow.
+  routeId?: string;
   conditionsSnapshotId?: string;
   // Speedflying only — the real driver of lap volume, never inferred from
   // discipline (research §Q3: refuted "speedriding vs speedflying changes

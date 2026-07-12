@@ -56,6 +56,9 @@ export type RecordingSaveInput = {
   elevationGainSource?: 'gps';
   durationMin?: number;
   startTime?: string;
+  /** Set when Record was armed with a route to follow (routes-spec M4,
+   *  Session 9) — tags the finished session's endurance/sky block. */
+  routeId?: string;
 };
 
 /**
@@ -176,6 +179,7 @@ export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDr
           track: points, // FULL resolution — a sky track is never thinned
           trackSource,
           segments: detectAutoSegments(points, activity.id as SkyDetectorActivity, trackSource),
+          ...(input.routeId ? { routeId: input.routeId } : {}),
         },
       },
       summary,
@@ -228,6 +232,7 @@ export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDr
         // The silent freeze rides only when something actually landed — an
         // empty snapshot is never stored (freeze.ts contract).
         ...(input.conditions?.weather ? { conditionsMeta: input.conditions } : {}),
+        ...(input.routeId ? { routeId: input.routeId } : {}),
       },
     },
     summary,

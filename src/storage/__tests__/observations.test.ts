@@ -12,6 +12,8 @@ import {
   supersedeObservation,
   deleteObservation,
   updateObservation,
+  listSessionsForRoute,
+  countSessionsByRoute,
 } from '../observations';
 import { makeTestDb } from './sqliteTestDb';
 
@@ -187,5 +189,87 @@ describe('observations storage', () => {
     expect(items[0].sourceDb).toBeUndefined();
     expect(items[0].quantityMethod).toBe('estimated');
     expect(items[0].kcal).toBe(160);
+  });
+});
+
+function fakeGpsSession(id: string, occurredAt: string, routeId?: string): Observation {
+  return {
+    id,
+    kind: 'session',
+    occurredAt,
+    loggedAt: occurredAt,
+    tz: 'America/Los_Angeles',
+    tier: 1,
+    fidelity: 0.7,
+    source: { type: 'manual' },
+    payload: {
+      kind: 'session',
+      modality: 'run',
+      endurance: { energySystem: 'aerobic', ...(routeId ? { routeId } : {}) },
+    },
+  };
+}
+
+function fakeSkySession(id: string, occurredAt: string, routeId?: string): Observation {
+  return {
+    id,
+    kind: 'session',
+    occurredAt,
+    loggedAt: occurredAt,
+    tz: 'America/Los_Angeles',
+    tier: 1,
+    fidelity: 0.7,
+    source: { type: 'manual' },
+    payload: {
+      kind: 'session',
+      modality: 'other',
+      sky: { ...(routeId ? { routeId } : {}) },
+    },
+  };
+}
+
+describe('listSessionsForRoute (routes-spec ⚑7 efforts list)', () => {
+  it('finds gps- and sky-surface sessions that followed a route, newest first, and excludes others', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createObservation(fakeGpsSession('s1', '2026-07-01T10:00:00Z', 'route-1'), db);
+    await createObservation(fakeSkySession('s2', '2026-07-05T10:00:00Z', 'route-1'), db);
+    await createObservation(fakeGpsSession('s3', '2026-07-03T10:00:00Z', 'route-2'), db);
+    await createObservation(fakeGpsSession('s4', '2026-07-02T10:00:00Z'), db); // no route at all
+
+    const efforts = await listSessionsForRoute('route-1', db);
+    expect(efforts.map((o) => o.id)).toEqual(['s2', 's1']); // newest occurredAt first
+  });
+
+  it('returns an empty array when nothing followed the route', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    await createObservation(fakeGpsSession('s1', '2026-07-01T10:00:00Z'), db);
+    expect(await listSessionsForRoute('route-nope', db)).toEqual([]);
+  });
+});
+
+describe('countSessionsByRoute (batch counterpart — one scan, not one per route)', () => {
+  it('groups counts by routeId across gps and sky surfaces, omitting routeless sessions', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+
+    await createObservation(fakeGpsSession('s1', '2026-07-01T10:00:00Z', 'route-1'), db);
+    await createObservation(fakeSkySession('s2', '2026-07-05T10:00:00Z', 'route-1'), db);
+    await createObservation(fakeGpsSession('s3', '2026-07-03T10:00:00Z', 'route-2'), db);
+    await createObservation(fakeGpsSession('s4', '2026-07-02T10:00:00Z'), db); // no route
+
+    const counts = await countSessionsByRoute(db);
+    expect(counts.get('route-1')).toBe(2);
+    expect(counts.get('route-2')).toBe(1);
+    expect(counts.has('route-nope')).toBe(false); // absent, never a fabricated 0
+  });
+
+  it('returns an empty map when no session ever followed a route', async () => {
+    const db = makeTestDb();
+    await runMigrations(db);
+    await createObservation(fakeGpsSession('s1', '2026-07-01T10:00:00Z'), db);
+    expect((await countSessionsByRoute(db)).size).toBe(0);
   });
 });

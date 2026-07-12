@@ -62,6 +62,9 @@ export type SaveRecordingTrack = {
   elevationGainSource?: 'gps';
   durationMin?: number;
   startTime?: string;
+  /** Set when Record was armed with a route to follow (routes-spec M4) —
+   *  tags the finished session so it appears in the route's efforts list. */
+  routeId?: string;
 };
 
 type SaveRecordingSheetProps = {
@@ -187,6 +190,7 @@ export function SaveRecordingSheet({
         elevationGainSource: track.elevationGainSource,
         durationMin: typedDuration ?? track.durationMin,
         startTime: track.startTime,
+        routeId: track.routeId,
       });
       const obs = buildSessionObservation(form, {
         id: uuidv7(),

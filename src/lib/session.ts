@@ -178,6 +178,9 @@ export type SessionForm = {
     // (2 dp km = a 10 m quantum). When present the `distance` field restores
     // empty; a user-typed distance overrides the measured value (honest edit).
     measuredDistanceM?: number;
+    // Backlink set when Record was armed with a route and the session
+    // finished (routes-spec M4, Session 9) — never hand-edited.
+    routeId?: string;
   };
   climb: {
     // null = not chosen. emptySessionForm() pre-selects 'boulder' for a BRAND
@@ -269,6 +272,9 @@ export type SessionForm = {
     segments: SkySegment[]; // detector proposals + any user edits
     ascentMode: '' | 'hike' | 'lift' | 'shuttle' | 'tour'; // speedflying only; '' = unset
     onSkis: boolean; // ski-vs-air tag — never inferred (sky-research-track-b.md §2)
+    // Backlink set when Record was armed with a route and the flight
+    // finished (routes-spec M4, Session 9) — never hand-edited.
+    routeId?: string;
   };
 };
 
@@ -825,6 +831,7 @@ export function buildSessionObservation(
       ...(avgHr !== null && avgHr > 0 ? { avgHr: Math.round(avgHr) } : {}),
       ...gainEntry,
       ...(hasRoute ? { gpsPath } : {}),
+      ...(form.endurance.routeId ? { routeId: form.endurance.routeId } : {}),
     };
     // Frozen conditions ride only with the route they were fetched for —
     // tier-3 context sitting BESIDE the tier-1 session, never gating it.
@@ -950,6 +957,7 @@ export function buildSessionObservation(
         ? { ascentMode: form.sky.ascentMode }
         : {}),
       ...(form.sky.onSkis ? { onSkis: true } : {}),
+      ...(form.sky.routeId ? { routeId: form.sky.routeId } : {}),
     };
     payload.sky = sky;
     // An IGC file is a flight recorder's own log — measured, same tier as a

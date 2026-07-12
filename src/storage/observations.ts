@@ -13,6 +13,7 @@ import type {
   Observation,
   ObservationId,
   ObservationKind,
+  ObservationOf,
   FoodItem,
   ISOInstant,
 } from '@core/observation';
@@ -212,4 +213,43 @@ export async function getRecentFoodItems(
   }
 
   return Array.from(seen.values());
+}
+
+/**
+ * Sessions that followed a given route (routes-spec ⚑7 / training-tab.md §4:
+ * "a scoped filtered view of sessions, not the logbook" — same JS-scan-over-
+ * payload rationale as the anticipated listSessionsForSpot; a route's
+ * `routeId` backlink lives on EnduranceBlock/SkyBlock, not a column, so
+ * there's no query to push into SQL). Fine at personal scale; a ceiling is
+ * already flagged (training-tab.md §9) if route counts grow large. Single-
+ * route detail use (app/route/[id].tsx) — for a per-route COUNT across many
+ * routes, use countSessionsByRoute instead of calling this in a loop.
+ */
+export async function listSessionsForRoute(
+  routeId: string,
+  db?: SqlDatabase
+): Promise<ObservationOf<'session'>[]> {
+  const sessions = (await listObservations({ kinds: ['session'] }, db)) as ObservationOf<'session'>[];
+  return sessions
+    .filter((o) => o.payload.endurance?.routeId === routeId || o.payload.sky?.routeId === routeId)
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+}
+
+/**
+ * Effort counts for every route that has any, from ONE scan of the session
+ * table — the batch counterpart to listSessionsForRoute. Calling
+ * listSessionsForRoute once per route (the Routes list / Training shelf's
+ * original shape) re-scans and re-JSON.parses the entire session table N
+ * times over; this does it once and groups in memory. A route with zero
+ * sessions is simply absent from the map (never a fabricated 0 entry).
+ */
+export async function countSessionsByRoute(db?: SqlDatabase): Promise<Map<string, number>> {
+  const sessions = (await listObservations({ kinds: ['session'] }, db)) as ObservationOf<'session'>[];
+  const counts = new Map<string, number>();
+  for (const o of sessions) {
+    const routeId = o.payload.endurance?.routeId ?? o.payload.sky?.routeId;
+    if (!routeId) continue;
+    counts.set(routeId, (counts.get(routeId) ?? 0) + 1);
+  }
+  return counts;
 }
