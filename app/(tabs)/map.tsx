@@ -50,7 +50,9 @@ import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
 import { elementOf, activityById, type Activity } from '@/lib/activity';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
-import { recordsOnMap, recordingElementOf } from '@/lib/recording/recordingSave';
+import { recordsOnMap, recordingElementOf, pairTrackFormat } from '@/lib/recording/recordingSave';
+import { parseGpx } from '@/lib/gpxImport';
+import { parseIgc } from '@/lib/igcImport';
 import { summarizeTrack } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
 import {
@@ -78,6 +80,8 @@ export default function MapScreen() {
   const [saveTrack, setSaveTrack] = useState<SaveRecordingTrack | null>(null);
   const [saveActivity, setSaveActivity] = useState<Activity | null>(null);
   const [justSaved, setJustSaved] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const loc = useForegroundLocation();
   const recorder = useBackgroundRecorder();
   const { distanceUnit } = useSettings();
@@ -154,6 +158,70 @@ export default function MapScreen() {
     }
     setJustSaved(false);
     void recorder.start({ activityId: armed.id, element: recordingElementOf(armed) });
+  }
+
+  // ─── "Import a track" door (map-tab §5 Ingestion — rides M2) ──────────────
+  // The other half of "records a track or ingests one": a watch-exported GPX
+  // or a vario's IGC lands in the SAME save sheet as a live recording. The
+  // log-session importers stay put until this door is device-verified
+  // (never-lose-access gate — retirement is a follow-up, not this build).
+  async function onImportTrack() {
+    if (importing) return;
+    setImporting(true);
+    setImportError(null);
+    // Lazy-load like log-session's importGpxFile: an old dev build degrades
+    // to an honest message instead of crashing the tab.
+    let DocumentPicker: typeof import('expo-document-picker');
+    let FileSystem: typeof import('expo-file-system');
+    try {
+      DocumentPicker = await import('expo-document-picker');
+      FileSystem = await import('expo-file-system');
+    } catch {
+      setImporting(false);
+      setImportError('File import needs an updated dev build of the app — rebuild to enable it.');
+      return;
+    }
+    try {
+      const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+      if (res.canceled || res.assets.length === 0) return;
+      const asset = res.assets[0];
+      const text = await FileSystem.readAsStringAsync(asset.uri);
+      // Extension decides; a missing extension falls back on shape (XML → GPX).
+      const isIgc =
+        /\.igc$/i.test(asset.name ?? '') ||
+        (!/\.gpx$/i.test(asset.name ?? '') && !text.trimStart().startsWith('<'));
+      const format = isIgc ? ('igc' as const) : ('gpx' as const);
+      // The armed sport must be able to carry this format (GPX → Earth/Water,
+      // IGC → Sky) — a mismatch is named plainly, nothing parsed further.
+      const mismatch = pairTrackFormat(armed, format);
+      if (mismatch) {
+        setImportError(mismatch);
+        return;
+      }
+      const parsed = isIgc ? parseIgc(text) : parseGpx(text);
+      if (parsed.points.length < 2) {
+        setImportError('That file has no usable track points.');
+        return;
+      }
+      setSaveActivity(armed);
+      setSaveTrack({
+        points: parsed.points,
+        origin: { kind: 'import', format, ...(asset.name ? { filename: asset.name } : {}) },
+        recordingId: null, // no buffer behind a file
+        ...(parsed.name ? { name: parsed.name } : {}),
+        ...(parsed.distanceM > 0 ? { distanceM: parsed.distanceM } : {}),
+        ...(parsed.elevationGainM != null ? { elevationGainM: parsed.elevationGainM } : {}),
+        ...(!isIgc && (parsed as ReturnType<typeof parseGpx>).elevationGainSource != null
+          ? { elevationGainSource: (parsed as ReturnType<typeof parseGpx>).elevationGainSource }
+          : {}),
+        ...(parsed.durationMin != null ? { durationMin: parsed.durationMin } : {}),
+        ...(parsed.startTime ? { startTime: parsed.startTime } : {}),
+      });
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : 'Could not read that file as a track.');
+    } finally {
+      setImporting(false);
+    }
   }
 
   /** Stop the live recording (or finish a recovered one) → save sheet. */
@@ -313,6 +381,22 @@ export default function MapScreen() {
               onPress={onRecord}
               disabled={recorder.recoverable != null}
             />
+            {importError ? (
+              <Text variant="bodySm" color={theme.colors.negative}>
+                {importError}
+              </Text>
+            ) : null}
+            {/* The quiet ingestion door — secondary to Record by design. */}
+            <Pressable
+              onPress={() => void onImportTrack()}
+              accessibilityRole="button"
+              accessibilityLabel="Import a track file"
+              style={{ alignSelf: 'center', paddingVertical: theme.spacing[1] }}
+            >
+              <Text variant="label" color={theme.colors.textMuted}>
+                {importing ? 'Reading file…' : 'Import a track (GPX · IGC)'}
+              </Text>
+            </Pressable>
           </Card>
         )}
       </View>
