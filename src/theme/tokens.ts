@@ -73,10 +73,10 @@ export const lightColors = {
   ],
 };
 
-// Dark mode does not ship (design of record is light-only, locked 2026-07-11).
-// darkColors is not a designed palette — it's light's values under the same
-// type, kept only so ThemeProvider's ColorScheme union and any future dark
-// revisit stay compilable.
+// Dark mode is DEFERRED, not dead (Dylan's call 2026-07-12: get light fully
+// sorted first). darkColors is a placeholder — light's values under the same
+// type — until that pass gives it real values; kept now so ThemeProvider's
+// ColorScheme union and toggle machinery don't need rebuilding later.
 export const darkColors: typeof lightColors = lightColors;
 
 export type ColorTokens = typeof lightColors;

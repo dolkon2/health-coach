@@ -1,10 +1,12 @@
 /**
  * ThemeProvider — exposes the brand-kit tokens via React context.
  *
- * Light is the only shipped scheme (design of record: planning/design-system/,
- * locked 2026-07-11 — dark mode does not ship). darkColors is aliased to
- * lightColors in tokens.ts; the scheme/toggle machinery below stays wired
- * only so a future dark-mode revisit doesn't need to rebuild this contract.
+ * Light is the only shipped scheme for now (design of record:
+ * planning/design-system/). Dark mode is DEFERRED, not dead — Dylan's call
+ * 2026-07-12 is to get light fully sorted first, then design dark properly.
+ * darkColors is aliased to lightColors in tokens.ts as a placeholder; the
+ * scheme/toggle machinery below stays wired so that future pass doesn't
+ * have to rebuild this contract, just give darkColors real values again.
  */
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import {
