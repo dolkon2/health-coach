@@ -27,8 +27,7 @@ import { migration008 } from './008_benchmark_faces';
 import { migration009 } from './009_settings';
 import { migration014 } from './014_dimension_unify';
 import { migration015 } from './015_spots_sport';
-// 016 is RESERVED for the routes table (routes-spec P1, Session 9) — the
-// recording buffer deliberately claimed 017 to leave it free (map-tab §10 Q7).
+import { migration016 } from './016_routes';
 import { migration017 } from './017_recording_buffer';
 
 // Minimal structural type to avoid a circular import with db.ts (which
@@ -65,5 +64,6 @@ export const migrations: Migration[] = [
   migration009,
   migration014,
   migration015,
+  migration016,
   migration017,
 ];

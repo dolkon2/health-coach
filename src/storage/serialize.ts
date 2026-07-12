@@ -21,6 +21,7 @@ import type {
 } from '@core/sessionTemplate';
 import type { SkyGearItem, SkyGearSpec } from '@core/gear';
 import type { Spot } from '@core/spot';
+import type { Route, RoutePoint, RouteSource } from '@core/route';
 import type { SkyConditionsSnapshot } from '@core/skyConditions';
 
 // ─── Observation ────────────────────────────────────────────────────────────
@@ -272,6 +273,48 @@ export function rowToSpot(r: SpotRow): Spot {
     ...(r.gaugeSiteId ? { gaugeSiteId: r.gaugeSiteId } : {}),
     ...(r.notes ? { notes: r.notes } : {}),
     createdAt: r.createdAt,
+  };
+}
+
+// ─── Route ──────────────────────────────────────────────────────────────────
+
+export type RouteRow = {
+  id: string;
+  name: string;
+  activityId: string;
+  source: string;
+  points: string; // JSON RoutePoint[]
+  visibility: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function routeToRow(r: Route, createdAt: string, updatedAt: string): RouteRow {
+  return {
+    id: r.id,
+    name: r.name,
+    activityId: r.activityId,
+    source: r.source,
+    points: JSON.stringify(r.points),
+    visibility: r.visibility,
+    notes: r.notes ?? null,
+    createdAt,
+    updatedAt,
+  };
+}
+
+export function rowToRoute(r: RouteRow): Route {
+  return {
+    id: r.id,
+    name: r.name,
+    activityId: r.activityId,
+    source: r.source as RouteSource,
+    points: JSON.parse(r.points) as RoutePoint[],
+    visibility: r.visibility,
+    ...(r.notes ? { notes: r.notes } : {}),
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
   };
 }
 

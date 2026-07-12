@@ -16,6 +16,7 @@ export * from './conditions/openMeteo';
 export * from './conditions/similar';
 export * from './gear';
 export * from './spot';
+export * from './route';
 export * from './swim';
 export * from './climbGrade';
 export * from './skyConditions';
