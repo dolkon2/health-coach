@@ -36,10 +36,14 @@ import {
   Field,
   SwipeToDelete,
   TemplateCard,
+  RouteCard,
 } from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
+import { useSettings } from '@/settings/useSettings';
 import { listTemplates, deleteTemplate } from '@/storage/sessionTemplates';
+import { listRoutes } from '@/storage/routes';
+import { countSessionsByRoute } from '@/storage/observations';
 import {
   activitiesForElement,
   activityById,
@@ -50,20 +54,35 @@ import {
   type Activity,
 } from '@/lib/activity';
 import type { SessionTemplate } from '@core/sessionTemplate';
+import type { Route } from '@core/route';
 
 const RECENT_TEMPLATE_COUNT = 3;
 const SEARCH_THRESHOLD = 10;
+const ROUTE_SHELF_COUNT = 2;
 
 export default function TrainingScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { distanceUnit } = useSettings();
   const [templates, setTemplates] = useState<SessionTemplate[] | null>(null);
   const [search, setSearch] = useState('');
   const [showReview, setShowReview] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [routes, setRoutes] = useState<Route[] | null>(null);
+  const [routeEfforts, setRouteEfforts] = useState<Record<string, number>>({});
 
   const reloadTemplates = useCallback(async () => {
     setTemplates(await listTemplates());
+  }, []);
+
+  // Browse-only shelf (training-tab.md §3 C, locked #8) — the 2 most-recent
+  // routes. One session-table scan (countSessionsByRoute) covers every
+  // route's count; no need to re-scan per visible card.
+  const reloadRoutes = useCallback(async () => {
+    const [list, counts] = await Promise.all([listRoutes(), countSessionsByRoute()]);
+    setRoutes(list);
+    const shelf = list.slice(0, ROUTE_SHELF_COUNT);
+    setRouteEfforts(Object.fromEntries(shelf.map((r) => [r.id, counts.get(r.id) ?? 0])));
   }, []);
 
   // Re-fetch whenever the tab regains focus — after the template editor saves
@@ -71,7 +90,8 @@ export default function TrainingScreen() {
   useFocusEffect(
     useCallback(() => {
       reloadTemplates();
-    }, [reloadTemplates])
+      reloadRoutes();
+    }, [reloadTemplates, reloadRoutes])
   );
 
   const removeTemplateAndReload = useCallback(
@@ -212,6 +232,50 @@ export default function TrainingScreen() {
                 }
               />
             </SwipeToDelete>
+          ))
+        )}
+      </View>
+
+      {/* Routes shelf (training-tab.md § 3 C, locked #8: created on Map,
+          browsed here). Browse-only — no "+ New Route" until Map's builder
+          (M6, gated on Explore/Phase 4) exists; until then the only creation
+          door is Import GPX on the full list (app/routes.tsx). */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: theme.spacing[8],
+        }}
+      >
+        <Text variant="label">Routes</Text>
+        <Pressable
+          onPress={() => router.push('/routes')}
+          accessibilityRole="button"
+          accessibilityLabel="See all routes"
+          hitSlop={8}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            Routes →
+          </Text>
+        </Pressable>
+      </View>
+      <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+        {routes === null ? null : routes.length === 0 ? (
+          <Card>
+            <Text variant="body" color={theme.colors.textMuted}>
+              Import a GPX file to add your first route.
+            </Text>
+          </Card>
+        ) : (
+          routes.slice(0, ROUTE_SHELF_COUNT).map((r) => (
+            <RouteCard
+              key={r.id}
+              route={r}
+              distanceUnit={distanceUnit}
+              effortCount={routeEfforts[r.id]}
+              onPress={() => router.push({ pathname: '/route/[id]', params: { id: r.id } })}
+            />
           ))
         )}
       </View>
