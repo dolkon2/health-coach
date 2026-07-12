@@ -17,6 +17,7 @@ export { RoutePreview, routePathD } from './RoutePreview';
 export { ElevationProfile, elevationPaths } from './ElevationProfile';
 export { Splits } from './Splits';
 export { RouteMap } from './RouteMap';
+export { MapSurface } from './MapSurface';
 export { GpsRecorderPanel } from './GpsRecorderPanel';
 export { StimulusLedger } from './StimulusLedger';
 export { BenchmarkRhythm } from './BenchmarkRhythm';

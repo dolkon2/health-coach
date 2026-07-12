@@ -6,12 +6,10 @@
  * a still-loading or failed fetch renders '—', never a fabricated reading.
  */
 import { Pressable, View } from 'react-native';
-import { MapPin } from 'lucide-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
-import { iconFor } from './activityIcons';
+import { spotIcon } from './activityIcons';
 import { useTheme } from '@/theme';
-import { activityById } from '@/lib/activity';
 import { feedForSport } from '@core/conditions/feedForSport';
 import { spotHeadlineReading, updatedAtLabel } from '@/lib/spotHeadline';
 import type { CurrentConditions } from '@/lib/conditions/current';
@@ -25,8 +23,7 @@ export type SpotCardProps = {
 
 export function SpotCard({ spot, current, onPress }: SpotCardProps) {
   const theme = useTheme();
-  const activity = spot.sport ? activityById(spot.sport) : undefined;
-  const Icon = activity ? iconFor(activity.icon) : MapPin;
+  const Icon = spotIcon(spot);
   const feed = feedForSport(spot.sport);
   const headline = spotHeadlineReading(feed, current);
   const stamp = updatedAtLabel(current, Date.now());
