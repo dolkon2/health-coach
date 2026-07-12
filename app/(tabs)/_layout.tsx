@@ -1,8 +1,9 @@
 /**
  * Tab bar — the locked five: Home · Training · Map · Nutrition · Social
- * (master-plan.md §2). Reflect left the bar with this swap (its screen stays
- * routable via Settings › Views until P8 retires it); Map and Social are new
- * (Social ships as a quiet placeholder — social-tab.md S0).
+ * (master-plan.md §2). Reflect left the bar with this swap; P8 retired its
+ * temporary Settings door — the residual benchmark tap-in is now reached from
+ * Profile. Map and Social are new (Social ships as a quiet placeholder —
+ * social-tab.md S0).
  *
  * The top-right carries the shell-standard header cluster — avatar (→ Profile)
  * and gear (→ Settings) — on every tab (locked #1, profile-settings.md §2).

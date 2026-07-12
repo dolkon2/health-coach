@@ -10,9 +10,10 @@
  * section before it has content would be an empty promise (§3 empty-section rule).
  *
  * The Views section carries the **Stimulus Ledger** (locked #2 — parked here,
- * highly deferred by design) and, temporarily, **Reflect**: the 5-tab shell swap
- * removed Reflect's tab slot but not the screen, which stays reachable here until
- * its gated retirement (P8). The gear link is kept but marked moving to Profile.
+ * highly deferred by design; Dylan 2026-07-11 confirmed parked-under-Settings,
+ * not archived) and the USHPA ledger. Reflect's temporary door retired with P8:
+ * the residual benchmark tap-in is now reached from Profile only. The gear link
+ * is kept but marked moving to Profile.
  *
  * The Developer card (sample data) is a testing aid: it writes tagged rows and
  * clears only those — never real logged data. Remove it before any real release.
@@ -533,15 +534,6 @@ export default function SettingsScreen() {
           variant="outline"
           onPress={() => router.push('/sky-ledger')}
         />
-      </Section>
-
-      <Section>
-        <Text variant="label">Reflect</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          The benchmark long-view. It left the tab bar and is finding a new home;
-          for now it opens here so nothing goes dark.
-        </Text>
-        <Button label="Open Reflect" variant="outline" onPress={() => router.push('/reflect')} />
       </Section>
 
       {/* ═══ Data ══════════════════════════════════════════════════════════ */}
