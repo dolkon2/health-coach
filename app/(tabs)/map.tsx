@@ -48,6 +48,7 @@ import { useSettings } from '@/settings/useSettings';
 import { listSpots } from '@/storage/spots';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
+import { useBatteryOptPrompt } from '@/hooks/useBatteryOptPrompt';
 import { elementOf, activityById, type Activity } from '@/lib/activity';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
 import { recordsOnMap, recordingElementOf, pairTrackFormat } from '@/lib/recording/recordingSave';
@@ -87,6 +88,10 @@ export default function MapScreen() {
   const { distanceUnit } = useSettings();
 
   const { sessions, reload: reloadSessions } = useSessionHistory();
+
+  // One-time Android battery-optimization ask, fired only when THIS
+  // recording has run long (⚑2 answered yes — data-said-something timing).
+  useBatteryOptPrompt(recorder.status === 'tracking', recorder.startedAt);
 
   const reloadSpots = useCallback(() => {
     listSpots()
