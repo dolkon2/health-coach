@@ -37,6 +37,31 @@ export const RECORDING_TASK = 'health-coach-recording';
  *  counted) at capture — research §5's minimal sanity gate. */
 export const MAX_ACCURACY_M = 50;
 
+/**
+ * The static half of the startLocationUpdatesAsync options — research §2's
+ * exact block, minus the two values that need the lazy-loaded native enums
+ * (accuracy: BestForNavigation; activityType: Fitness/Airborne by element).
+ * Lives here (native-free) so tests can pin the two found-in-source trap
+ * doors: pausesUpdatesAutomatically MUST stay explicitly false (iOS native
+ * default is true — the "stopped for lunch, lost the hike" bug, research §4
+ * gotcha #1) and killServiceOnDestroy MUST stay false (⚑1, Dylan 2026-07-11:
+ * an app-swipe does not stop a recording; the notification is the consent
+ * surface).
+ */
+export const RECORDING_UPDATE_OPTIONS = {
+  distanceInterval: 5, // meters, both platforms
+  timeInterval: 2000, // ms — Android only; iOS paces by distance
+  deferredUpdatesInterval: 5000, // batch JS delivery ~5 s in background
+  deferredUpdatesDistance: 25, // … or 25 m, whichever is later
+  pausesUpdatesAutomatically: false,
+  showsBackgroundLocationIndicator: true, // iOS status pill — honesty-friendly
+  foregroundService: {
+    notificationTitle: 'Recording session',
+    notificationBody: 'GPS is on until you stop the session.',
+    killServiceOnDestroy: false,
+  },
+} as const;
+
 /** The slice of an expo-location LocationObject the gate reads — declared
  *  here (like useGpsTracker's LocationFix) so gating stays unit-testable
  *  without the native module. */

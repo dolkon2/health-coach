@@ -18,8 +18,19 @@ import {
   gateLocations,
   ingestLocations,
   MAX_ACCURACY_M,
+  RECORDING_UPDATE_OPTIONS,
   type RawLocation,
 } from '../recordingTask';
+
+describe('RECORDING_UPDATE_OPTIONS — the two trap doors stay pinned', () => {
+  it('pausesUpdatesAutomatically is explicitly false (iOS native default is TRUE — research §4 gotcha #1)', () => {
+    expect(RECORDING_UPDATE_OPTIONS.pausesUpdatesAutomatically).toBe(false);
+  });
+
+  it('killServiceOnDestroy is false — an app-swipe never stops a recording (⚑1, Dylan 2026-07-11)', () => {
+    expect(RECORDING_UPDATE_OPTIONS.foregroundService.killServiceOnDestroy).toBe(false);
+  });
+});
 
 const loc = (
   tsMs: number,
