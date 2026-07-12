@@ -6,7 +6,6 @@
     "@expo-google-fonts/archivo": "^0.4.2",
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/space-grotesk": "^0.4.1",
-    "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/config-plugins": "~10.1.1",
     "@kingstinct/react-native-healthkit": "^14.0.2",
     "@maplibre/maplibre-react-native": "^10.4.2",

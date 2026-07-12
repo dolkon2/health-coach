@@ -4,8 +4,10 @@
  * Display = identity (headers, hero stats) — mixed case, never forced
  * uppercase. Caps = structural labels (label/elementTag) — always uppercase,
  * tracked. Body = utility. Numbers = honesty (every value the user might
- * compare), tabular mono. Keeping these registers distinct is a brand-kit
- * rule, not a preference.
+ * compare) — Space Grotesk with tabular figures, not a distinct face from
+ * display, but its own register in code so a value's weight can move
+ * independently of a headline's. Keeping these registers distinct is a
+ * brand-kit rule, not a preference.
  */
 import React from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';

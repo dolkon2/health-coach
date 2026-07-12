@@ -9,7 +9,8 @@
  * flags a real alert. Everything else lives on one monochrome ramp: wet
  * basalt, mossy cliff, glacial mist — the Columbia River Gorge.
  * Four font registers: display (headlines), caps (structural labels), body
- * (prose), numbers (every value the user might compare — tabular mono).
+ * (prose), numbers (every value the user might compare — Space Grotesk with
+ * tabular figures, same face as display per the artifact's own type scale).
  */
 
 // ─── Color palette ──────────────────────────────────────────────────────────
@@ -92,7 +93,11 @@ export const fidelity = {
 // Keys match the @expo-google-fonts export names registered via useFonts.
 // Four registers: display (Space Grotesk, headlines), caps (Archivo,
 // structural labels — buttons, tags, section headers), body (DM Sans,
-// prose), numbers (Space Mono, tabular — every value the user might compare).
+// prose), numbers (Space Grotesk, tabular-figures — every value the user
+// might compare). Numbers shares display's family by design (typography.css:
+// "Space Grotesk → numbers, headlines... one calm display face carries
+// both") — Dylan's call 2026-07-12, overriding this session's earlier
+// Space Mono pick.
 export const fonts = {
   display: {
     medium: 'SpaceGrotesk_500Medium',
@@ -106,8 +111,8 @@ export const fonts = {
     medium: 'DMSans_500Medium',
   },
   numbers: {
-    regular: 'SpaceMono_400Regular',
-    bold: 'SpaceMono_700Bold',
+    regular: 'SpaceGrotesk_500Medium',
+    bold: 'SpaceGrotesk_700Bold',
   },
 };
 
@@ -178,23 +183,29 @@ export const type = {
     lineHeight: 64,
     letterSpacing: -2,
   },
+  // fontVariant: tabular-nums matches typography.css's .hc-data-number exactly
+  // (Space Grotesk is proportional; this is what keeps compared numbers
+  // aligned). hc-hero-number doesn't set it — a hero stat stands alone.
   dataLg: {
     fontFamily: fonts.numbers.bold,
     fontSize: 24,
     lineHeight: 27.6,
     letterSpacing: -1,
+    fontVariant: ['tabular-nums' as const],
   },
   data: {
     fontFamily: fonts.numbers.regular,
     fontSize: 14,
     lineHeight: 16.1,
     letterSpacing: -0.6,
+    fontVariant: ['tabular-nums' as const],
   },
   dataSm: {
     fontFamily: fonts.numbers.regular,
     fontSize: 12,
     lineHeight: 13.8,
     letterSpacing: -0.5,
+    fontVariant: ['tabular-nums' as const],
   },
 };
 
