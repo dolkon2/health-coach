@@ -94,8 +94,24 @@ export type RecordingSaveDraft = {
  * activity that doesn't record on the map, an impossible format pairing) —
  * defence in depth, same posture as buildSessionObservation's re-validate.
  */
+/**
+ * A stored track is canonical GeoPoint ONLY — the buffer's capture metadata
+ * (accuracy/speed/mocked) stays in the buffer for M3's read-time
+ * derivations and must never leak into a saved payload. Rebuilt key-by-key
+ * (not rest-spread) so any future metadata key is excluded by default.
+ */
+function toCleanGeoPoint(p: GeoPoint): GeoPoint {
+  return {
+    lat: p.lat,
+    lng: p.lng,
+    tsSec: p.tsSec,
+    ...(p.eleM != null ? { eleM: p.eleM, eleSource: p.eleSource ?? 'gps' } : {}),
+  };
+}
+
 export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDraft {
-  const { activity, points, origin } = input;
+  const { activity, origin } = input;
+  const points = input.points.map(toCleanGeoPoint);
   if (points.length < 2) throw new Error('That recording has no usable track.');
   if (!recordsOnMap(activity)) {
     throw new Error(`${activity.label} doesn't log a GPS track.`);
@@ -143,7 +159,7 @@ export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDr
         notes,
         sky: {
           ...seeded.sky,
-          track: points, // RAW — a sky track is never trimmed once attached
+          track: points, // FULL resolution — a sky track is never thinned
           trackSource,
           segments: detectAutoSegments(points, activity.id as SkyDetectorActivity, trackSource),
         },

@@ -82,15 +82,16 @@ describe('recordingSessionForm — record → save dispatch', () => {
     expect(obs.payload.whitewater).toBeUndefined(); // untouched section writes nothing
   });
 
-  it('Sky recording keeps the RAW track with auto-stamped segments', () => {
-    const raw = track(600, true); // > MAX_STORED_POINTS-irrelevant: sky never thins
+  it('Sky recording keeps the FULL track (never thinned) with auto-stamped segments', () => {
+    const raw = track(600, true);
     const { form } = recordingSessionForm({
       activity: act('paragliding'),
       points: raw,
       origin: { kind: 'record' },
       distanceUnit: 'mi',
     });
-    expect(form.sky.track).toBe(raw); // same reference — never copied/trimmed
+    expect(form.sky.track).toHaveLength(600); // full resolution — sky never thins
+    expect(form.sky.track?.[0]).toEqual(raw[0]);
     expect(form.sky.trackSource).toBe('liveGps');
     expect(form.sky.segments.length).toBeGreaterThan(0);
     expect(form.sky.segments.every((s) => s.provenance === 'auto')).toBe(true);
@@ -99,6 +100,33 @@ describe('recordingSessionForm — record → save dispatch', () => {
     expect(obs.fidelity).toBe(0.7);
     expect(obs.payload.sky?.track).toHaveLength(600);
     expect(obs.occurredAt).toBe(new Date(T0 * 1000).toISOString());
+  });
+
+  it('strips buffer capture metadata — a saved track is canonical GeoPoint only', () => {
+    const withMeta = track(5, true).map((p) => ({
+      ...p,
+      accuracy: 8,
+      speed: 2.1,
+      mocked: true,
+    }));
+    const earth = recordingSessionForm({
+      activity: act('run'),
+      points: withMeta,
+      origin: { kind: 'record' },
+      distanceUnit: 'mi',
+    });
+    for (const p of earth.form.endurance.gpsPath ?? []) {
+      expect(Object.keys(p).sort()).toEqual(['eleM', 'eleSource', 'lat', 'lng', 'tsSec']);
+    }
+    const sky = recordingSessionForm({
+      activity: act('paragliding'),
+      points: withMeta,
+      origin: { kind: 'record' },
+      distanceUnit: 'mi',
+    });
+    for (const p of sky.form.sky.track ?? []) {
+      expect(Object.keys(p).sort()).toEqual(['eleM', 'eleSource', 'lat', 'lng', 'tsSec']);
+    }
   });
 
   it('folds a landed conditions freeze into payload.conditions — and only a landed one', () => {

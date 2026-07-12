@@ -1,41 +1,58 @@
 /**
- * Map — the geometry tab (planning/rework/tabs/map-tab.md). This is M1: the
- * Record *pre-start* surface. At MVP the tab IS Record — no mode switch renders
- * until Explore ships.
+ * Map — the geometry tab (planning/rework/tabs/map-tab.md). M2: Record is
+ * real — background GPS recording + the on-map save sheet. At MVP the tab IS
+ * Record — no mode switch renders until Explore ships.
  *
- * What ships now:
- *   - Full-bleed basemap centered on the user, Pinned Spots as sport-icon pins.
- *   - A sport-arm control (pre-armed by the Home deep link, else last-used) —
- *     the deep link's choice is a default, not a lock; re-arm freely.
- *   - Foreground location permission states (rationale → prompt, denied/off) and
- *     a GPS-readiness chip.
- *   - A Record button.
+ * The three Record states (map-tab §2):
+ *   - Pre-start: full-bleed basemap + spots pins, sport-arm control, GPS
+ *     readiness chip, Record button, quiet "Import a track" door.
+ *   - Live: useBackgroundRecorder (task-based; survives lock/background,
+ *     Android app-swipe too — ⚑1 answered `false`), stats strip (elapsed /
+ *     distance / accuracy), live RoutePreview trace (SVG — no MapLibre work
+ *     while recording), Stop and Discard. Navigating away doesn't stop
+ *     anything; remounting re-attaches to the live recording.
+ *   - Save: SaveRecordingSheet writes the ordinary session Observation with
+ *     the silent conditions freeze; post-save returns HERE (pre-start) — the
+ *     Profile-logbook deep-link stays deferred (Session 7 ⚑).
  *
- * Scope decision (flagged in the dev-log): Record hands the armed sport to the
- * existing, proven `log-session` capture+save path rather than recording live on
- * the map and writing an Observation here. M2 owns background recording + the
- * on-map save sheet; building a save now would only be thrown away by M2, and
- * the deep-link reuses the shipped path with zero data-loss risk. It also
- * resolves the indoor-climbing/pool-swim ⚑ for free: a non-GPS armed sport just
- * opens its correct logger surface.
+ * Routing follows the LOGGING SURFACE, not the dimension (⚑6): only
+ * gps/sky-surface sports record on the map; indoor climbing, pool swim and
+ * friends keep M1's deep-link into log-session, and Body routes to Training.
  *
- * Home deep-link contract (map-tab.md §5): Record reads `element` / `activity` /
- * `routeId`. Home *sending* those (H6) is a later pass; today Home still routes
- * Earth/Sky/Water to `log-session` directly, so nothing here is load-bearing yet.
+ * On launch with an orphaned recording (iOS swipe-kill, reboot, kill between
+ * Stop and save) the recovery banner offers "finish the partial session" —
+ * everything up to the kill is in the SQLite buffer.
+ *
+ * Home deep-link contract (map-tab.md §5): Record reads `element` /
+ * `activity` / `routeId`. Home *sending* those (H6) is a later pass.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { Alert, Linking, Pressable, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronDown } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
-import { Text, Card, Button, MapSurface, ElementPickerSheet } from '@/components';
+import {
+  Text,
+  Card,
+  Button,
+  MapSurface,
+  ElementPickerSheet,
+  RoutePreview,
+  SaveRecordingSheet,
+  type SaveRecordingTrack,
+} from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
+import { useSettings } from '@/settings/useSettings';
 import { listSpots } from '@/storage/spots';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
-import { elementOf, type Activity } from '@/lib/activity';
+import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
+import { elementOf, activityById, type Activity } from '@/lib/activity';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
+import { recordsOnMap, recordingElementOf } from '@/lib/recording/recordingSave';
+import { summarizeTrack } from '@/lib/gpsTrack';
+import { metersToDisplay } from '@/lib/units';
 import {
   accuracyLevel,
   resolveArmedActivity,
@@ -58,7 +75,12 @@ export default function MapScreen() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [armOverride, setArmOverride] = useState<Activity | null>(null);
+  const [saveTrack, setSaveTrack] = useState<SaveRecordingTrack | null>(null);
+  const [saveActivity, setSaveActivity] = useState<Activity | null>(null);
+  const [justSaved, setJustSaved] = useState(false);
   const loc = useForegroundLocation();
+  const recorder = useBackgroundRecorder();
+  const { distanceUnit } = useSettings();
 
   const { sessions, reload: reloadSessions } = useSessionHistory();
 
@@ -73,7 +95,10 @@ export default function MapScreen() {
       reloadSpots();
       reloadSessions();
       loc.check();
-    }, [reloadSpots, reloadSessions, loc.check])
+      // Re-probe for a live or orphaned recording every time the tab fronts —
+      // the OS task may have kept recording while we were elsewhere.
+      void recorder.attach();
+    }, [reloadSpots, reloadSessions, loc.check, recorder.attach])
   );
 
   // The armed sport: the deep link / last-used suggestion, unless the user
@@ -114,17 +139,58 @@ export default function MapScreen() {
   }
 
   function onRecord() {
-    // Deep-link into the proven capture+save flow with the sport armed. Body
-    // never reaches here (the arm control routes it to Training), but guard
-    // anyway so a future arming path can't drop a Body session onto the map.
+    // Body never reaches here (the arm control routes it to Training), but
+    // guard anyway so a future arming path can't drop a Body session onto
+    // the map.
     if (elementOf(armed) === 'body') {
       router.push('/training');
       return;
     }
-    router.push({ pathname: '/log-session', params: { activity: armed.id } });
+    // Routing follows the logging surface (⚑6): a non-track sport (indoor
+    // climb, pool swim, practice) keeps the proven log-session door.
+    if (!recordsOnMap(armed)) {
+      router.push({ pathname: '/log-session', params: { activity: armed.id } });
+      return;
+    }
+    setJustSaved(false);
+    void recorder.start({ activityId: armed.id, element: recordingElementOf(armed) });
+  }
+
+  /** Stop the live recording (or finish a recovered one) → save sheet. */
+  async function onStopToSave(activityForSheet: Activity) {
+    const result = await recorder.stop();
+    if (result == null) return;
+    setSaveActivity(activityForSheet);
+    setSaveTrack({
+      points: result.fixes,
+      origin: { kind: 'record' },
+      recordingId: result.recordingId,
+    });
+  }
+
+  /** Recovery-banner "Finish": the task is long dead — stop() reads the
+   *  buffer back (it falls through to the recoverable row's id). */
+  async function onFinishRecovered() {
+    const rec = recorder.recoverable;
+    if (rec == null) return;
+    const result = await recorder.stop();
+    if (result == null) return;
+    if (result.fixes.length < 2) {
+      // Nothing usable survived (killed seconds in) — clear it honestly
+      // rather than opening a sheet that can't save.
+      await recorder.discard(result.recordingId);
+      return;
+    }
+    setSaveActivity(activityById(rec.activityId) ?? armed);
+    setSaveTrack({
+      points: result.fixes,
+      origin: { kind: 'record' },
+      recordingId: result.recordingId,
+    });
   }
 
   const ArmIcon = iconFor(armed.icon);
+  const isRecording = recorder.status === 'tracking' || recorder.status === 'starting';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
@@ -135,34 +201,38 @@ export default function MapScreen() {
         onPressPin={(spot) => router.push({ pathname: '/spot/[id]', params: { id: spot.id } })}
       />
 
-      {/* Sport-arm control — floats below the header band, left side. */}
-      <Pressable
-        onPress={() => setPickerVisible(true)}
-        accessibilityRole="button"
-        accessibilityLabel={`Armed sport: ${armed.label}. Tap to change.`}
-        style={{
-          position: 'absolute',
-          top: insets.top + 52,
-          left: theme.spacing[6],
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: theme.spacing[2],
-          paddingVertical: theme.spacing[2],
-          paddingHorizontal: theme.spacing[3],
-          borderRadius: theme.radius.full,
-          backgroundColor: theme.colors.surfaceRaised,
-          borderWidth: 1,
-          borderColor: theme.colors.border,
-        }}
-      >
-        <ArmIcon size={18} color={theme.colors.accent} strokeWidth={1.75} />
-        <Text variant="label">{armed.label}</Text>
-        <ChevronDown size={16} color={theme.colors.textMuted} strokeWidth={1.5} />
-      </Pressable>
+      {/* Sport-arm control — floats below the header band, left side. Hidden
+          while recording: the sport is part of the running recording (the
+          save sheet is where a wrong arm gets corrected). */}
+      {!isRecording ? (
+        <Pressable
+          onPress={() => setPickerVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Armed sport: ${armed.label}. Tap to change.`}
+          style={{
+            position: 'absolute',
+            top: insets.top + 52,
+            left: theme.spacing[6],
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: theme.spacing[2],
+            paddingVertical: theme.spacing[2],
+            paddingHorizontal: theme.spacing[3],
+            borderRadius: theme.radius.full,
+            backgroundColor: theme.colors.surfaceRaised,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }}
+        >
+          <ArmIcon size={18} color={theme.colors.accent} strokeWidth={1.75} />
+          <Text variant="label">{armed.label}</Text>
+          <ChevronDown size={16} color={theme.colors.textMuted} strokeWidth={1.5} />
+        </Pressable>
+      ) : null}
 
-      {/* Bottom control cluster — GPS status + Record. No insets.bottom here:
-          the tab bar already reserves the home-indicator safe area below the
-          content (src/components/Screen.tsx convention). */}
+      {/* Bottom control cluster — GPS status + Record, or the live recording
+          panel. No insets.bottom here: the tab bar already reserves the
+          home-indicator safe area (src/components/Screen.tsx convention). */}
       <View
         style={{
           position: 'absolute',
@@ -171,20 +241,80 @@ export default function MapScreen() {
           bottom: theme.spacing[4],
         }}
       >
-        <Card style={{ gap: theme.spacing[3] }}>
-          <GpsStatusLine loc={loc} />
-          {loc.status === 'undetermined' ? (
-            <Button label="Enable location" variant="outline" onPress={loc.request} />
-          ) : null}
-          {loc.status === 'denied' || (loc.status === 'granted' && loc.fixFailed) ? (
+        {isRecording ? (
+          <LiveRecordingPanel
+            recorder={recorder}
+            armed={armed}
+            distanceUnit={distanceUnit}
+            onStop={() => void onStopToSave(armed)}
+            onDiscard={() => {
+              Alert.alert('Discard this recording?', 'The track will be deleted.', [
+                { text: 'Keep recording', style: 'cancel' },
+                {
+                  text: 'Discard',
+                  style: 'destructive',
+                  onPress: () => void recorder.discard(),
+                },
+              ]);
+            }}
+          />
+        ) : (
+          <Card style={{ gap: theme.spacing[3] }}>
+            {recorder.recoverable != null ? (
+              <RecoveryBanner
+                activityLabel={
+                  activityById(recorder.recoverable.activityId)?.label ?? 'session'
+                }
+                onFinish={() => void onFinishRecovered()}
+                onDiscard={() => {
+                  Alert.alert(
+                    'Discard the unfinished recording?',
+                    'Everything captured before the app closed will be deleted.',
+                    [
+                      { text: 'Keep', style: 'cancel' },
+                      {
+                        text: 'Discard',
+                        style: 'destructive',
+                        onPress: () => void recorder.discard(),
+                      },
+                    ]
+                  );
+                }}
+              />
+            ) : null}
+            <GpsStatusLine loc={loc} />
+            {recorder.status === 'error' && recorder.errorMessage ? (
+              <Text variant="bodySm" color={theme.colors.negative}>
+                {recorder.errorMessage}
+              </Text>
+            ) : null}
+            {recorder.status === 'unavailable' ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                {recorder.errorMessage}
+              </Text>
+            ) : null}
+            {justSaved ? (
+              <Text variant="label" color={theme.colors.positive}>
+                Session saved.
+              </Text>
+            ) : null}
+            {loc.status === 'undetermined' ? (
+              <Button label="Enable location" variant="outline" onPress={loc.request} />
+            ) : null}
+            {loc.status === 'denied' || (loc.status === 'granted' && loc.fixFailed) ? (
+              <Button
+                label="Open Settings"
+                variant="outline"
+                onPress={() => void Linking.openSettings()}
+              />
+            ) : null}
             <Button
-              label="Open Settings"
-              variant="outline"
-              onPress={() => void Linking.openSettings()}
+              label={`Record ${armed.label}`}
+              onPress={onRecord}
+              disabled={recorder.recoverable != null}
             />
-          ) : null}
-          <Button label={`Record ${armed.label}`} onPress={onRecord} />
-        </Card>
+          </Card>
+        )}
       </View>
 
       <ElementPickerSheet
@@ -194,6 +324,162 @@ export default function MapScreen() {
         onPickActivity={onPickActivity}
         onPickBody={onPickBody}
       />
+
+      <SaveRecordingSheet
+        visible={saveTrack != null}
+        activity={saveActivity ?? armed}
+        track={saveTrack}
+        onSaved={() => {
+          setSaveTrack(null);
+          setSaveActivity(null);
+          setJustSaved(true);
+          reloadSessions();
+        }}
+        onDiscarded={() => {
+          setSaveTrack(null);
+          setSaveActivity(null);
+          void recorder.attach(); // row is gone; clears any recoverable state
+        }}
+        onClose={() => {
+          // Backing out is NOT a discard: the stopped recording's buffer row
+          // survives, so re-probe surfaces it as the recovery banner.
+          setSaveTrack(null);
+          setSaveActivity(null);
+          void recorder.attach();
+        }}
+      />
+    </View>
+  );
+}
+
+/** The live Record state: red dot, elapsed / distance / GPS quality, the
+ *  SVG trace (no MapLibre work while recording — battery), Stop, Discard. */
+function LiveRecordingPanel({
+  recorder,
+  armed,
+  distanceUnit,
+  onStop,
+  onDiscard,
+}: {
+  recorder: BackgroundRecorder;
+  armed: Activity;
+  distanceUnit: 'km' | 'mi';
+  onStop: () => void;
+  onDiscard: () => void;
+}) {
+  const theme = useTheme();
+
+  // Wall-clock elapsed, ticked locally — fixes arrive in ~5 s deferred
+  // batches in the background, so deriving elapsed from points would stutter.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const startedMs = recorder.startedAt ? Date.parse(recorder.startedAt) : null;
+  const elapsedSec = startedMs != null ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : 0;
+  const h = Math.floor(elapsedSec / 3600);
+  const m = Math.floor((elapsedSec % 3600) / 60);
+  const s = elapsedSec % 60;
+  const elapsed =
+    h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${m}:${String(s).padStart(2, '0')}`;
+
+  const distanceM = useMemo(
+    () => (recorder.points.length >= 2 ? summarizeTrack(recorder.points).distanceM : 0),
+    [recorder.points]
+  );
+  const gpsLevel = accuracyLevel(recorder.lastAccuracyM);
+
+  return (
+    <Card style={{ gap: theme.spacing[3] }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}>
+        <View
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 5,
+            backgroundColor: theme.colors.negative,
+          }}
+        />
+        <Text variant="label">
+          {recorder.status === 'starting' ? 'Starting…' : `Recording ${armed.label}`}
+        </Text>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: theme.spacing[6] }}>
+        <View>
+          <Text variant="label" color={theme.colors.textMuted}>
+            Time
+          </Text>
+          <Text variant="dataLg">{elapsed}</Text>
+        </View>
+        <View>
+          <Text variant="label" color={theme.colors.textMuted}>
+            Distance
+          </Text>
+          <Text variant="dataLg">
+            {distanceM > 0
+              ? `${Math.round(metersToDisplay(distanceM, distanceUnit) * 100) / 100} ${distanceUnit}`
+              : '—'}
+          </Text>
+        </View>
+        <View>
+          <Text variant="label" color={theme.colors.textMuted}>
+            GPS
+          </Text>
+          <Text
+            variant="dataLg"
+            color={gpsLevel === 'weak' ? theme.colors.caution : theme.colors.text}
+          >
+            {gpsLevel === 'unknown' ? '…' : gpsLevel === 'weak' ? 'weak' : 'good'}
+          </Text>
+        </View>
+      </View>
+
+      {recorder.points.length >= 2 ? (
+        <RoutePreview path={recorder.points} height={84} />
+      ) : (
+        <Text variant="bodySm" color={theme.colors.textMuted}>
+          Waiting for a GPS fix — recording continues with the screen off or the app closed.
+        </Text>
+      )}
+
+      <Button label="Stop" onPress={onStop} />
+      <Button label="Discard" variant="outline" onPress={onDiscard} />
+    </Card>
+  );
+}
+
+/** Launch-time orphan recovery (map-tab §3): the honest floor for an iOS
+ *  swipe-kill or reboot — everything up to the kill is in the buffer. */
+function RecoveryBanner({
+  activityLabel,
+  onFinish,
+  onDiscard,
+}: {
+  activityLabel: string;
+  onFinish: () => void;
+  onDiscard: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        gap: theme.spacing[2],
+        paddingBottom: theme.spacing[2],
+        borderBottomWidth: 1,
+        borderBottomColor: theme.colors.border,
+      }}
+    >
+      <Text variant="bodySm">
+        You have an unfinished {activityLabel} recording from before the app closed.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
+        <Button label="Finish the partial session" onPress={onFinish} style={{ flex: 1 }} />
+        <Button label="Discard" variant="outline" onPress={onDiscard} />
+      </View>
     </View>
   );
 }

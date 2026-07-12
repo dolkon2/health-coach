@@ -31,6 +31,7 @@ export { ExpenditureCard } from './ExpenditureCard';
 export { WeighInHistory } from './WeighInHistory';
 export { DimensionTag } from './DimensionTag';
 export { ElementPickerSheet } from './ElementPickerSheet';
+export { SaveRecordingSheet, type SaveRecordingTrack } from './SaveRecordingSheet';
 export { StepsSleepStrip } from './StepsSleepStrip';
 export { TemplateCard } from './TemplateCard';
 export { SpotCard, type SpotCardProps } from './SpotCard';
