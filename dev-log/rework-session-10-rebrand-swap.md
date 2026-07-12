@@ -67,15 +67,17 @@ from the placeholder desert palette to the Gorge kit (design of record:
   no sage left in the palette), `src/lib/date.ts` ("rendered uppercase"),
   and `planning/screens-features-status.md` (asserted the tokens "are NOT
   yet in tokens.ts" — this diff is exactly that migration).
-- **Flagged, not fixed — numbers register font conflict (real, needs
-  Dylan's call):** I put `numbers` on Space Mono per Dylan's explicit chat
-  instruction ("numbers=Space Mono") and `Text.tsx`'s pre-existing "tabular
-  mono" philosophy. But `typography.css`'s own `.hc-hero-number`/
-  `.hc-data-number` classes — and its header comment ("Space Grotesk →
-  numbers, headlines... one calm display face carries both") — specify
-  Space Grotesk for numbers. Two independent review agents caught this as
-  a genuine artifact conflict, not a bug either way. **Needs a decision, not
-  a silent pick** — see flags below.
+- **RESOLVED 2026-07-12 — numbers register font conflict:** I'd put `numbers`
+  on Space Mono per Dylan's explicit chat instruction, which conflicted with
+  `typography.css`'s own `.hc-hero-number`/`.hc-data-number` classes (Space
+  Grotesk). **Dylan's call: Space Grotesk** — matches the artifact's own
+  shipped classes. Follow-up commit `319ec0a`: `fonts.numbers` now points at
+  `SpaceGrotesk_500Medium`/`SpaceGrotesk_700Bold`; added `fontVariant:
+  ['tabular-nums']` to `dataLg`/`data`/`dataSm` (matching `.hc-data-number`
+  exactly — `heroNumber` doesn't get it, matching `.hc-hero-number`); dropped
+  the now-unused `@expo-google-fonts/space-mono` package. 125 suites/1307
+  jest, tsc clean, re-verified on-sim (Stimulus Ledger's axis numbers and
+  volume-load figures now render in Space Grotesk, tabular-aligned).
 - **Flagged, not fixed — non-artifact color slots (caution/positive/
   modeled/neutral/trendLine):** `colors.css` only defines explicit hex for
   ground/text/four-elements/negative. The other semantic slots have no
@@ -132,9 +134,10 @@ from the placeholder desert palette to the Gorge kit (design of record:
 
 ## ⚑ Flags (judgment calls made; flag, don't reinterpret)
 
-- **⚑ Numbers register: Space Mono (my pick, per your chat instruction) vs.
-  Space Grotesk (what typography.css's own shipped classes use).** Real
-  conflict between two authoritative sources. Confirm which one ships.
+- **✅ RESOLVED 2026-07-12 — Numbers register: Space Grotesk**, matching
+  typography.css's own shipped classes (commit `319ec0a`). Was Space Mono
+  per an earlier chat instruction; Dylan confirmed Grotesk when shown the
+  conflict.
 - **⚑ Non-artifact color slots collapsed to monochrome** (caution/positive/
   modeled/neutral/trendLine) — reasonable under "monochrome throughout" but
   never explicitly confirmed slot-by-slot. Concrete example: WeekStrip's
