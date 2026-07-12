@@ -1,4 +1,4 @@
-# [Name TBD] — Product Overview
+# Avatar Training — Product Overview
 
 *An honest, connected training \+ nutrition app that tracks how you actually show up.*
 

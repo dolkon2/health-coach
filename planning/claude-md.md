@@ -1,4 +1,4 @@
-# CLAUDE.md — \[app name TBD\]
+# CLAUDE.md — Avatar Training
 
 A personal health \+ training hub. One timeline for training, food, recovery, and outcomes, so inputs can be correlated against results instead of living in separate apps. Built by me, for me — I am the primary user, and that's the strongest starting point, not a limitation.
 
