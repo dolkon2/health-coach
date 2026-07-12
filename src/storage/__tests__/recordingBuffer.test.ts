@@ -49,16 +49,21 @@ describe('recordingBuffer', () => {
     );
     await appendFixes(rec.recordingId, [fix(104, { mocked: true })], undefined, db);
 
+    // Whole-track read: CLEAN canonical GeoPoints — the capture metadata
+    // never rides out where it could leak into a saved payload.
     const points = await getBufferedPoints(rec.recordingId, db);
     expect(points.map((p) => p.tsSec)).toEqual([100, 102, 104]);
     // eleM/eleSource travel together; absent altitude stays absent (null ≠ 0).
     expect(points[0].eleM).toBe(120.5);
     expect(points[0].eleSource).toBe('gps');
-    expect(points[0].accuracy).toBe(8);
-    expect(points[0].speed).toBe(2.4);
+    expect(Object.keys(points[0]).sort()).toEqual(['eleM', 'eleSource', 'lat', 'lng', 'tsSec']);
     expect('eleM' in points[1]).toBe(false);
     expect('eleSource' in points[1]).toBe(false);
-    expect(points[2].mocked).toBe(true);
+    // Incremental read: metadata kept — the gate and M3 read it here.
+    const fixes = await getFixesAfter(rec.recordingId, -1, db);
+    expect(fixes[0].accuracy).toBe(8);
+    expect(fixes[0].speed).toBe(2.4);
+    expect(fixes[2].mocked).toBe(true);
 
     const last = await getLastFix(rec.recordingId, db);
     expect(last?.tsSec).toBe(104);

@@ -46,7 +46,5 @@ export const migration017: Migration = {
       mocked      INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (recordingId, seq)
     );
-    CREATE INDEX IF NOT EXISTS idx_recording_points_rec_seq
-      ON recording_points (recordingId, seq);
   `,
 };

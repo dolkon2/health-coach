@@ -234,15 +234,22 @@ export async function getFixesAfter(
   return rows.map((r) => ({ ...rowToFix(r), seq: r.seq }));
 }
 
-/** The whole buffered track as canonical GeoPoints (capture metadata kept —
- *  callers that want pure GeoPoint shape can use it as-is; extra keys are
- *  optional). Ordered by seq. */
+/** The whole buffered track as CLEAN canonical GeoPoints, ordered by seq.
+ *  The capture metadata (accuracy/speed/mocked) deliberately stays inside
+ *  the buffer — it exists for the gate and M3's read-time derivations, and
+ *  must never ride out on a whole-track read where it could leak into a
+ *  saved payload. Callers that need the metadata use getFixesAfter. */
 export async function getBufferedPoints(
   recordingId: string,
   db?: SqlDatabase
-): Promise<RecordedFix[]> {
+): Promise<GeoPoint[]> {
   const fixes = await getFixesAfter(recordingId, -1, db);
-  return fixes.map(({ seq: _seq, ...fix }) => fix);
+  return fixes.map((f) => ({
+    lat: f.lat,
+    lng: f.lng,
+    tsSec: f.tsSec,
+    ...(f.eleM != null ? { eleM: f.eleM, eleSource: f.eleSource ?? 'gps' } : {}),
+  }));
 }
 
 /** The most recent fix — drives the live accuracy chip. */
