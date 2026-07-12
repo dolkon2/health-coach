@@ -83,8 +83,10 @@ export function useBenchmarkReflect(
 
   const lensId = useMemo(() => {
     if (chosenId && benchmarks.some((b) => b.id === chosenId)) return chosenId;
-    // A focused benchmark leads its own view (even when it's not active).
-    if (focusId && benchmarks.some((b) => b.id === focusId)) return focusId;
+    // A keyed open is single-benchmark: lead with the focused benchmark, or
+    // render nothing (→ the "no longer here" empty state) when it couldn't be
+    // loaded — never fall through to an unrelated active benchmark.
+    if (focusId) return benchmarks.some((b) => b.id === focusId) ? focusId : null;
     return defaultLensId(benchmarks);
   }, [benchmarks, chosenId, focusId]);
 

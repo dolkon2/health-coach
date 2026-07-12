@@ -22,7 +22,8 @@ type LogbookCalendarProps = {
   /** Local days ('YYYY-MM-DD') that carry at least one session. */
   markedDays: Set<string>;
   selectedDay: LocalDate | null;
-  onSelectDay: (day: LocalDate) => void;
+  /** Called with a day when one is tapped, or null when paging away clears it. */
+  onSelectDay: (day: LocalDate | null) => void;
 };
 
 export function LogbookCalendar({ markedDays, selectedDay, onSelectDay }: LogbookCalendarProps) {
@@ -33,15 +34,23 @@ export function LogbookCalendar({ markedDays, selectedDay, onSelectDay }: Logboo
   const cells = monthCells(anchor);
   const weeks = Array.from({ length: 6 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
 
+  // Paging months clears a selection the new month can't show, so the grid and
+  // the parent's day-detail section never disagree about which day is in view.
+  function goToMonth(delta: number) {
+    const next = shiftMonth(anchor, delta);
+    setAnchor(next);
+    if (selectedDay && !selectedDay.startsWith(next.slice(0, 7))) onSelectDay(null);
+  }
+
   return (
     <View style={{ gap: theme.spacing[3] }}>
       {/* Month nav */}
       <View
         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
-        <NavArrow label="Previous month" glyph="‹" onPress={() => setAnchor((a) => shiftMonth(a, -1))} />
+        <NavArrow label="Previous month" glyph="‹" onPress={() => goToMonth(-1)} />
         <Text variant="label">{monthLabel(anchor)}</Text>
-        <NavArrow label="Next month" glyph="›" onPress={() => setAnchor((a) => shiftMonth(a, 1))} />
+        <NavArrow label="Next month" glyph="›" onPress={() => goToMonth(1)} />
       </View>
 
       {/* Weekday header */}
@@ -61,7 +70,9 @@ export function LogbookCalendar({ markedDays, selectedDay, onSelectDay }: Logboo
           <View key={w} style={{ flexDirection: 'row' }}>
             {week.map((cell) => {
               const marked = cell.inMonth && markedDays.has(cell.date);
-              const selected = cell.inMonth && cell.date === selectedDay;
+              // Only a still-marked day shows the selected fill — a day whose
+              // last session was just deleted drops both the dot and the fill.
+              const selected = marked && cell.date === selectedDay;
               const isToday = cell.inMonth && cell.date === today;
               const dayNum = Number(cell.date.split('-')[2]);
               return (

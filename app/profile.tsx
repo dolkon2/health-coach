@@ -35,6 +35,7 @@ import {
 } from '@/components';
 import { useTheme } from '@/theme';
 import { ELEMENT_ORDER, type Activity } from '@/lib/activity';
+import { dayNavLabel, todayLocalDate } from '@/lib/date';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useExpenditure } from '@/hooks/useExpenditure';
@@ -50,6 +51,12 @@ import type { ObservationOf } from '@core/observation';
 import type { Benchmark } from '@core/benchmark';
 import type { WeightUnit } from '@/lib/units';
 
+// The logbook is the canonical home of the *full* training history — not a
+// recent-activity feed — so it reaches back past useSessionHistory's 365-day
+// default (the calendar can page to any month). Effectively unbounded for any
+// real user; the query is still date-floored, never a full-table scan.
+const LOGBOOK_WINDOW_DAYS = 365 * 100;
+
 type LogbookView = 'list' | 'calendar';
 
 const VIEW_OPTIONS: Array<{ value: LogbookView; label: string }> = [
@@ -61,7 +68,7 @@ export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit } = useSettings();
-  const { sessions, reload } = useSessionHistory();
+  const { sessions, reload } = useSessionHistory(LOGBOOK_WINDOW_DAYS);
   const [view, setView] = useState<LogbookView>('list');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -133,6 +140,29 @@ export default function ProfileScreen() {
     },
     [reload]
   );
+
+  // One logbook entry — shared by the chronological list and the calendar's
+  // day view (same swipe-to-delete + tap-to-open idiom Training used).
+  function renderSessionEntry(session: ObservationOf<'session'>) {
+    return (
+      <SwipeToDelete
+        key={session.id}
+        onDelete={() => removeAndReload(session.id)}
+        confirmTitle="Delete session?"
+        confirmMessage={`${session.payload.modality} — permanent.`}
+      >
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: '/log-session', params: { editId: session.id } })
+          }
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${session.payload.modality} session`}
+        >
+          <SessionCard session={session} contribution={contributions[session.id]} />
+        </Pressable>
+      </SwipeToDelete>
+    );
+  }
 
   function openActivityLogger(activity: Activity) {
     setPickerVisible(false);
@@ -217,24 +247,7 @@ export default function ProfileScreen() {
         </Card>
       ) : view === 'list' ? (
         <View style={{ marginTop: theme.spacing[4], gap: theme.spacing[3] }}>
-          {sessions.map((session) => (
-            <SwipeToDelete
-              key={session.id}
-              onDelete={() => removeAndReload(session.id)}
-              confirmTitle="Delete session?"
-              confirmMessage={`${session.payload.modality} — permanent.`}
-            >
-              <Pressable
-                onPress={() =>
-                  router.push({ pathname: '/log-session', params: { editId: session.id } })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${session.payload.modality} session`}
-              >
-                <SessionCard session={session} contribution={contributions[session.id]} />
-              </Pressable>
-            </SwipeToDelete>
-          ))}
+          {sessions.map(renderSessionEntry)}
         </View>
       ) : (
         <View style={{ marginTop: theme.spacing[4], gap: theme.spacing[4] }}>
@@ -243,29 +256,12 @@ export default function ProfileScreen() {
             selectedDay={selectedDay}
             onSelectDay={setSelectedDay}
           />
-          {selectedDay ? (
+          {selectedDay && daySessions.length > 0 ? (
             <View style={{ gap: theme.spacing[3] }}>
               <Text variant="label" color={theme.colors.textMuted}>
-                {selectedDay}
+                {dayNavLabel(selectedDay, todayLocalDate())}
               </Text>
-              {daySessions.map((session) => (
-                <SwipeToDelete
-                  key={session.id}
-                  onDelete={() => removeAndReload(session.id)}
-                  confirmTitle="Delete session?"
-                  confirmMessage={`${session.payload.modality} — permanent.`}
-                >
-                  <Pressable
-                    onPress={() =>
-                      router.push({ pathname: '/log-session', params: { editId: session.id } })
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${session.payload.modality} session`}
-                  >
-                    <SessionCard session={session} contribution={contributions[session.id]} />
-                  </Pressable>
-                </SwipeToDelete>
-              ))}
+              {daySessions.map(renderSessionEntry)}
             </View>
           ) : (
             <Text variant="bodySm" color={theme.colors.textMuted}>
