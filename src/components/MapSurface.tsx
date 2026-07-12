@@ -13,16 +13,23 @@
  *
  * The native module loads via the shared lazy `loadMapLibre` (mapLibre.ts), so
  * importing this file anywhere is safe — the require runs only on-device.
+ *
+ * `guidePath` (routes-spec M4, Session 9): an optional muted line for a route
+ * Record was armed to follow — "line + self-position, user navigates
+ * themselves," the watch-breadcrumb pattern (routes-implementation.md §1),
+ * never a routed/snapped line. No off-route detection, no alerts, ever.
  */
 import React from 'react';
 import { Pressable, View } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
+import type { LatLng } from '@core/geo';
 import { useTheme } from '@/theme';
 import { mapStyleUrl } from '@/lib/config';
 import { loadMapLibre, type LngLat } from './mapLibre';
 import { spotIcon } from './activityIcons';
 import { Text } from './Text';
+import { toLineString } from './geoJson';
 
 type PinnableSpot = Spot & { lat: number; lng: number };
 
@@ -31,7 +38,11 @@ type MapSurfaceProps = {
   zoom?: number;
   pins: ReadonlyArray<PinnableSpot>;
   onPressPin: (spot: Spot) => void;
+  guidePath?: LatLng[];
 };
+
+const GUIDE_SOURCE_ID = 'guide-route-source';
+const GUIDE_LAYER_ID = 'guide-route-line';
 
 function MapUnavailable({ message }: { message: string }) {
   const theme = useTheme();
@@ -80,7 +91,8 @@ function SpotPin({ spot, onPress }: { spot: PinnableSpot; onPress: () => void })
   );
 }
 
-function MapSurfaceInner({ center, zoom, pins, onPressPin }: MapSurfaceProps) {
+function MapSurfaceInner({ center, zoom, pins, onPressPin, guidePath }: MapSurfaceProps) {
+  const theme = useTheme();
   const styleUrl = mapStyleUrl();
   if (!styleUrl) {
     return <MapUnavailable message="The map needs a MapTiler key to render. Recording still works." />;
@@ -90,7 +102,8 @@ function MapSurfaceInner({ center, zoom, pins, onPressPin }: MapSurfaceProps) {
   if (!MapLibre) {
     return <MapUnavailable message="The map needs an updated dev build to render. Recording still works." />;
   }
-  const { MapView, Camera, MarkerView } = MapLibre;
+  const { MapView, Camera, MarkerView, ShapeSource, LineLayer } = MapLibre;
+  const hasGuide = guidePath != null && guidePath.length >= 2;
 
   return (
     <View style={{ flex: 1 }}>
@@ -99,6 +112,20 @@ function MapSurfaceInner({ center, zoom, pins, onPressPin }: MapSurfaceProps) {
             would park MapLibre at [0,0]; no Camera lets the style default hold. */}
         {center ? (
           <Camera centerCoordinate={center} zoomLevel={zoom} animationDuration={0} />
+        ) : null}
+        {hasGuide ? (
+          <ShapeSource id={GUIDE_SOURCE_ID} shape={toLineString(guidePath)}>
+            <LineLayer
+              id={GUIDE_LAYER_ID}
+              style={{
+                lineColor: theme.colors.textMuted,
+                lineWidth: 2.5,
+                lineDasharray: [2, 2],
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
         ) : null}
         {pins.map((spot) => (
           <MarkerView key={spot.id} coordinate={[spot.lng, spot.lat]} allowOverlap>

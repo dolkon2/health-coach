@@ -24,34 +24,18 @@
  */
 import React from 'react';
 import { View } from 'react-native';
-import type { GeoPoint } from '@core/observation';
+import type { LatLng } from '@core/geo';
 import { useTheme } from '@/theme';
 import { mapStyleUrl } from '@/lib/config';
 import { loadMapLibre, type LngLat } from './mapLibre';
 import { RoutePreview } from './RoutePreview';
+import { toLineString } from './geoJson';
 
 const SOURCE_ID = 'route-source';
 const LAYER_ID = 'route-line';
 
-/** GeoPoint[] → a GeoJSON LineString FeatureCollection (render-boundary only). */
-function toLineString(path: GeoPoint[]): object {
-  return {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: path.map((p) => [p.lng, p.lat]),
-        },
-      },
-    ],
-  };
-}
-
 type RouteMapProps = {
-  path: GeoPoint[];
+  path: LatLng[];
   height?: number;
 };
 

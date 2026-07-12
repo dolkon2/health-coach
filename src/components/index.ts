@@ -13,7 +13,7 @@ export { SleepCard } from './SleepCard';
 export { FidelityIndicator, fidelityLevel, type FidelityLevel } from './FidelityIndicator';
 export { FidelityTreatment } from './FidelityTreatment';
 export { WeightTrendChart } from './WeightTrendChart';
-export { RoutePreview, routePathD } from './RoutePreview';
+export { RoutePreview, routePathD, routeGuidePathsD } from './RoutePreview';
 export { ElevationProfile, elevationPaths } from './ElevationProfile';
 export { Splits } from './Splits';
 export { RouteMap } from './RouteMap';
@@ -35,6 +35,7 @@ export { SaveRecordingSheet, type SaveRecordingTrack } from './SaveRecordingShee
 export { StepsSleepStrip } from './StepsSleepStrip';
 export { TemplateCard } from './TemplateCard';
 export { SpotCard, type SpotCardProps } from './SpotCard';
+export { RouteCard, type RouteCardProps } from './RouteCard';
 export {
   GymExerciseEditor,
   RemoveButton,
