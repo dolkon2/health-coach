@@ -60,6 +60,7 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Record your route while you log an outdoor session. The app cannot see your location except during a session you started, and your route stays on your device.",
+          "locationAlwaysAndWhenInUsePermission": "Record your route while you log an outdoor session. The app cannot see your location except during a session you started, and your route stays on your device.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }

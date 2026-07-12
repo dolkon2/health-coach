@@ -44,11 +44,13 @@ export function useBatteryOptPrompt(isTracking: boolean, startedAt: string | nul
       firedRef.current = true;
       try {
         if (await getSettingJson<boolean>(K_SHOWN)) return;
-        // Persist BEFORE showing: one ask, ever, whatever the answer.
-        await setSettingJson(K_SHOWN, true);
       } catch {
         return; // can't read the flag → don't risk a repeat prompt
       }
+      // Bail BEFORE persisting: a recording stopped during the reads above
+      // must not burn the one lifetime ask without ever showing it (review
+      // finding). Persist right after showing — the crash corner between
+      // Alert and write risks at most one repeat, never a silent never.
       if (cancelled) return;
       Alert.alert(
         'Keep long recordings alive',
@@ -66,6 +68,8 @@ export function useBatteryOptPrompt(isTracking: boolean, startedAt: string | nul
           },
         ]
       );
+      // One ask, ever, whatever the answer — persisted the moment it shows.
+      void setSettingJson(K_SHOWN, true).catch(() => {});
     };
 
     void check();

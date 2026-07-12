@@ -54,7 +54,8 @@ import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
 import { recordsOnMap, recordingElementOf, pairTrackFormat } from '@/lib/recording/recordingSave';
 import { parseGpx } from '@/lib/gpxImport';
 import { parseIgc } from '@/lib/igcImport';
-import { summarizeTrack } from '@/lib/gpsTrack';
+import { formatDurationClock } from '@/lib/date';
+import { numStr } from '@/lib/session';
 import { metersToDisplay } from '@/lib/units';
 import {
   accuracyLevel,
@@ -78,8 +79,13 @@ export default function MapScreen() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [armOverride, setArmOverride] = useState<Activity | null>(null);
-  const [saveTrack, setSaveTrack] = useState<SaveRecordingTrack | null>(null);
-  const [saveActivity, setSaveActivity] = useState<Activity | null>(null);
+  // One object, one lifecycle: the track being saved and the activity it
+  // was recorded under always move together (review: two lockstep states
+  // invite a mismatched pair).
+  const [saveDraft, setSaveDraft] = useState<{
+    track: SaveRecordingTrack;
+    activity: Activity;
+  } | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -92,6 +98,14 @@ export default function MapScreen() {
   // One-time Android battery-optimization ask, fired only when THIS
   // recording has run long (⚑2 answered yes — data-said-something timing).
   useBatteryOptPrompt(recorder.status === 'tracking', recorder.startedAt);
+
+  // The save confirmation is transient — it dismisses itself rather than
+  // lingering as a stale claim the next time the tab fronts.
+  useEffect(() => {
+    if (!justSaved) return;
+    const t = setTimeout(() => setJustSaved(false), 4000);
+    return () => clearTimeout(t);
+  }, [justSaved]);
 
   const reloadSpots = useCallback(() => {
     listSpots()
@@ -132,6 +146,12 @@ export default function MapScreen() {
 
   const mostRecent = useMemo(() => mostRecentActivityByElement(sessions), [sessions]);
   const pins = useMemo(() => spotsWithCoords(spots), [spots]);
+  // Stable handler so the (memoized) native map isn't reconciled every time
+  // the 2.5 s recording poll re-renders this screen (review finding).
+  const onPressPin = useCallback(
+    (spot: Spot) => router.push({ pathname: '/spot/[id]', params: { id: spot.id } }),
+    [router]
+  );
   const { center, zoom } = useMemo(
     () => resolveMapCenter({ userLoc: loc.userLoc, spots }),
     [loc.userLoc, spots]
@@ -171,7 +191,9 @@ export default function MapScreen() {
   // log-session importers stay put until this door is device-verified
   // (never-lose-access gate — retirement is a follow-up, not this build).
   async function onImportTrack() {
-    if (importing) return;
+    // A pending recovery owns the pre-start card — resolve it before
+    // opening a second save flow over it (Record is gated the same way).
+    if (importing || recorder.recoverable != null) return;
     setImporting(true);
     setImportError(null);
     // Lazy-load like log-session's importGpxFile: an old dev build degrades
@@ -208,19 +230,21 @@ export default function MapScreen() {
         setImportError('That file has no usable track points.');
         return;
       }
-      setSaveActivity(armed);
-      setSaveTrack({
-        points: parsed.points,
-        origin: { kind: 'import', format, ...(asset.name ? { filename: asset.name } : {}) },
-        recordingId: null, // no buffer behind a file
-        ...(parsed.name ? { name: parsed.name } : {}),
-        ...(parsed.distanceM > 0 ? { distanceM: parsed.distanceM } : {}),
-        ...(parsed.elevationGainM != null ? { elevationGainM: parsed.elevationGainM } : {}),
-        ...(!isIgc && (parsed as ReturnType<typeof parseGpx>).elevationGainSource != null
-          ? { elevationGainSource: (parsed as ReturnType<typeof parseGpx>).elevationGainSource }
-          : {}),
-        ...(parsed.durationMin != null ? { durationMin: parsed.durationMin } : {}),
-        ...(parsed.startTime ? { startTime: parsed.startTime } : {}),
+      setSaveDraft({
+        activity: armed,
+        track: {
+          points: parsed.points,
+          origin: { kind: 'import', format, ...(asset.name ? { filename: asset.name } : {}) },
+          recordingId: null, // no buffer behind a file
+          ...(parsed.name ? { name: parsed.name } : {}),
+          ...(parsed.distanceM > 0 ? { distanceM: parsed.distanceM } : {}),
+          ...(parsed.elevationGainM != null ? { elevationGainM: parsed.elevationGainM } : {}),
+          ...(!isIgc && (parsed as ReturnType<typeof parseGpx>).elevationGainSource != null
+            ? { elevationGainSource: (parsed as ReturnType<typeof parseGpx>).elevationGainSource }
+            : {}),
+          ...(parsed.durationMin != null ? { durationMin: parsed.durationMin } : {}),
+          ...(parsed.startTime ? { startTime: parsed.startTime } : {}),
+        },
       });
     } catch (e) {
       setImportError(e instanceof Error ? e.message : 'Could not read that file as a track.');
@@ -229,36 +253,27 @@ export default function MapScreen() {
     }
   }
 
-  /** Stop the live recording (or finish a recovered one) → save sheet. */
-  async function onStopToSave(activityForSheet: Activity) {
+  /** Stop (live or recovered) → save sheet. The sheet gets the activity the
+   *  recording was STARTED under (off the buffer row), never the current
+   *  `armed` — a Home deep-link landing mid-recording must not relabel a
+   *  session already in progress (review finding). */
+  async function onStopToSave() {
     const result = await recorder.stop();
     if (result == null) return;
-    setSaveActivity(activityForSheet);
-    setSaveTrack({
-      points: result.fixes,
-      origin: { kind: 'record' },
-      recordingId: result.recordingId,
-    });
-  }
-
-  /** Recovery-banner "Finish": the task is long dead — stop() reads the
-   *  buffer back (it falls through to the recoverable row's id). */
-  async function onFinishRecovered() {
-    const rec = recorder.recoverable;
-    if (rec == null) return;
-    const result = await recorder.stop();
-    if (result == null) return;
-    if (result.fixes.length < 2) {
-      // Nothing usable survived (killed seconds in) — clear it honestly
-      // rather than opening a sheet that can't save.
+    if (result.points.length < 2) {
+      // Nothing usable survived (stopped seconds in, or an orphan killed
+      // early) — clear it honestly rather than opening a sheet that can't
+      // save.
       await recorder.discard(result.recordingId);
       return;
     }
-    setSaveActivity(activityById(rec.activityId) ?? armed);
-    setSaveTrack({
-      points: result.fixes,
-      origin: { kind: 'record' },
-      recordingId: result.recordingId,
+    setSaveDraft({
+      activity: activityById(result.activityId) ?? armed,
+      track: {
+        points: result.points,
+        origin: { kind: 'record' },
+        recordingId: result.recordingId,
+      },
     });
   }
 
@@ -267,12 +282,7 @@ export default function MapScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
-      <MapSurface
-        center={center}
-        zoom={zoom}
-        pins={pins}
-        onPressPin={(spot) => router.push({ pathname: '/spot/[id]', params: { id: spot.id } })}
-      />
+      <MapSurface center={center} zoom={zoom} pins={pins} onPressPin={onPressPin} />
 
       {/* Sport-arm control — floats below the header band, left side. Hidden
           while recording: the sport is part of the running recording (the
@@ -319,7 +329,7 @@ export default function MapScreen() {
             recorder={recorder}
             armed={armed}
             distanceUnit={distanceUnit}
-            onStop={() => void onStopToSave(armed)}
+            onStop={() => void onStopToSave()}
             onDiscard={() => {
               Alert.alert('Discard this recording?', 'The track will be deleted.', [
                 { text: 'Keep recording', style: 'cancel' },
@@ -338,7 +348,7 @@ export default function MapScreen() {
                 activityLabel={
                   activityById(recorder.recoverable.activityId)?.label ?? 'session'
                 }
-                onFinish={() => void onFinishRecovered()}
+                onFinish={() => void onStopToSave()}
                 onDiscard={() => {
                   Alert.alert(
                     'Discard the unfinished recording?',
@@ -364,6 +374,12 @@ export default function MapScreen() {
             {recorder.status === 'unavailable' ? (
               <Text variant="bodySm" color={theme.colors.textMuted}>
                 {recorder.errorMessage}
+              </Text>
+            ) : null}
+            {recorder.status === 'denied' ? (
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Location was declined, so there's no track to record — turn it on for the app in
+                Settings, or log the session by hand from Home.
               </Text>
             ) : null}
             {justSaved ? (
@@ -415,25 +431,23 @@ export default function MapScreen() {
       />
 
       <SaveRecordingSheet
-        visible={saveTrack != null}
-        activity={saveActivity ?? armed}
-        track={saveTrack}
+        visible={saveDraft != null}
+        activity={saveDraft?.activity ?? armed}
+        track={saveDraft?.track ?? null}
         onSaved={() => {
-          setSaveTrack(null);
-          setSaveActivity(null);
+          setSaveDraft(null);
           setJustSaved(true);
           reloadSessions();
+          void recorder.attach(); // re-probe: a failed buffer clear surfaces NOW, not later
         }}
         onDiscarded={() => {
-          setSaveTrack(null);
-          setSaveActivity(null);
+          setSaveDraft(null);
           void recorder.attach(); // row is gone; clears any recoverable state
         }}
         onClose={() => {
           // Backing out is NOT a discard: the stopped recording's buffer row
           // survives, so re-probe surfaces it as the recovery banner.
-          setSaveTrack(null);
-          setSaveActivity(null);
+          setSaveDraft(null);
           void recorder.attach();
         }}
       />
@@ -465,21 +479,17 @@ function LiveRecordingPanel({
     const t = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  const startedMs = recorder.startedAt ? Date.parse(recorder.startedAt) : null;
-  const elapsedSec = startedMs != null ? Math.max(0, Math.floor((nowMs - startedMs) / 1000)) : 0;
-  const h = Math.floor(elapsedSec / 3600);
-  const m = Math.floor((elapsedSec % 3600) / 60);
-  const s = elapsedSec % 60;
-  const elapsed =
-    h > 0
-      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-      : `${m}:${String(s).padStart(2, '0')}`;
-
-  const distanceM = useMemo(
-    () => (recorder.points.length >= 2 ? summarizeTrack(recorder.points).distanceM : 0),
-    [recorder.points]
+  const startedMs = recorder.startedAt ? Date.parse(recorder.startedAt) : NaN;
+  // NaN-guarded (a corrupt startedAt must not render "NaN:NaN" forever).
+  const elapsed = formatDurationClock(
+    Number.isFinite(startedMs) ? Math.max(0, (nowMs - startedMs) / 1000) : 0
   );
-  const gpsLevel = accuracyLevel(recorder.lastAccuracyM);
+  // Distance accumulates incrementally in the hook — the panel never
+  // re-walks a multi-hour track (review finding); GPS quality is gate-aware
+  // (only the drop counter can honestly say "weak" — stored accuracies
+  // never exceed the gate).
+  const distanceM = recorder.distanceM;
+  const gpsLevel = recorder.gpsQuality;
 
   return (
     <Card style={{ gap: theme.spacing[3] }}>
@@ -509,9 +519,7 @@ function LiveRecordingPanel({
             Distance
           </Text>
           <Text variant="dataLg">
-            {distanceM > 0
-              ? `${Math.round(metersToDisplay(distanceM, distanceUnit) * 100) / 100} ${distanceUnit}`
-              : '—'}
+            {distanceM > 0 ? `${numStr(metersToDisplay(distanceM, distanceUnit), 2)} ${distanceUnit}` : '—'}
           </Text>
         </View>
         <View>

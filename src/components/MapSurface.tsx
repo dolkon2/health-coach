@@ -80,7 +80,7 @@ function SpotPin({ spot, onPress }: { spot: PinnableSpot; onPress: () => void })
   );
 }
 
-export function MapSurface({ center, zoom, pins, onPressPin }: MapSurfaceProps) {
+function MapSurfaceInner({ center, zoom, pins, onPressPin }: MapSurfaceProps) {
   const styleUrl = mapStyleUrl();
   if (!styleUrl) {
     return <MapUnavailable message="The map needs a MapTiler key to render. Recording still works." />;
@@ -109,3 +109,12 @@ export function MapSurface({ center, zoom, pins, onPressPin }: MapSurfaceProps) 
     </View>
   );
 }
+
+/**
+ * Memoized: while a recording is live the Map screen re-renders every poll
+ * tick (~2.5 s); with stable props the native MapView + marker tree must
+ * not be reconciled each time (M2 review finding — a screen-on multi-hour
+ * recording would otherwise churn the native bridge ~1,400 times for zero
+ * visual change).
+ */
+export const MapSurface = React.memo(MapSurfaceInner);

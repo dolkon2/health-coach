@@ -188,3 +188,20 @@ export function hourBucketLabel(iso: string, tz?: string): string {
     ...(tz ? { timeZone: tz } : {}),
   });
 }
+
+/**
+ * A running-clock duration — "4:07", "1:23:05" — from whole seconds. Hours
+ * appear only when nonzero. The one shared formatter for every recording
+ * surface (live Record panel, save sheet; log-session/GpsRecorderPanel
+ * carry older private copies — flagged for consolidation), so the same
+ * session can never show differently-formatted elapsed strings.
+ */
+export function formatDurationClock(totalSec: number): string {
+  const sec = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
+}

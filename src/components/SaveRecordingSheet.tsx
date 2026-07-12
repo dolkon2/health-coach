@@ -19,7 +19,7 @@
  *  - Post-save the user stays on the Map (pre-start) — the Profile-logbook
  *    deep-link stays deferred (Session 7 ⚑).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, View } from 'react-native';
 import type { GeoPoint } from '@core/observation';
 import type { ConditionsSnapshot } from '@core/conditions';
@@ -32,10 +32,10 @@ import { iconFor } from './activityIcons';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { uuidv7 } from '@/lib/id';
-import { deviceTz } from '@/lib/date';
+import { deviceTz, formatDurationClock } from '@/lib/date';
 import { metersToDisplay } from '@/lib/units';
 import { summarizeTrack } from '@/lib/gpsTrack';
-import { buildSessionObservation } from '@/lib/session';
+import { buildSessionObservation, numStr } from '@/lib/session';
 import { createObservation } from '@/storage/observations';
 import { writeSessionToHealthKit } from '@/lib/healthkit/writer';
 import { freezeEarthConditions } from '@/lib/conditions/freeze';
@@ -45,6 +45,7 @@ import {
   recordingSessionForm,
   recordsOnMap,
   pairTrackFormat,
+  needsDurationAsk,
   type TrackOrigin,
 } from '@/lib/recording/recordingSave';
 
@@ -76,15 +77,6 @@ type SaveRecordingSheetProps = {
   onClose: () => void;
 };
 
-function formatDurationSec(totalSec: number): string {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = Math.floor(totalSec % 60);
-  const mm = String(m).padStart(2, '0');
-  const ss = String(s).padStart(2, '0');
-  return h > 0 ? `${h}:${mm}:${ss}` : `${m}:${ss}`;
-}
-
 export function SaveRecordingSheet({
   visible,
   activity: armedActivity,
@@ -104,6 +96,13 @@ export function SaveRecordingSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The track this sheet instance is currently editing — a late freeze
+  // resolution from a PREVIOUS track (sheet closed and reopened while the
+  // fetch was in flight) must never land on this one (review finding: the
+  // component stays mounted across opens, so promise identity is the guard).
+  const trackRef = useRef(track);
+  trackRef.current = track;
+
   // Fresh sheet per track: reset all draft state when it opens, and fire the
   // silent conditions freeze at the track's start point/time — never awaited,
   // the module never throws or hangs a save by contract.
@@ -117,6 +116,7 @@ export function SaveRecordingSheet({
     setError(null);
     const first = track.points[0];
     if (first) {
+      const trackAtFire = track;
       freezeEarthConditions({
         lat: first.lat,
         lng: first.lng,
@@ -126,7 +126,8 @@ export function SaveRecordingSheet({
         include: { weather: true },
       })
         .then((snapshot) => {
-          if (snapshot.weather) setConditions(snapshot);
+          // Only the track this freeze was fetched FOR may wear it.
+          if (snapshot.weather && trackRef.current === trackAtFire) setConditions(snapshot);
         })
         .catch(() => {}); // belt and braces — freeze never throws
     }
@@ -138,9 +139,11 @@ export function SaveRecordingSheet({
     [track]
   );
 
-  // An untimed imported track has no derivable duration — ask, never fabricate.
+  // An untimed imported track has no derivable duration — ask, never
+  // fabricate. Same predicate the form builder uses (single source).
   const needsDuration =
-    track != null && track.durationMin == null && (summary?.durationSec ?? 0) === 0;
+    track != null &&
+    needsDurationAsk({ durationMin: track.durationMin, durationSec: summary?.durationSec ?? 0 });
 
   const pickActivity = useCallback(
     (a: Activity) => {
@@ -196,7 +199,20 @@ export function SaveRecordingSheet({
       // Same fire-and-forget HealthKit export as log-session — never blocks.
       void writeSessionToHealthKit(obs).catch(() => {});
       if (track.recordingId) {
-        await clearRecording(track.recordingId).catch(() => {});
+        // The Observation is saved — never block the user on the buffer
+        // clear. But a silently surviving row becomes a recovery banner
+        // offering to save the SAME track again (duplicate risk, review
+        // finding), so retry once and at least say so in the log.
+        try {
+          await clearRecording(track.recordingId);
+        } catch {
+          await clearRecording(track.recordingId).catch((e) => {
+            console.warn(
+              '[recording] saved, but the buffer row would not clear — the recovery banner may re-offer this track:',
+              e instanceof Error ? e.message : e
+            );
+          });
+        }
       }
       onSaved();
     } catch (e) {
@@ -244,10 +260,10 @@ export function SaveRecordingSheet({
   const Icon = iconFor(activity.icon);
   const distanceStr =
     summary && summary.distanceM > 0
-      ? `${Math.round(metersToDisplay(track.distanceM ?? summary.distanceM, distanceUnit) * 100) / 100} ${distanceUnit}`
+      ? `${numStr(metersToDisplay(track.distanceM ?? summary.distanceM, distanceUnit), 2)} ${distanceUnit}`
       : null;
   const durationStr =
-    summary && summary.durationSec > 0 ? formatDurationSec(summary.durationSec) : null;
+    summary && summary.durationSec > 0 ? formatDurationClock(summary.durationSec) : null;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

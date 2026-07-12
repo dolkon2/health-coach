@@ -23,6 +23,7 @@ import { elementOf, type Activity } from '@/lib/activity';
 import {
   emptySessionForm,
   enduranceWithRoute,
+  numStr,
   type SessionForm,
 } from '@/lib/session';
 import { summarizeTrack, type TrackSummary } from '@/lib/gpsTrack';
@@ -89,6 +90,17 @@ export type RecordingSaveDraft = {
 };
 
 /**
+ * Whether a track needs the user ASKED for a duration (nothing derivable:
+ * no parser figure, no fix-timestamp span). The single source of truth for
+ * both the sheet's conditional Duration field and the form builder's
+ * empty-duration branch — two independent derivations of this predicate
+ * would drift (review finding).
+ */
+export function needsDurationAsk(input: { durationMin?: number; durationSec: number }): boolean {
+  return input.durationMin == null && input.durationSec <= 0;
+}
+
+/**
  * Build the SessionForm for a finished track. Throws with a plain message
  * on inputs the sheet should have prevented (fewer than 2 fixes, an
  * activity that doesn't record on the map, an impossible format pairing) —
@@ -139,14 +151,16 @@ export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDr
   // Duration: the parser's figure for an import, else the fix-timestamp span.
   // Sub-minute spans round up to the 1-minute floor validation requires; an
   // untimed track (a planned <rte> with no timestamps) yields NO duration —
-  // the sheet asks the user rather than fabricating one.
-  const durationSec = summary.durationSec;
-  const durationMin =
-    input.durationMin != null
+  // the sheet asks the user rather than fabricating one (needsDurationAsk is
+  // the shared predicate).
+  const durationMin = needsDurationAsk({
+    durationMin: input.durationMin,
+    durationSec: summary.durationSec,
+  })
+    ? ''
+    : input.durationMin != null
       ? String(Math.max(1, Math.round(input.durationMin)))
-      : durationSec > 0
-        ? String(Math.max(1, Math.round(durationSec / 60)))
-        : '';
+      : String(Math.max(1, Math.round(summary.durationSec / 60)));
 
   const notes = (input.notes ?? '').trim() || (input.name ?? '').trim();
 
@@ -198,11 +212,7 @@ export function recordingSessionForm(input: RecordingSaveInput): RecordingSaveDr
     seeded.endurance,
     {
       gpsPath: summary.points, // thinned for storage; stats are full-resolution
-      ...(distanceM > 0
-        ? {
-            distance: String(Math.round(metersToDisplay(distanceM, input.distanceUnit) * 100) / 100),
-          }
-        : {}),
+      ...(distanceM > 0 ? { distance: numStr(metersToDisplay(distanceM, input.distanceUnit), 2) } : {}),
       ...gain,
     },
     meta
