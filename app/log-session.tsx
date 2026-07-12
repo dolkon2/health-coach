@@ -66,10 +66,10 @@ import type { TrackSummary } from '@/lib/gpsTrack';
 import { metersToDisplay } from '@/lib/units';
 import {
   detectFlightSegments,
-  autoSegmentsForActivity,
   autoSegmentsRunFor,
+  stampAuto,
+  detectAutoSegments,
   type SkyDetectorActivity,
-  type DetectedSegment,
 } from '@/lib/flightDetector';
 import { maxAltitudeM, topSpeedMS } from '@/lib/flightStats';
 import { totalAirtimeSec, airSegmentCount, longestAirSegmentSec } from '@/lib/skySegmentStats';
@@ -139,28 +139,8 @@ const ELEVATION_SOURCE_LABELS: Record<ElevationGainSource, string> = {
  * GPS surface with the activity's default energy system, so the detail step has
  * something to fill.
  */
-/** Stamps every proposed segment `provenance: 'auto'` — the one place that
- * turns a raw detector output into a SkySegment[], shared by every producer
- * (the auto-gate below and {@link checkForLanding}'s manual re-check) so they
- * can't drift on the mapping. */
-function stampAuto(segments: DetectedSegment[]): SkySegment[] {
-  return segments.map((s) => ({ ...s, provenance: 'auto' as const }));
-}
-
-/** Runs the activity-gated auto-detection — shared by the initial track
- * attach and by re-detecting on an activity switch, so the two call sites
- * can't drift on how a raw detection becomes a SkySegment[]. Only Hike & Fly
- * actually gets ground-contact segmentation here; the other three sky
- * activities default to one continuous flight (see flightDetector.ts's
- * `autoSegmentsForActivity` doc) — {@link checkForLanding} is their manual
- * escape hatch. */
-function detectAutoSegments(
-  points: GeoPoint[],
-  activity: SkyDetectorActivity,
-  trackSource: 'igc' | 'liveGps' | undefined
-): SkySegment[] {
-  return stampAuto(autoSegmentsForActivity(points, activity, { trackSource }));
-}
+// stampAuto/detectAutoSegments moved to flightDetector.ts (M2 — Map Record's
+// save sheet became the second producer; one shared mapping, no drift).
 
 function seededFormForActivity(a: Activity): SessionForm {
   const base = emptySessionForm();

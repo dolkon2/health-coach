@@ -36,7 +36,7 @@
  *    it. The resolved product answer is a user-set per-session tag, carried
  *    on SkyBlock.onSkis, not detected here.
  */
-import type { GeoPoint } from '@core/observation';
+import type { GeoPoint, SkySegment } from '@core/observation';
 import { cumulativeDistanceM } from './geo';
 
 export type SkyDetectorActivity = 'paragliding' | 'hikeAndFly' | 'speedflying' | 'parakiting';
@@ -374,4 +374,31 @@ export function autoSegmentsForActivity(
 ): DetectedSegment[] {
   if (autoSegmentsRunFor(activity)) return detectFlightSegments(points, activity, opts);
   return singleContinuousSegment(points);
+}
+
+/**
+ * Stamps every proposed segment `provenance: 'auto'` — the one place a raw
+ * detector output becomes a stored SkySegment[], shared by every producer
+ * (the auto gate below, log-session's manual "Check for a landing" re-check,
+ * Map Record's save sheet) so they can't drift on the mapping. Moved here
+ * from log-session.tsx when Map Record became the second producer (M2).
+ */
+export function stampAuto(segments: DetectedSegment[]): SkySegment[] {
+  return segments.map((s) => ({ ...s, provenance: 'auto' as const }));
+}
+
+/**
+ * Runs the activity-gated auto-detection and stamps the result — the shared
+ * entry for every AUTOMATIC pass (initial track attach, activity switch,
+ * Map Record save). Only Hike & Fly actually gets ground-contact
+ * segmentation; the other sky activities default to one continuous flight
+ * (see `autoSegmentsForActivity`) with the manual re-check as their escape
+ * hatch.
+ */
+export function detectAutoSegments(
+  points: GeoPoint[],
+  activity: SkyDetectorActivity,
+  trackSource: 'igc' | 'liveGps' | undefined
+): SkySegment[] {
+  return stampAuto(autoSegmentsForActivity(points, activity, { trackSource }));
 }
