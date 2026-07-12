@@ -11,8 +11,10 @@
  * shaped exactly like real data, just back-dated and tagged.
  */
 import type { MovementPattern, Observation } from '@core/observation';
+import type { Route } from '@core/route';
 import { getDb } from '@/storage/db';
 import { createObservation } from '@/storage/observations';
+import { createRoute } from '@/storage/routes';
 import { buildSessionObservation, emptySessionForm, type SessionForm } from './session';
 import { uuidv7 } from './id';
 import { deviceTz } from './date';
@@ -136,8 +138,49 @@ const SAMPLE_SESSIONS: Array<{ daysAgo: number; form: SessionForm }> = [
   },
 ];
 
+// ── Sample routes (routes-spec P1, Session 9) — one per element that
+// actually records on the map, so the Training shelf and Routes list have
+// something real to render. ────────────────────────────────────────────────
+const SAMPLE_ROUTES: Array<Pick<Route, 'name' | 'activityId' | 'source' | 'points'>> = [
+  {
+    name: 'Hood River Loop',
+    activityId: 'run',
+    source: 'plotted',
+    points: [
+      { lat: 45.7118, lng: -121.4995 },
+      { lat: 45.7135, lng: -121.4972 },
+      { lat: 45.7151, lng: -121.494 },
+      { lat: 45.7139, lng: -121.4907 },
+      { lat: 45.7118, lng: -121.4995 },
+    ],
+  },
+  {
+    name: 'White Salmon — Green Truss run',
+    activityId: 'kayak',
+    source: 'plotted',
+    points: [
+      { lat: 45.7291, lng: -121.4886 },
+      { lat: 45.726, lng: -121.4874 },
+      { lat: 45.7224, lng: -121.4855 },
+      { lat: 45.719, lng: -121.4831 },
+    ],
+  },
+];
+
 /** Insert the back-dated, tagged sample weigh-ins and sessions. */
 export async function seedSampleData(): Promise<void> {
+  for (const r of SAMPLE_ROUTES) {
+    await createRoute({
+      id: uuidv7(),
+      name: r.name,
+      activityId: r.activityId,
+      source: r.source,
+      points: r.points,
+      visibility: 'private',
+      notes: SAMPLE_TAG,
+    });
+  }
+
   for (const [daysAgo, kg] of SAMPLE_WEIGHTS) {
     const iso = daysAgoIso(daysAgo, 8); // morning weigh-ins
     const obs: Observation = {
@@ -172,4 +215,5 @@ export async function seedSampleData(): Promise<void> {
 export async function clearSampleData(): Promise<void> {
   const db = await getDb();
   await db.runAsync('DELETE FROM observations WHERE notes = ?;', [SAMPLE_TAG]);
+  await db.runAsync('DELETE FROM routes WHERE notes = ?;', [SAMPLE_TAG]);
 }
