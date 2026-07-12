@@ -11,6 +11,28 @@ Sibling specs referenced: `home-tab.md`, `training-tab.md`, `map-tab.md`,
 `nutrition-tab.md`, `profile-settings.md` (named `profile.md` in some siblings — same
 spec), all under `planning/rework/tabs/`.
 
+> **Update 2026-07-11 (rounds 2 + 3)** — Dylan's later decisions
+> (`planning/rework/research/social-expansion-brief.md` §0, then a round-3 override) are
+> resolved and planned in **`planning/rework/research/social-expansion-plan.md`**, which
+> supersedes several things here. **Round 3 is a deliberate founder override of this spec's
+> mirror-preserving social posture** — see the plan's top banner:
+> - **⚑4 (audience model) — OVERRIDDEN to a FULL public/private social system.** Not
+>   approve-gated/mutual-only: accounts are public (open follow, discoverable) or private
+>   (approve followers), the profile is per-section public/private (logbook, gear, benchmarks
+>   — defaulting public), and every session on finish is a **Share or Save** choice. Plan §1.
+> - **⚑5 (the ack) — OVERRIDDEN to FULL KUDOS WITH COUNTS.** Not the countless name-list —
+>   real likes and follower counts. Plan §2.2. (Mirror stays clean because counts live only on
+>   content you deliberately Shared; a Saved/private session is never counted.)
+> - **§6 guardrails partly reversed** — no-public-tier and no-counts die; the push /
+>   no-app-authored-content lines survive; segments + notifications reopened. Plan §1.4, §2.4,
+>   §2.5.
+> - **§7 build ladder superseded** by plan §6 (photos, shares + influencer program-grab,
+>   Messages-first, historical heatmap, partner tagging; Groups-as-Discord and events deferred
+>   to a research track).
+> Everything not listed here still stands. The plan keeps the constitution's push-not-pull and
+> privacy-geometry lines intact; a rule-5 amendment recording the public/kudos posture is
+> recommended there (plan §8) once the remaining defaults are set.
+
 ## 1. Purpose & constitution alignment
 
 Social is the Ring 4 accountability layer's front door: the mirror extended to a group.
@@ -215,6 +237,8 @@ acceptance criteria for any Social build pass:
 
 ## 7. Build passes (ordered; S/M/L; each independently shippable)
 
+*(Superseded 2026-07-11 round 2 by `social-expansion-plan.md` §6 — kept for the record.)*
+
 This is **Ring 4** — everything below except S0 and S0.5 sits behind the backend era
 and ships after the Ring 1–3 surfaces (Home, Training, Map, Nutrition, Profile
 logbook) are standing. S0 ships with the 5-tab shell now; S0.5 is pure docs and can
@@ -318,12 +342,14 @@ S6) first.
   until S3. Your call.
 - **⚑3 — Visibility schema seam**: grant table (recommended, §4) vs a field on the
   record. Confirm alongside ⚑1 — it shapes the S2 backend.
-- **⚑4 — Audience model**: mutual friends + group membership as the only two audience
+- **⚑4 — Audience model** *(OVERRIDDEN 2026-07-11 round 3: FULL public/private social system —
+  public/private accounts + per-section privacy + per-session Share/Save; `social-expansion-plan.md` §1)*: mutual friends + group membership as the only two audience
   primitives at MVP — no asymmetric follow, no public profiles, no "Everyone" tier.
   The research is firm (the kudos study: an audience you perform for warps the log),
   and deferring follow forecloses nothing (creator cohorts are better served by
   public-cohort membership later) — but this shapes growth mechanics: a founder call.
-- **⚑5 — The countless ack**: is there room for a one-tap "seen by *Alex, Priya*"
+- **⚑5 — The countless ack** *(OVERRIDDEN 2026-07-11 round 3: full kudos WITH counts —
+  `social-expansion-plan.md` §2.2)*: is there room for a one-tap "seen by *Alex, Priya*"
   (name list only, never a numeral, no notification)? For: witness sustains showing
   up, and comment-or-silence may read as absence of witness. Against: any one-tap
   gesture drifts toward reciprocity theater. Both defensible under the constitution;
