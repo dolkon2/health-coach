@@ -335,6 +335,7 @@ export function SaveRecordingSheet({
               label="Notes"
               value={notes}
               onChangeText={setNotes}
+              keyboardType="default"
               placeholder={track.name ?? 'Optional'}
             />
 
