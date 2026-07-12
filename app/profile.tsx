@@ -31,15 +31,24 @@ import {
   SwipeToDelete,
   LogbookCalendar,
   ElementPickerSheet,
+  BenchmarkDetailSheet,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { ELEMENT_ORDER, type Activity } from '@/lib/activity';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
+import { useWeightTrend } from '@/hooks/useWeightTrend';
+import { useExpenditure } from '@/hooks/useExpenditure';
+import { useSettings } from '@/settings/useSettings';
 import { reveal } from '@core/stimulus';
 import { localDayOf } from '@core/timeline';
 import { deleteObservation } from '@/storage/observations';
 import { deleteHealthKitExport } from '@/lib/healthkit/writer';
+import { listBenchmarks } from '@/storage/benchmarks';
+import { summarizeBenchmark } from '@/lib/benchmarkForm';
+import { listGear } from '@/storage/gear';
 import type { ObservationOf } from '@core/observation';
+import type { Benchmark } from '@core/benchmark';
+import type { WeightUnit } from '@/lib/units';
 
 type LogbookView = 'list' | 'calendar';
 
@@ -51,16 +60,45 @@ const VIEW_OPTIONS: Array<{ value: LogbookView; label: string }> = [
 export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const { weightUnit } = useSettings();
   const { sessions, reload } = useSessionHistory();
   const [view, setView] = useState<LogbookView>('list');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
+  const [gearCount, setGearCount] = useState<number | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  // The detail sheet needs these for its outcome faces; nothing else on this
+  // screen consumes them (same pattern as benchmarks.tsx).
+  const { points: trendPoints } = useWeightTrend();
+  const { measured } = useExpenditure(trendPoints);
+
+  const reloadModules = useCallback(async () => {
+    // A failed read leaves the module absent (null), never a fabricated zero.
+    const [bm, gear] = await Promise.all([
+      listBenchmarks().catch(() => null),
+      listGear().catch(() => null),
+    ]);
+    setBenchmarks(bm);
+    setGearCount(gear ? gear.length : null);
+  }, []);
 
   // Re-fetch on focus — after the detail/editor saves, or a delete elsewhere.
   useFocusEffect(
     useCallback(() => {
       reload();
-    }, [reload])
+      void reloadModules();
+    }, [reload, reloadModules])
+  );
+
+  const activeBenchmarks = useMemo(
+    () => (benchmarks ?? []).filter((b) => b.status === 'active'),
+    [benchmarks]
+  );
+  const pastBenchmarks = useMemo(
+    () => (benchmarks ?? []).filter((b) => b.status !== 'active'),
+    [benchmarks]
   );
 
   // The engine's per-session "what this contributed" line (same source as
@@ -237,6 +275,95 @@ export default function ProfileScreen() {
         </View>
       )}
 
+      {/* ── Current benchmarks (P5) ──────────────────────────────────────── */}
+      {/* Absent, not empty (Home's rule): the module renders only when the user
+          has active benchmarks. Display only — management is the detail sheet. */}
+      {activeBenchmarks.length > 0 ? (
+        <View style={{ marginTop: theme.spacing[10] }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: theme.spacing[2],
+            }}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Working toward
+            </Text>
+            {/* Profile is Reflect's only door (locked, Dylan 2026-07-11): the
+                browsable entry across active benchmarks. */}
+            <Pressable
+              onPress={() => router.push('/reflect')}
+              accessibilityRole="button"
+              accessibilityLabel="Open Reflect"
+              hitSlop={8}
+            >
+              <Text variant="label" color={theme.colors.textMuted}>
+                Reflect →
+              </Text>
+            </Pressable>
+          </View>
+          <View style={{ gap: theme.spacing[3] }}>
+            {activeBenchmarks.map((b) => (
+              <BenchmarkRow
+                key={b.id}
+                benchmark={b}
+                weightUnit={weightUnit}
+                onPress={() => setDetailId(b.id)}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {/* ── Gear quiver (P5) ─────────────────────────────────────────────── */}
+      {/* Preview only: item count + tap-through to the quiver. Absent when
+          empty; last-used / wear-vs-threshold read models are P9's track. */}
+      {gearCount != null && gearCount > 0 ? (
+        <View style={{ marginTop: theme.spacing[10] }}>
+          <Text variant="label" color={theme.colors.textMuted} style={{ marginBottom: theme.spacing[2] }}>
+            Gear
+          </Text>
+          <Pressable
+            onPress={() => router.push('/gear')}
+            accessibilityRole="button"
+            accessibilityLabel="Open your gear quiver"
+          >
+            <Card>
+              <Text variant="body">
+                {gearCount} {gearCount === 1 ? 'item' : 'items'} in your quiver
+              </Text>
+              <Text variant="bodySm" color={theme.colors.textMuted}>
+                Tap to open →
+              </Text>
+            </Card>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* ── Past benchmarks (P5, profile ⚑1) ─────────────────────────────── */}
+      {/* The arc of past goals lives on Profile; tapping one opens its
+          Reflect-rendered story (Dylan 2026-07-11). Absent when none. */}
+      {pastBenchmarks.length > 0 ? (
+        <View style={{ marginTop: theme.spacing[10] }}>
+          <Text variant="label" color={theme.colors.textMuted} style={{ marginBottom: theme.spacing[2] }}>
+            Past benchmarks
+          </Text>
+          <View style={{ gap: theme.spacing[3] }}>
+            {pastBenchmarks.map((b) => (
+              <BenchmarkRow
+                key={b.id}
+                benchmark={b}
+                weightUnit={weightUnit}
+                muted
+                onPress={() => router.push({ pathname: '/reflect', params: { benchmarkId: b.id } })}
+              />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <ElementPickerSheet
         visible={pickerVisible}
         onClose={() => setPickerVisible(false)}
@@ -245,7 +372,42 @@ export default function ProfileScreen() {
         onPickBody={openBodyLogger}
       />
 
+      <BenchmarkDetailSheet
+        benchmarkId={detailId}
+        onClose={() => setDetailId(null)}
+        onChanged={reloadModules}
+        trendPoints={trendPoints}
+        measured={measured}
+      />
+
       <View style={{ height: theme.spacing[10] }} />
     </Screen>
+  );
+}
+
+/** A benchmark in the user's own words + its current standing. Display only. */
+function BenchmarkRow({
+  benchmark,
+  weightUnit,
+  muted,
+  onPress,
+}: {
+  benchmark: Benchmark;
+  weightUnit: WeightUnit;
+  muted?: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Open ${benchmark.title}`}>
+      <Card style={{ gap: theme.spacing[1] }}>
+        <Text variant="body" color={muted ? theme.colors.textMuted : theme.colors.text}>
+          {benchmark.title}
+        </Text>
+        <Text variant="bodySm" color={theme.colors.textMuted}>
+          {summarizeBenchmark(benchmark, weightUnit)}
+        </Text>
+      </Card>
+    </Pressable>
   );
 }
