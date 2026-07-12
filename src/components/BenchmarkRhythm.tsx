@@ -91,7 +91,7 @@ export function BenchmarkRhythm({ counts, run, window }: BenchmarkRhythmProps) {
                   x={x + barWidth / 2}
                   y={BAR_AREA_HEIGHT - 6}
                   fontSize={10}
-                  fontFamily={theme.fonts.data.regular}
+                  fontFamily={theme.fonts.numbers.regular}
                   fill={theme.colors.textMuted}
                   textAnchor="middle"
                 >

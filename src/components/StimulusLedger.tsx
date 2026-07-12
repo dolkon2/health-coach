@@ -1,7 +1,7 @@
 /**
  * StimulusLedger — weekly training volume by movement pattern, as a stacked bar
  * chart (one bar per ISO week, current + 7 prior). Built on the chart-series
- * palette (trendLine / accent / caution / modeled) — earth tones, never
+ * palette (the four element hues, the app's only saturated colors) — never
  * green/red (brand kit). Hard-edged bars: the data is unmediated.
  *
  * Tap a week to drill into the sessions that contributed — each rendered through
@@ -137,7 +137,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                 x={Y_AXIS_WIDTH - 6}
                 y={y + 4}
                 fontSize={11}
-                fontFamily={theme.fonts.data.regular}
+                fontFamily={theme.fonts.numbers.regular}
                 fill={theme.colors.textMuted}
                 textAnchor="end"
               >
@@ -202,7 +202,7 @@ export function StimulusLedger({ weeks, sessionsById }: StimulusLedgerProps) {
                     x={wi * slot + slot / 2}
                     y={BAR_AREA_HEIGHT - 6}
                     fontSize={11}
-                    fontFamily={theme.fonts.data.regular}
+                    fontFamily={theme.fonts.numbers.regular}
                     fill={
                       isCurrent
                         ? theme.colors.accent // "you are here" anchor

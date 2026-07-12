@@ -1,65 +1,70 @@
 /**
  * tokens.ts — the brand kit as TypeScript. Single source of visual truth.
- * Design of record: planning/design-system/ (light-only, no dark mode at launch).
- * This file still ships the placeholder desert palette pending the Gorge rebrand
- * swap PR — see planning/rework/brand-integration.md.
+ * Design of record: planning/design-system/ (light-only, no dark mode).
+ * Translated from planning/design-system/tokens/{colors,typography}.css —
+ * the Session 10 rebrand swap (planning/rework/brand-integration.md Pass 4).
  *
- * "Trail map meets tide chart." Warm earth tones, never neon. Dense but calm.
- * Three font registers: display (identity), body (utility), data (honesty).
+ * "A mirror, not a coach." Descriptive, never prescriptive. Color earns its
+ * way in — it only names the element you're in (Earth/Sky/Water/Body) or
+ * flags a real alert. Everything else lives on one monochrome ramp: wet
+ * basalt, mossy cliff, glacial mist — the Columbia River Gorge.
+ * Four font registers: display (headlines), caps (structural labels), body
+ * (prose), numbers (every value the user might compare — tabular mono).
  */
 
-// ─── Color palettes ─────────────────────────────────────────────────────────
+// ─── Color palette ──────────────────────────────────────────────────────────
+// Direct translation of colors.css's basalt→spray monochrome ramp. Named
+// steps kept private — consumers bind to the semantic roles below, never a
+// ramp step directly.
+const gray900 = '#0F1618'; // Basalt    — dark volcanic rock
+const gray700 = '#3B484A'; // Slate     — gorge cliff face, damp
+const gray500 = '#889796'; // Glacial   — silty river water
+const gray400 = '#B4BEBC'; // Ash       — overcast mist
 
-// Proper-noun desert palette — private. Semantic keys below point at these so
-// consumers never bind to a hue name directly (planning/rework/brand-integration.md
-// Pass 1). The Gorge rebrand swap replaces these values wholesale.
-const darkPalette = {
-  sandstone: '#C4A87A',
-  olive: '#7B8C68',
-  clay: '#B07858',
-  slate: '#7A8896',
-};
+const elementEarth = '#8A7049'; // volcanic ochre — climbing, trail running, hiking, bouldering
+const elementSky = '#5E84A6'; // hazy lifted blue — paragliding, wingfoiling, airborne
+const elementWater = '#4C8E85'; // glacial silt teal — kayaking, surfing, swimming, SUP
+const elementBody = '#C15A39'; // inner fire / rust ember — gym, yoga, PT, breathwork
+const negative = '#B00020'; // the artifact's one true alert color
 
-const lightPalette = {
-  sandstone: '#A68A5B',
-  olive: '#5E7048',
-  clay: '#9A6344',
-  slate: '#62717E',
-};
-
-const darkTrendLine = '#A3B490';
-const lightTrendLine = '#6B7F5A';
-
-export const darkColors = {
+export const lightColors = {
   // Ground & structure
-  bg: '#181614',
-  surface: '#221F1C',
-  surfaceRaised: '#2C2825',
-  border: '#38332E',
-  borderStrong: '#4A443D',
-  // Text — three weights of warm off-white. No pure white (too cold).
-  text: '#E6E1DB',
-  textSecondary: '#9B9590',
-  textMuted: '#6B6560',
-  // Semantic accents — earth, not traffic lights
-  accent: darkPalette.sandstone, // primary accent: CTAs, active tab, fidelity-bar fill, GPS trace
-  caution: darkPalette.clay, // warnings, fidelity-low
-  modeled: darkPalette.slate, // tier-3 demotion, secondary charts
-  trendLine: darkTrendLine,
-  positive: darkPalette.olive,
-  negative: '#B86B5A',
-  neutral: '#9B9590',
-  // Dimension colors — declared-throwaway placeholders drawn from the existing
-  // palette (planning/rework/brand-integration.md Pass 2). Replaced wholesale by
-  // the Gorge rebrand swap PR; never reference these as final values.
+  bg: '#DFE4E1',
+  surface: '#FFFFFF',
+  surfaceRaised: '#FFFFFF',
+  border: '#CFD6D2',
+  borderStrong: gray400,
+  // Text — the monochrome ramp.
+  text: gray900,
+  textSecondary: gray700,
+  textMuted: gray500,
+  // Semantic accents. Dylan's call (2026-07-11, Session 10): neutral buttons,
+  // monochrome throughout — the four elements are the only saturated colors
+  // anywhere in the app. `accent` deliberately equals `text` (the ramp's
+  // darkest, most assertive neutral): CTAs, the active tab, the fidelity-bar
+  // fill, and the GPS trace all read as ink, not a hue. The artifact defines
+  // no hex for caution/positive/modeled/neutral/trendLine either — collapsed
+  // onto the ramp (caution reuses the one true alert red rather than
+  // inventing an undeclared amber). See dev-log for the full flag.
+  accent: gray900,
+  caution: negative,
+  modeled: gray500,
+  trendLine: gray700,
+  positive: gray700,
+  negative,
+  neutral: gray700,
+  // Dimension colors — shipped for real (were placeholders through Pass 2-3).
   element: {
-    earth: darkPalette.clay,
-    sky: darkPalette.slate,
-    water: darkPalette.olive,
-    body: darkPalette.sandstone,
+    earth: elementEarth,
+    sky: elementSky,
+    water: elementWater,
+    body: elementBody,
   },
-  // Multi-series chart order — de-proper-nouned; same visual order as before.
-  chartSeries: [darkTrendLine, darkPalette.sandstone, darkPalette.clay, darkPalette.slate] as [
+  // Multi-series chart order — the artifact defines no chartSeries; the four
+  // element hues are the system's only remaining saturated palette, reused
+  // here (order follows the design system's macro-breakdown reference: rust,
+  // teal, ochre, then sky).
+  chartSeries: [elementBody, elementWater, elementEarth, elementSky] as [
     string,
     string,
     string,
@@ -67,32 +72,13 @@ export const darkColors = {
   ],
 };
 
-export const lightColors: typeof darkColors = {
-  bg: '#F2EDE7',
-  surface: '#FAFAF7',
-  surfaceRaised: '#FFFFFF',
-  border: '#DDD7CF',
-  borderStrong: '#C4BDB4',
-  text: '#1A1816',
-  textSecondary: '#6B6560',
-  textMuted: '#9B9590',
-  accent: lightPalette.sandstone,
-  caution: lightPalette.clay,
-  modeled: lightPalette.slate,
-  trendLine: lightTrendLine,
-  positive: lightPalette.olive,
-  negative: '#A85545',
-  neutral: '#6B6560',
-  element: {
-    earth: lightPalette.clay,
-    sky: lightPalette.slate,
-    water: lightPalette.olive,
-    body: lightPalette.sandstone,
-  },
-  chartSeries: [lightTrendLine, lightPalette.sandstone, lightPalette.clay, lightPalette.slate],
-};
+// Dark mode does not ship (design of record is light-only, locked 2026-07-11).
+// darkColors is not a designed palette — it's light's values under the same
+// type, kept only so ThemeProvider's ColorScheme union and any future dark
+// revisit stay compilable.
+export const darkColors: typeof lightColors = lightColors;
 
-export type ColorTokens = typeof darkColors;
+export type ColorTokens = typeof lightColors;
 
 // ─── Fidelity (capture confidence) ──────────────────────────────────────────
 // Encoded by opacity AND stroke/dot style together — never opacity alone.
@@ -104,88 +90,118 @@ export const fidelity = {
 
 // ─── Fonts ──────────────────────────────────────────────────────────────────
 // Keys match the @expo-google-fonts export names registered via useFonts.
+// Four registers: display (Space Grotesk, headlines), caps (Archivo,
+// structural labels — buttons, tags, section headers), body (DM Sans,
+// prose), numbers (Space Mono, tabular — every value the user might compare).
 export const fonts = {
   display: {
-    semibold: 'BarlowCondensed_600SemiBold',
-    bold: 'BarlowCondensed_700Bold',
+    medium: 'SpaceGrotesk_500Medium',
+    semibold: 'SpaceGrotesk_600SemiBold',
+  },
+  caps: {
+    bold: 'Archivo_700Bold',
   },
   body: {
-    regular: 'Inter_400Regular',
-    medium: 'Inter_500Medium',
-    semibold: 'Inter_600SemiBold',
+    regular: 'DMSans_400Regular',
+    medium: 'DMSans_500Medium',
   },
-  data: {
-    regular: 'JetBrainsMono_400Regular',
-    medium: 'JetBrainsMono_500Medium',
+  numbers: {
+    regular: 'SpaceMono_400Regular',
+    bold: 'SpaceMono_700Bold',
   },
 };
 
 // ─── Type scale ─────────────────────────────────────────────────────────────
-// Ready-to-spread RN TextStyles. Display & label are always uppercase.
-// letterSpacing/lineHeight are in points (px), converted from the em values in
-// the brand kit. Display = labels/headers; data = values. Keep them distinct.
+// Ready-to-spread RN TextStyles, translated from typography.css. Unlike the
+// prior Barlow-era scale, display headlines are NOT uppercase in the artifact
+// — only the caps register (label/elementTag) is. letterSpacing/lineHeight
+// are in points, converted from the em/unitless values in the CSS file.
 export const type = {
   displayXl: {
-    fontFamily: fonts.display.bold,
-    fontSize: 40,
-    lineHeight: 40,
-    letterSpacing: 1.6,
-    textTransform: 'uppercase' as const,
+    fontFamily: fonts.display.medium,
+    fontSize: 34,
+    lineHeight: 37.4,
+    letterSpacing: -1.4,
   },
   displayLg: {
-    fontFamily: fonts.display.bold,
-    fontSize: 28,
-    lineHeight: 30.8,
-    letterSpacing: 1.12,
-    textTransform: 'uppercase' as const,
+    fontFamily: fonts.display.medium,
+    fontSize: 30,
+    lineHeight: 33,
+    letterSpacing: -1.2,
   },
   displayMd: {
     fontFamily: fonts.display.semibold,
-    fontSize: 20,
-    lineHeight: 24,
-    letterSpacing: 0.8,
+    fontSize: 24,
+    lineHeight: 27.6,
+    letterSpacing: -1,
+  },
+  // "Session & list-row titles" (typography.css hc-card-title) — no analog in
+  // the old 9-variant scale; added so card/row title work has the right face.
+  cardTitle: {
+    fontFamily: fonts.display.semibold,
+    fontSize: 15,
+    lineHeight: 19.5,
+    letterSpacing: -0.2,
+  },
+  label: {
+    fontFamily: fonts.caps.bold,
+    fontSize: 12,
+    lineHeight: 15.6,
+    letterSpacing: 1.75,
+    textTransform: 'uppercase' as const,
+  },
+  // "Element identity, in its color" (typography.css hc-element-tag) — the
+  // DimensionTag chip's own register, distinct from general caps labels.
+  elementTag: {
+    fontFamily: fonts.caps.bold,
+    fontSize: 11,
+    lineHeight: 14.3,
+    letterSpacing: 1.5,
     textTransform: 'uppercase' as const,
   },
   body: {
     fontFamily: fonts.body.regular,
-    fontSize: 15,
-    lineHeight: 22.5,
+    fontSize: 14,
+    lineHeight: 21.7,
   },
   bodySm: {
     fontFamily: fonts.body.regular,
-    fontSize: 13,
-    lineHeight: 19.5,
-  },
-  label: {
-    fontFamily: fonts.body.medium,
-    fontSize: 11,
-    lineHeight: 14.3,
-    letterSpacing: 0.66,
-    textTransform: 'uppercase' as const,
-  },
-  dataLg: {
-    fontFamily: fonts.data.medium,
-    fontSize: 24,
-    lineHeight: 28.8,
-    letterSpacing: -0.24,
-  },
-  data: {
-    fontFamily: fonts.data.regular,
-    fontSize: 14,
-    lineHeight: 19.6,
-    letterSpacing: -0.14,
-  },
-  dataSm: {
-    fontFamily: fonts.data.regular,
     fontSize: 12,
     lineHeight: 16.8,
-    letterSpacing: -0.12,
+  },
+  // "The weight readout, primary stat" (typography.css hc-hero-number) — a
+  // bigger tier above dataLg; no current call site, reserved for a future
+  // hero stat display.
+  heroNumber: {
+    fontFamily: fonts.numbers.bold,
+    fontSize: 64,
+    lineHeight: 64,
+    letterSpacing: -2,
+  },
+  dataLg: {
+    fontFamily: fonts.numbers.bold,
+    fontSize: 24,
+    lineHeight: 27.6,
+    letterSpacing: -1,
+  },
+  data: {
+    fontFamily: fonts.numbers.regular,
+    fontSize: 14,
+    lineHeight: 16.1,
+    letterSpacing: -0.6,
+  },
+  dataSm: {
+    fontFamily: fonts.numbers.regular,
+    fontSize: 12,
+    lineHeight: 13.8,
+    letterSpacing: -0.5,
   },
 };
 
 export type TypeVariant = keyof typeof type;
 
 // ─── Spacing (4px base ledger) ──────────────────────────────────────────────
+// Unchanged by the swap — matches planning/design-system/tokens/spacing.css.
 export const spacing = {
   1: 4,
   2: 8,
@@ -199,6 +215,7 @@ export const spacing = {
 };
 
 // ─── Radius (minimal — a tool, not a toy) ───────────────────────────────────
+// Unchanged by the swap — matches planning/design-system/tokens/radius-shadow.css.
 // No radius on chart containers or data panels — hard edges signal raw data.
 export const radius = {
   sm: 4,
@@ -208,6 +225,8 @@ export const radius = {
 };
 
 // ─── Elevation (separation by surface step, not shadow) ─────────────────────
+// Unchanged by the swap — matches planning/design-system/tokens/radius-shadow.css
+// (hairline-border-first elevation; shadow is a light touch on top of that).
 export const shadow = {
   sm: {
     shadowColor: '#000',
@@ -226,6 +245,7 @@ export const shadow = {
 };
 
 // ─── Motion ─────────────────────────────────────────────────────────────────
+// Unchanged by the swap — matches planning/design-system/tokens/motion.css.
 export const motion = {
   durationFast: 120, // hover, press feedback
   durationBase: 200, // panel transitions, tab switches

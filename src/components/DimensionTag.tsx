@@ -34,7 +34,7 @@ export function DimensionTag({ element, label }: DimensionTagProps) {
         borderColor: tint,
       }}
     >
-      <Text variant="label" color={tint}>
+      <Text variant="elementTag" color={tint}>
         {label ?? ELEMENT_LABELS[element]}
       </Text>
     </View>

@@ -12,7 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ThemeProvider, fontMap, darkColors, useTheme } from '@/theme';
+import { ThemeProvider, fontMap, lightColors, useTheme } from '@/theme';
 // Side-effect import: registers the background recording task at module
 // scope (Map Record M2). Must live at the app root — a task defined any
 // later silently never fires on a cold background launch (research §2).
@@ -30,14 +30,14 @@ export default function RootLayout() {
   // Hold on a themed background until fonts are ready (avoids a flash of
   // fallback type). Render nothing else — no splash screen by design.
   if (!fontsLoaded && !fontError) {
-    return <View style={{ flex: 1, backgroundColor: darkColors.bg }} />;
+    return <View style={{ flex: 1, backgroundColor: lightColors.bg }} />;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <ThemeProvider initialScheme="dark">
-          <StatusBar style="light" />
+        <ThemeProvider initialScheme="light">
+          <StatusBar style="dark" />
           <ThemedStack />
         </ThemeProvider>
       </SafeAreaProvider>

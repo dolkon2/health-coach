@@ -1,6 +1,8 @@
 /**
- * Button — primary actions. Sandstone fill for the main CTA; quieter variants
- * for everything else. Labels use the body font, uppercase, tracked.
+ * Button — primary actions. Neutral (monochrome) fill for the main CTA;
+ * quieter variants for everything else — color is reserved for the four
+ * elements, never a button. Labels use the label variant's own caps
+ * register (Archivo, uppercase, tracked).
  */
 import React from 'react';
 import {
@@ -85,11 +87,7 @@ export function Button({
           size="small"
         />
       ) : (
-        <Text
-          variant="label"
-          color={fg[variant]}
-          style={{ fontSize: LABEL_SIZE[size], fontFamily: theme.fonts.body.semibold }}
-        >
+        <Text variant="label" color={fg[variant]} style={{ fontSize: LABEL_SIZE[size] }}>
           {label}
         </Text>
       )}

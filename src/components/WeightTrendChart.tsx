@@ -5,7 +5,8 @@
  * don't retrofit onto an off-the-shelf chart (phase-1-build-spec open question).
  *
  * Layers, back to front: confidence band (fill), grid, smoothed EWMA trend line
- * (tier-2, sage), raw weigh-in dots (tier-1, --color-text, styled by fidelity).
+ * (tier-2, theme.colors.trendLine), raw weigh-in dots (tier-1, --color-text,
+ * styled by fidelity).
  * The y-axis is a fixed left strip; the plot lives in a horizontal ScrollView so
  * you can swipe back in time. Tap a dot to read that day's value below the plot.
  *
@@ -209,7 +210,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
               x={Y_AXIS_WIDTH - 6}
               y={model.yOf(v) + 4}
               fontSize={11}
-              fontFamily={theme.fonts.data.regular}
+              fontFamily={theme.fonts.numbers.regular}
               fill={theme.colors.textMuted}
               textAnchor="end"
             >
@@ -277,7 +278,7 @@ export function WeightTrendChart({ points, raw, weightUnit, targetKg }: WeightTr
                   x={model.xOf(p.ms)}
                   y={PLOT_HEIGHT - 6}
                   fontSize={11}
-                  fontFamily={theme.fonts.data.regular}
+                  fontFamily={theme.fonts.numbers.regular}
                   fill={theme.colors.textMuted}
                   textAnchor="middle"
                 >

@@ -11,7 +11,7 @@ export function shortLocalDate(localDate: LocalDate): string {
   return `${Number(m)}/${Number(d)}`;
 }
 
-/** e.g. "Thursday, June 26" — rendered uppercase by the display type variant. */
+/** e.g. "Thursday, June 26" — rendered mixed-case by the display type variant. */
 export function todayLocalLabel(d: Date = new Date()): string {
   return d.toLocaleDateString(undefined, {
     weekday: 'long',

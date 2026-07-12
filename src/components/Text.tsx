@@ -1,9 +1,11 @@
 /**
  * Text — the type system. One component, all brand-kit variants.
  *
- * Display = identity (headers, hero stats), always uppercase. Body = utility.
- * Data = honesty (every value the user might compare), tabular mono. Keeping
- * these registers distinct is a brand-kit rule, not a preference.
+ * Display = identity (headers, hero stats) — mixed case, never forced
+ * uppercase. Caps = structural labels (label/elementTag) — always uppercase,
+ * tracked. Body = utility. Numbers = honesty (every value the user might
+ * compare), tabular mono. Keeping these registers distinct is a brand-kit
+ * rule, not a preference.
  */
 import React from 'react';
 import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
@@ -28,7 +30,10 @@ export function Text({
 
   // Sensible default colors per register.
   const defaultColor =
-    variant === 'label' || variant === 'bodySm' || variant === 'dataSm'
+    variant === 'label' ||
+    variant === 'elementTag' ||
+    variant === 'bodySm' ||
+    variant === 'dataSm'
       ? theme.colors.textSecondary
       : theme.colors.text;
 

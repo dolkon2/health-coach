@@ -1,10 +1,10 @@
 /**
  * ThemeProvider — exposes the brand-kit tokens via React context.
  *
- * Dark mode is the default (constitution / brand kit). Light is secondary and
- * will be selectable from Settings later. Components read tokens through
- * useTheme() so a future light/dark switch is a one-line change here, not a
- * sweep across every component.
+ * Light is the only shipped scheme (design of record: planning/design-system/,
+ * locked 2026-07-11 — dark mode does not ship). darkColors is aliased to
+ * lightColors in tokens.ts; the scheme/toggle machinery below stays wired
+ * only so a future dark-mode revisit doesn't need to rebuild this contract.
  */
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import {
@@ -43,7 +43,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({
   children,
-  initialScheme = 'dark',
+  initialScheme = 'light',
 }: {
   children: React.ReactNode;
   initialScheme?: ColorScheme;

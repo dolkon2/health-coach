@@ -3,25 +3,25 @@
  * fontFamily strings referenced in tokens.ts (`fonts`).
  */
 import {
-  BarlowCondensed_600SemiBold,
-  BarlowCondensed_700Bold,
-} from '@expo-google-fonts/barlow-condensed';
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+} from '@expo-google-fonts/space-grotesk';
+import { Archivo_700Bold } from '@expo-google-fonts/archivo';
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-} from '@expo-google-fonts/inter';
+  DMSans_400Regular,
+  DMSans_500Medium,
+} from '@expo-google-fonts/dm-sans';
 import {
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-} from '@expo-google-fonts/jetbrains-mono';
+  SpaceMono_400Regular,
+  SpaceMono_700Bold,
+} from '@expo-google-fonts/space-mono';
 
 export const fontMap = {
-  BarlowCondensed_600SemiBold,
-  BarlowCondensed_700Bold,
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  Archivo_700Bold,
+  DMSans_400Regular,
+  DMSans_500Medium,
+  SpaceMono_400Regular,
+  SpaceMono_700Bold,
 };

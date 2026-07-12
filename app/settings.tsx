@@ -270,17 +270,9 @@ export default function SettingsScreen() {
       {/* ═══ Preferences ═══════════════════════════════════════════════════ */}
       <SectionHeader first>Preferences</SectionHeader>
 
-      <Section>
-        <Text variant="label">Theme</Text>
-        <Text variant="body" color={theme.colors.textMuted}>
-          Currently {theme.scheme}. Dark is the default.
-        </Text>
-        <Button
-          label={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-          variant="outline"
-          onPress={theme.toggleScheme}
-        />
-      </Section>
+      {/* No theme toggle: light-only design of record, dark mode does not ship
+          (planning/design-system/, locked 2026-07-11). ThemeProvider still
+          supports a scheme switch internally for a possible future revisit. */}
 
       <Section>
         <Text variant="label">Units</Text>
