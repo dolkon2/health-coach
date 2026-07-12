@@ -23,6 +23,7 @@ export { StimulusLedger } from './StimulusLedger';
 export { BenchmarkRhythm } from './BenchmarkRhythm';
 export { BenchmarkDayGrid } from './BenchmarkDayGrid';
 export { SwipeToDelete } from './SwipeToDelete';
+export { LogbookCalendar } from './LogbookCalendar';
 export { WeekStrip } from './WeekStrip';
 export { DayNavHeader } from './DayNavHeader';
 export { DayMealList, type DayMealListProps } from './DayMealList';
