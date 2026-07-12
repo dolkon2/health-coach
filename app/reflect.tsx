@@ -1,38 +1,41 @@
 /**
- * Reflect — the long view, keyed by the user's benchmark (Phase 5 Pass 4).
+ * Reflect — the residual benchmark-keyed tap-in (profile-settings.md P8).
  *
- * Three layers, in order (benchmarks-spec.md v0.4, "Three-layer hierarchy"):
- *   1. Frame — the active benchmark sets what the view is about; a lens
- *      switcher when several are active. Tap the frame to manage.
- *   2. Hero — the outcome face keys the hero when both faces exist (the
- *      measured story is what Reflect exists to mirror), with the behavior
- *      rhythm directly beneath as consistency context; a behavior-only
- *      benchmark promotes its rhythm — the doing IS the story.
- *   3. Supporting context — the stimulus ledger, plus the weight trend
- *      demoted here when it isn't the hero. (The correlation engine will
- *      rank this layer later; until then the existing views are the context.)
+ * When the 5-tab shell swap took Reflect off the bar, its layers dispersed:
+ * the weight trend went to Nutrition Trend (N1), the stimulus ledger to
+ * Settings › Views (locked #2, Dylan 2026-07-11: parked under Settings). What
+ * remains here is the benchmark hero/lens — the correlation hub keyed by a
+ * benchmark, per benchmarks-spec.md's three-layer hierarchy:
+ *   1. Frame — the benchmark this view is about (tap to manage); a lens
+ *      switcher when several active benchmarks are in browse mode.
+ *   2. Hero — the outcome face the benchmark promotes (the weight chart when
+ *      it's a bodyweight goal, the measured energy balance when it's that),
+ *      or the behavior rhythm when the doing IS the story.
+ *   3. Supporting — the behavior rhythm beneath an outcome hero.
  *
- * No benchmark → the ledger is the neutral organizing frame, weight trend
- * below it (spec, "No-benchmark default": weight is never the default hero).
- * No CTA to create one — pull, not push.
+ * The ledger no longer renders here (its only door is Settings) and there is
+ * no no-benchmark default: reached only from Profile, and Profile's entry is
+ * absent when no benchmark exists, so this screen assumes a benchmark. Opened
+ * two ways (locked: Profile is the only door): browsable "Reflect →" (lens
+ * across active benchmarks) or keyed to one benchmark via ?benchmarkId= — a
+ * current benchmark's card or a past goal's row (profile ⚑1).
  */
 import { useCallback } from 'react';
 import { Pressable, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import {
   Screen,
   Text,
+  Card,
   ChipSelect,
   WeightTrendChart,
-  StimulusLedger,
   BenchmarkRhythm,
   BenchmarkDayGrid,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
-import { useWeeklyStimulus } from '@/hooks/useWeeklyStimulus';
-import { useBenchmarkReflect } from '@/hooks/useBenchmarkReflect';
 import { useExpenditure } from '@/hooks/useExpenditure';
+import { useBenchmarkReflect } from '@/hooks/useBenchmarkReflect';
 import { useSettings } from '@/settings/useSettings';
 import { outcomeLine } from '@/lib/benchmarkStatus';
 
@@ -40,22 +43,27 @@ export default function ReflectScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit } = useSettings();
+  const params = useLocalSearchParams<{ benchmarkId?: string }>();
+  // A single string param; expo-router can hand back string[] for repeats.
+  const focusId = Array.isArray(params.benchmarkId) ? params.benchmarkId[0] : params.benchmarkId;
+
   const { points, raw, reload: reloadTrend } = useWeightTrend();
-  const { weeks, sessionsById, reload: reloadStimulus } = useWeeklyStimulus();
   // The measured expenditure window feeds an energy-balance outcome lens —
   // the same residual the Nutrition tab's burn card shows.
   const { measured, reload: reloadExpenditure } = useExpenditure(points);
-  const { benchmarks, lens, lensId, setLensId, reload: reloadBenchmarks } =
-    useBenchmarkReflect(points, measured);
+  const { benchmarks, lens, lensId, setLensId, reload: reloadBenchmarks } = useBenchmarkReflect(
+    points,
+    measured,
+    focusId ?? null
+  );
 
-  // Re-fetch on focus — e.g. after logging from Today (mirrors Today's pattern).
+  // Re-fetch on focus — e.g. after editing a benchmark or logging.
   useFocusEffect(
     useCallback(() => {
       reloadTrend();
-      reloadStimulus();
       reloadBenchmarks();
       reloadExpenditure();
-    }, [reloadTrend, reloadStimulus, reloadBenchmarks, reloadExpenditure])
+    }, [reloadTrend, reloadBenchmarks, reloadExpenditure])
   );
 
   const outcomeMetric = lens?.benchmark.outcome?.dimension.metric;
@@ -79,6 +87,8 @@ export default function ReflectScreen() {
       </>
     ) : null;
 
+  // The chart appears only as an outcome hero for a bodyweight goal — the
+  // standalone weight trend now lives on Nutrition Trend, not here.
   const weightChart = (
     <WeightTrendChart
       points={points}
@@ -91,6 +101,12 @@ export default function ReflectScreen() {
       }
     />
   );
+
+  // A keyed open whose benchmark no longer exists vs a browse with nothing to
+  // show — both honest, neither resurrects the ledger.
+  const emptyMessage = focusId
+    ? 'This benchmark is no longer here.'
+    : 'No benchmarks to reflect on yet.';
 
   return (
     <Screen scroll>
@@ -117,7 +133,8 @@ export default function ReflectScreen() {
               {lens.benchmark.title}
             </Text>
           </Pressable>
-          {benchmarks.length > 1 ? (
+          {/* Lens switcher only in browse mode — a keyed open is single-benchmark. */}
+          {!focusId && benchmarks.length > 1 ? (
             <View style={{ marginTop: theme.spacing[3] }}>
               <ChipSelect
                 options={benchmarks.map((b) => ({ value: b.id, label: b.title }))}
@@ -172,24 +189,13 @@ export default function ReflectScreen() {
           ) : rhythm ? (
             <View style={{ marginTop: theme.spacing[6] }}>{rhythm}</View>
           ) : null}
-
-          {/* ── Layer 3: supporting context ──────────────────────────────── */}
-          <View style={{ marginTop: theme.spacing[8] }}>
-            <StimulusLedger weeks={weeks} sessionsById={sessionsById} />
-          </View>
-          {!weightIsHero ? (
-            <View style={{ marginTop: theme.spacing[8] }}>{weightChart}</View>
-          ) : null}
         </>
       ) : (
-        <>
-          {/* No benchmark: the ledger is the neutral organizing frame; weight
-              is never the default hero. No "set a goal!" CTA — pull, not push. */}
-          <View style={{ marginTop: theme.spacing[8] }}>
-            <StimulusLedger weeks={weeks} sessionsById={sessionsById} />
-          </View>
-          <View style={{ marginTop: theme.spacing[8] }}>{weightChart}</View>
-        </>
+        <Card style={{ marginTop: theme.spacing[8] }}>
+          <Text variant="body" color={theme.colors.textMuted}>
+            {emptyMessage}
+          </Text>
+        </Card>
       )}
 
       <View style={{ height: theme.spacing[10] }} />

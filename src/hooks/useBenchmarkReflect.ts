@@ -21,7 +21,7 @@ import type { ObservationOf } from '@core/observation';
 import type { WeightTrendPoint } from '@core/trend';
 import type { ExpenditureWindow } from '@core/expenditure';
 import { isKind } from '@core/observation';
-import { listBenchmarks } from '@/storage/benchmarks';
+import { listBenchmarks, getBenchmarkById } from '@/storage/benchmarks';
 import { listObservations } from '@/storage/observations';
 import { todayLocalDate } from '@/lib/date';
 import { outcomeStatus, type OutcomeStatus } from '@/lib/benchmarkStatus';
@@ -61,7 +61,14 @@ function rhythmN(window: 'week' | 'month'): number {
 
 export function useBenchmarkReflect(
   trendPoints: WeightTrendPoint[],
-  measured: ExpenditureWindow | null = null
+  measured: ExpenditureWindow | null = null,
+  /**
+   * Key the lens to one specific benchmark — including an archived/achieved one
+   * that `listBenchmarks({status:'active'})` won't return. Set by the residual
+   * Reflect tap-in when opened from a Profile benchmark (a past goal's story,
+   * profile ⚑1). When null the hook browses active benchmarks as before.
+   */
+  focusId: string | null = null
 ): {
   benchmarks: Benchmark[];
   lens: BenchmarkLens | null;
@@ -76,8 +83,10 @@ export function useBenchmarkReflect(
 
   const lensId = useMemo(() => {
     if (chosenId && benchmarks.some((b) => b.id === chosenId)) return chosenId;
+    // A focused benchmark leads its own view (even when it's not active).
+    if (focusId && benchmarks.some((b) => b.id === focusId)) return focusId;
     return defaultLensId(benchmarks);
-  }, [benchmarks, chosenId]);
+  }, [benchmarks, chosenId, focusId]);
 
   const lensBenchmark = benchmarks.find((b) => b.id === lensId) ?? null;
   const face = lensBenchmark?.behavior;
@@ -102,16 +111,23 @@ export function useBenchmarkReflect(
     let cancelled = false;
     (async () => {
       const active = await listBenchmarks({ status: 'active' });
+      // Pull in the focused benchmark when it isn't among the active set — an
+      // archived goal still has a story to reflect on. Prepended so it leads.
+      let list = active;
+      if (focusId && !active.some((b) => b.id === focusId)) {
+        const focused = await getBenchmarkById(focusId);
+        if (focused) list = [focused, ...active];
+      }
       if (cancelled) return;
-      setBenchmarks(active);
+      setBenchmarks(list);
     })().catch(() => {
-      // A failed load renders the no-benchmark default — quiet, not wrong.
+      // A failed load renders the honest empty state — quiet, not wrong.
       if (!cancelled) setBenchmarks([]);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [focusId]);
 
   useEffect(() => reload(), [reload]);
 
