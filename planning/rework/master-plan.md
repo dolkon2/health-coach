@@ -247,6 +247,39 @@ work proceeds.
 31. **P9** (M, deferred): Gear Quiver rework (Earth arms migration, wear-vs-threshold
     read models — display only until ⚑ repack-reminder ruling).
 
+**Addendum — 2026-07-12, mockups + map style received.** Dylan delivered the
+`ui_kits/mobile-app` mockup (all 5 tabs, new brand — see `planning/design-system/README.md`)
+and a redesigned MapTiler style (`019f3285-…`, keyed via `.env.local`). Concrete effect on
+this phase's items:
+
+- **Item 26 (SDK/MapLibre upgrade) — still the real blocker, now partially de-risked.** The
+  new style's base colors/land-cover render correctly on the pinned MapLibre v10.4.2
+  (confirmed on-sim, no crash) — so the *palette* half of "on-brand map redesign" ships
+  today via the env swap alone. The *3D terrain* half genuinely needs v11, per Dylan; item
+  26 remains the gating upgrade for that.
+- **Item 27 (M5 Explore v1) — still gated, NOT unblocked by this delivery.** The mockup's own
+  Map screen literally renders an "OPEN · EXPLORE LAYOUT" placeholder badge for Explore mode
+  — Dylan has not designed it yet, even in this handoff. Reading the mockup arrival as
+  resolving Explore would be a mistake; only Record-mode chrome (mode-switch chip, sport-arm
+  chips, session-detail card) reads as settled in the mockup.
+- **Item 28 (M6 builder)** — unchanged; still sequenced after M5 + map ⚑3.
+- **Item 29 (T0 → T6, Sections/3a-3b) — do not conflate with the shipped Training splitter.**
+  The mockup's `[Templates | Routes]` top segmented switch is a **different, smaller
+  question** than T0/T6's Sections-primitive/3a-vs-3b decision, and it's been answered:
+  built into `app/(tabs)/training.tsx` this session (see `tabs/training-tab.md`'s
+  2026-07-12 status update). T0/T6 (what a "Section" even is, list-grouping shape) remain
+  fully open, locked #12.
+- **Items 30-31** — untouched by this delivery; still gated on their own ⚑ rulings.
+
+**Also flagged: §2's "Nav: shipped vs locked" table is stale.** It records the shipped nav
+as the old 4-tab bar (Today/Training/Nutrition/Reflect) as of this file's 2026-07-11
+authorship, but `git log` shows the 5-tab shell swap (item 15) and P8's Reflect retirement
+(item 25) both already shipped *before* this file was written (`e10eac7`, `d0b8219`) — the
+sim now shows Home/Training/Map/Nutrition/Social live. This master plan's phase numbering
+was written mid-stream against a state it doesn't fully reflect; treat §2 and the "current
+state" framing in §3 as needing a fresh code-inventory pass before anyone plans off them
+literally, rather than as ground truth.
+
 ### Phase 5 — The rebrand swap (whenever the kit artifact arrives)
 
 32. **Brand Pass 4** (M): the single mechanical swap PR (fonts verified against the

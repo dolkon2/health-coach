@@ -18,6 +18,30 @@ on Training), #12 (3a vs 3b genuinely open — both shapes specced, neither chos
 
 ---
 
+## Status update — 2026-07-12 (Phase 4 item 29; flag, don't reinterpret)
+
+Shipped code has moved past §2's "one scrolling screen, no mode toggle" framing in two
+undocumented steps — recorded here rather than silently rewriting the history below:
+
+1. **⚑1 (Start-first vs Library-first) was already resolved differently than either option
+   below, back in Session 4** (`app/(tabs)/training.tsx`'s file header): "Log Body Session"
+   is a persistent footer button anchored above the tab bar, not a section inside the scroll.
+   The Library (templates) leads the scroll content directly — there never was a separate
+   "Start strip" section as drafted in §2/§3 A.
+2. **This session, per Dylan's explicit ask** (matching the Nutrition Intake/Trend pattern)
+   **and confirmed by the `ui_kits/mobile-app` mockup** (`planning/design-system/README.md`),
+   a top `[Templates | Routes]` segmented `ChipSelect` now divides the library from the
+   routes shelf — reversing the 2026-07-10 call (referenced in this file's own sourcing note
+   above) that killed an earlier Templates/Routes top-swap formulation. Shipped in
+   `app/(tabs)/training.tsx`; 1307 jest / tsc clean; verified on-sim.
+
+The §2 diagram and §3 A/B below describe the **pre-this-session** shape and are kept as
+history; read them through this note, not as current layout. Progress & tools (§3 D) and the
+pending-removal review tray stay unconditional below both segments — neither is a
+Templates-vs-Routes question.
+
+---
+
 ## 1. Purpose & constitution alignment
 
 Training is the **workshop, not the archive**: the forward-facing home of everything the user
@@ -219,8 +243,10 @@ routes are reusable assets, not history** (locked #8).
 
 ## 8. ⚑ Flagged concerns (for Dylan)
 
-- **⚑1 Landing lead order** — Start-first proposed (§2); Library-first is the defensible
-  alternative. Cheap to swap, but it defines the tab's felt purpose.
+- **✅ RESOLVED (see status update above, 2026-07-12) — ⚑1 Landing lead order.** Neither
+  Start-first nor Library-first as drafted: shipped code uses a footer "Log Body Session"
+  button (Session 4) plus, as of this session, a top Templates|Routes segmented switch —
+  Library content leads directly, no separate Start strip.
 - **⚑2 3a two-lists vs 3b unified stream** (locked #12 — genuinely open, both shapes
   specced on one skeleton, decision deferred to you; T6 is the application pass).
 - **⚑3 Non-GPS Earth/Water starts** (carried Notion open question): indoor climbing and
