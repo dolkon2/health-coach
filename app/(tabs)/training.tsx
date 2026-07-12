@@ -2,9 +2,9 @@
  * Training — the workshop, not the archive (rework Session 4,
  * planning/rework/tabs/training-tab.md). One scrolling screen: recent-
  * template chips, the template library (search appears ≥10 items, cards,
- * "+ New template"), then Progress/Import/Benchmarks tap-ins. History stays
- * pinned at the bottom untouched (T4's removal is gated on Profile's logbook
- * pass — Session 7's hard gate).
+ * "+ New template"), then Progress/Import/Benchmarks tap-ins. History left
+ * for Profile's logbook (T4, Session 7 — its removal was gated on that pass
+ * shipping); a small "History →" link keeps a one-tap door to it.
  *
  * Dylan's routing answer (Session 4): "Log Body Session" is a persistent
  * button anchored above the bottom tab bar, not a section inside the scroll.
@@ -34,16 +34,11 @@ import {
   Card,
   Button,
   Field,
-  SessionCard,
   SwipeToDelete,
   TemplateCard,
 } from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
-import { reveal } from '@core/stimulus';
-import { useSessionHistory } from '@/hooks/useSessionHistory';
-import { deleteObservation } from '@/storage/observations';
-import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 import { listTemplates, deleteTemplate } from '@/storage/sessionTemplates';
 import {
   activitiesForElement,
@@ -62,7 +57,6 @@ const SEARCH_THRESHOLD = 10;
 export default function TrainingScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { sessions, reload } = useSessionHistory();
   const [templates, setTemplates] = useState<SessionTemplate[] | null>(null);
   const [search, setSearch] = useState('');
   const [showReview, setShowReview] = useState(false);
@@ -72,31 +66,12 @@ export default function TrainingScreen() {
     setTemplates(await listTemplates());
   }, []);
 
-  // Re-fetch whenever the tab regains focus — after the logger or the
-  // template editor saves, or a delete.
+  // Re-fetch whenever the tab regains focus — after the template editor saves
+  // or a delete.
   useFocusEffect(
     useCallback(() => {
-      reload();
       reloadTemplates();
-    }, [reload, reloadTemplates])
-  );
-
-  // The engine's "what this contributed" line per session (same source as Home).
-  const contributions = useMemo(() => {
-    const out: Record<string, string> = {};
-    for (const s of sessions) out[s.id] = reveal(s);
-    return out;
-  }, [sessions]);
-
-  const removeAndReload = useCallback(
-    async (id: string) => {
-      await deleteObservation(id);
-      // Fire-and-forget: propagates the delete to Apple Health if this
-      // session was ever exported; never blocks the local delete.
-      void deleteHealthKitExport(id).catch(() => {});
-      reload();
-    },
-    [reload]
+    }, [reloadTemplates])
   );
 
   const removeTemplateAndReload = useCallback(
@@ -144,9 +119,25 @@ export default function TrainingScreen() {
       scroll
       footer={<Button label="Log Body Session" onPress={() => setPickerVisible(true)} />}
     >
-      <Text variant="label" color={theme.colors.accent}>
-        Training
-      </Text>
+      {/* History moved to Profile's logbook (T4); this keeps a one-tap door to
+          it — the user never loses access (profile-settings.md §5). */}
+      <View
+        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+      >
+        <Text variant="label" color={theme.colors.accent}>
+          Training
+        </Text>
+        <Pressable
+          onPress={() => router.push('/profile')}
+          accessibilityRole="button"
+          accessibilityLabel="Open your history on Profile"
+          hitSlop={8}
+        >
+          <Text variant="label" color={theme.colors.textMuted}>
+            History →
+          </Text>
+        </Pressable>
+      </View>
       <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
         Your library
       </Text>
@@ -248,46 +239,6 @@ export default function TrainingScreen() {
         onToggle={() => setShowReview((v) => !v)}
         onLogActivity={logActivity}
       />
-
-      {/* History — stays here, unchanged, until Profile's logbook pass ships
-          (T4's hard gate, Session 7). */}
-      <Text
-        variant="label"
-        style={{ marginTop: theme.spacing[8], marginBottom: theme.spacing[2] }}
-      >
-        History
-      </Text>
-      {sessions.length > 0 ? (
-        <View style={{ gap: theme.spacing[3] }}>
-          {sessions.map((session) => (
-            <SwipeToDelete
-              key={session.id}
-              onDelete={() => removeAndReload(session.id)}
-              confirmTitle="Delete session?"
-              confirmMessage={`${session.payload.modality} — permanent.`}
-            >
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: '/log-session',
-                    params: { editId: session.id },
-                  })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`Edit ${session.payload.modality} session`}
-              >
-                <SessionCard session={session} contribution={contributions[session.id]} />
-              </Pressable>
-            </SwipeToDelete>
-          ))}
-        </View>
-      ) : (
-        <Card>
-          <Text variant="body" color={theme.colors.textMuted}>
-            No sessions logged yet.
-          </Text>
-        </Card>
-      )}
 
       {/* Mounted only while open — cheap here, but the search field above
           re-renders this tree on every keystroke otherwise, and its two
