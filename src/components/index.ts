@@ -8,6 +8,7 @@ export { SegmentedControl } from './SegmentedControl';
 export { SessionCard } from './SessionCard';
 export { BenchmarkStatusCard, type BenchmarkStatusCardProps } from './BenchmarkStatusCard';
 export { BenchmarkDetailSheet } from './BenchmarkDetailSheet';
+export { BenchmarkGroupSheet } from './BenchmarkGroupSheet';
 export { RestTimer } from './RestTimer';
 export { StepsCard } from './StepsCard';
 export { SleepCard } from './SleepCard';

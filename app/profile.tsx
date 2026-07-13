@@ -32,6 +32,7 @@ import {
   LogbookCalendar,
   ElementPickerSheet,
   BenchmarkDetailSheet,
+  BenchmarkGroupSheet,
 } from '@/components';
 import { useTheme } from '@/theme';
 import { ELEMENT_ORDER, type Activity } from '@/lib/activity';
@@ -45,10 +46,12 @@ import { localDayOf } from '@core/timeline';
 import { deleteObservation } from '@/storage/observations';
 import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 import { listBenchmarks } from '@/storage/benchmarks';
+import { listBenchmarkGroupsWithCounts } from '@/storage/benchmarkGroups';
 import { summarizeBenchmark } from '@/lib/benchmarkForm';
 import { listGear } from '@/storage/gear';
 import type { ObservationOf } from '@core/observation';
 import type { Benchmark } from '@core/benchmark';
+import type { BenchmarkGroup } from '@core/benchmarkGroup';
 import type { WeightUnit } from '@/lib/units';
 
 // The logbook is the canonical home of the *full* training history — not a
@@ -75,6 +78,8 @@ export default function ProfileScreen() {
   const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
   const [gearCount, setGearCount] = useState<number | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [groups, setGroups] = useState<Array<BenchmarkGroup & { memberCount: number }>>([]);
+  const [groupSheetId, setGroupSheetId] = useState<string | 'new' | null>(null);
 
   // The detail sheet needs these for its outcome faces; nothing else on this
   // screen consumes them (same pattern as benchmarks.tsx).
@@ -83,12 +88,14 @@ export default function ProfileScreen() {
 
   const reloadModules = useCallback(async () => {
     // A failed read leaves the module absent (null), never a fabricated zero.
-    const [bm, gear] = await Promise.all([
+    const [bm, gear, grp] = await Promise.all([
       listBenchmarks().catch(() => null),
       listGear().catch(() => null),
+      listBenchmarkGroupsWithCounts().catch(() => []),
     ]);
     setBenchmarks(bm);
     setGearCount(gear ? gear.length : null);
+    setGroups(grp);
   }, []);
 
   // Re-fetch on focus — after the detail/editor saves, or a delete elsewhere.
@@ -313,6 +320,70 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
+      {/* ── Benchmark groups (P4-3 / B4, ⚑5 interim placement: Profile) ──── */}
+      {/* Pausing a group drops its members from Home's glance and Reflect's
+          browse lens without touching any member's own status/pinned row —
+          no celebration on resume, this is bookkeeping, not a streak. */}
+      {activeBenchmarks.length > 0 || groups.length > 0 ? (
+        <View style={{ marginTop: theme.spacing[10] }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: theme.spacing[2],
+            }}
+          >
+            <Text variant="label" color={theme.colors.textMuted}>
+              Benchmark groups
+            </Text>
+            <Pressable
+              onPress={() => setGroupSheetId('new')}
+              accessibilityRole="button"
+              accessibilityLabel="New benchmark group"
+              hitSlop={8}
+            >
+              <Text variant="label" color={theme.colors.textMuted}>
+                + New →
+              </Text>
+            </Pressable>
+          </View>
+          {groups.length === 0 ? (
+            <Card>
+              <Text variant="body" color={theme.colors.textMuted}>
+                Group benchmarks you want to pause together — nothing groups
+                automatically.
+              </Text>
+            </Card>
+          ) : (
+            <View style={{ gap: theme.spacing[3] }}>
+              {groups.map((g) => (
+                <Pressable
+                  key={g.id}
+                  onPress={() => setGroupSheetId(g.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${g.title}`}
+                >
+                  <Card style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ gap: theme.spacing[1] }}>
+                      <Text variant="body">{g.title}</Text>
+                      <Text variant="bodySm" color={theme.colors.textMuted}>
+                        {g.memberCount} {g.memberCount === 1 ? 'benchmark' : 'benchmarks'}
+                      </Text>
+                    </View>
+                    {g.paused ? (
+                      <Text variant="dataSm" color={theme.colors.textMuted}>
+                        paused
+                      </Text>
+                    ) : null}
+                  </Card>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : null}
+
       {/* ── Gear quiver (P5) ─────────────────────────────────────────────── */}
       {/* Preview only: item count + tap-through to the quiver. Absent when
           empty; last-used / wear-vs-threshold read models are P9's track. */}
@@ -374,6 +445,13 @@ export default function ProfileScreen() {
         onChanged={reloadModules}
         trendPoints={trendPoints}
         measured={measured}
+      />
+
+      <BenchmarkGroupSheet
+        groupId={groupSheetId}
+        benchmarks={activeBenchmarks}
+        onClose={() => setGroupSheetId(null)}
+        onChanged={reloadModules}
       />
 
       <View style={{ height: theme.spacing[10] }} />
