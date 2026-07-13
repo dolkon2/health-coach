@@ -17,8 +17,14 @@
  * zoomLevel→center/zoom and bounds → a flat [w,s,e,n] + padding object.
  * v11 exposes named exports (no aggregate default) and dropped setAccessToken
  * (MapLibre needs no token). v11 requires the New Architecture (RN ≥ 0.80).
+ *
+ * `RasterDEMSource` (P4-2, 3D terrain): a source component like GeoJSONSource,
+ * pointed at a terrain-RGB TileJSON. Style-level `terrain`/`sky` (the fields
+ * that actually raise the mesh) have no component — they're set on the style
+ * object itself; see mapTerrain.ts + useTerrainMapStyle.
  */
 import type { ComponentType, ReactElement, ReactNode } from 'react';
+import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 export type LngLat = [number, number];
 
@@ -41,7 +47,7 @@ export type Anchor =
  */
 export type MapLibreModule = {
   Map: ComponentType<{
-    mapStyle: string;
+    mapStyle: string | StyleSpecification;
     style?: object;
     logo?: boolean;
     attribution?: boolean;
@@ -55,6 +61,10 @@ export type MapLibreModule = {
     padding?: { top?: number; right?: number; bottom?: number; left?: number };
     center?: LngLat;
     zoom?: number;
+    /** Tilt in degrees (0 = straight down); a two-finger drag adjusts it live (Map's `touchPitch` default). */
+    pitch?: number;
+    /** Rotation in degrees from north. */
+    bearing?: number;
     /** Animation duration in ms (0 = jump). */
     duration?: number;
   }>;
@@ -66,6 +76,13 @@ export type MapLibreModule = {
     source?: string;
     paint?: object;
     layout?: object;
+  }>;
+  /** Terrain-RGB elevation source; pair with a `type="hillshade"` Layer child. */
+  RasterDEMSource: ComponentType<{
+    id?: string;
+    url?: string;
+    encoding?: 'mapbox' | 'terrarium';
+    children?: ReactNode;
   }>;
   ViewAnnotation: ComponentType<{
     lngLat: LngLat;
