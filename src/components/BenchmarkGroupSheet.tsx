@@ -4,12 +4,14 @@
  * Mounts from Profile's group-management module (⚑5 — interim placement,
  * Dylan's call: Profile). `groupId` is `'new'` to create, an id to edit, or
  * `null` to stay closed — the same "controlled by id" idiom
- * BenchmarkDetailSheet uses. Pause/resume applies immediately (mirrors the
- * benchmark detail sheet's own lifecycle buttons); title + membership changes
- * batch behind "Save". No celebration on resume — this is bookkeeping.
+ * BenchmarkDetailSheet uses. Unlike that sheet, title/membership/paused all
+ * live in ONE form here (no separate edit screen), so pause/resume is local
+ * state too — everything batches behind "Save" together, never partially
+ * persisted by a dismiss mid-edit. No celebration on resume — this is
+ * bookkeeping.
  */
 import { useEffect, useState } from 'react';
-import { Modal, View, Pressable, ScrollView } from 'react-native';
+import { Alert, Modal, View, Pressable, ScrollView } from 'react-native';
 import { useTheme } from '@/theme';
 import { Text } from './Text';
 import { Button } from './Button';
@@ -29,7 +31,13 @@ import type { Benchmark } from '@core/benchmark';
 
 type BenchmarkGroupSheetProps = {
   groupId: string | 'new' | null;
-  /** Active benchmarks offered as members — Profile already loads these. */
+  /**
+   * Active benchmarks offered as members — Profile already loads these.
+   * ⚑ If a member benchmark later goes non-active, it has no checkbox here
+   * to uncheck (harmless: the framing effect it enables only ever reads
+   * active+pinned benchmarks anyway) — deleting the group is the only way
+   * to clear a stale membership row today.
+   */
   benchmarks: Benchmark[];
   onClose: () => void;
   onChanged: () => void;
@@ -57,6 +65,7 @@ export function BenchmarkGroupSheet({
       setTitle('');
       setPaused(false);
       setMemberIds(new Set());
+      setLoading(false); // in case this open interrupted an in-flight edit-load
       return;
     }
     let cancelled = false;
@@ -97,21 +106,10 @@ export function BenchmarkGroupSheet({
     });
   }
 
-  async function togglePaused() {
-    if (creating || saving) {
-      // Not yet persisted — just flip the local flag, Save writes it.
-      setPaused((p) => !p);
-      return;
-    }
-    setSaving(true);
-    try {
-      const next = !paused;
-      await updateBenchmarkGroup(groupId as string, { paused: next });
-      setPaused(next);
-      onChanged();
-    } finally {
-      setSaving(false);
-    }
+  function togglePaused() {
+    // Local only — Save persists it together with the title/membership so a
+    // dismiss mid-edit can never leave pause applied but a rename discarded.
+    setPaused((p) => !p);
   }
 
   async function save() {
@@ -141,18 +139,31 @@ export function BenchmarkGroupSheet({
       }
       onChanged();
       onClose();
+    } catch {
+      // A partial write leaves stale local state on-screen rather than a
+      // false "saved" — the sheet stays open so Save can be retried.
     } finally {
       setSaving(false);
     }
   }
 
-  async function remove() {
+  function confirmRemove() {
     if (creating || saving) return;
+    Alert.alert('Delete group?', `"${title}" — the benchmarks in it are not affected.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: remove },
+    ]);
+  }
+
+  async function remove() {
     setSaving(true);
     try {
       await deleteBenchmarkGroup(groupId as string);
       onChanged();
       onClose();
+    } catch {
+      // Leave the sheet open on failure rather than claim a delete that
+      // didn't happen.
     } finally {
       setSaving(false);
     }
@@ -222,7 +233,7 @@ export function BenchmarkGroupSheet({
                   <Button
                     label="Delete group"
                     variant="ghost"
-                    onPress={remove}
+                    onPress={confirmRemove}
                     loading={saving}
                   />
                 ) : null}
