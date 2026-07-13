@@ -22,17 +22,22 @@
  * style-spec paint/layout), all named exports off the module namespace.
  *
  * P4-2: 3D terrain on the same hero — a terrain-RGB RasterDEMSource + hillshade
- * (mapTerrain.ts) and an initial camera tilt, purely presentational (no
- * elevation number is read off the DEM here).
+ * (mapTerrain.ts, via the shared TerrainHillshade) and an initial camera tilt,
+ * purely presentational (no elevation number is read off the DEM here). The
+ * map only ever mounts once useTerrainMapStyle has *settled* (never handed a
+ * style value that later swaps out from under it) — a live style reload
+ * resets MapLibre's camera to the default world view, so the brief loading
+ * window degrades to the SVG trace instead of flashing a broken map.
  */
 import React from 'react';
 import { View } from 'react-native';
 import type { LatLng } from '@core/geo';
 import { useTheme } from '@/theme';
-import { mapStyleUrl, mapTerrainTileUrl } from '@/lib/config';
-import { TERRAIN_CAMERA_PITCH, TERRAIN_SOURCE_ID } from '@/lib/mapTerrain';
+import { mapTerrainTileUrl } from '@/lib/config';
+import { TERRAIN_CAMERA_PITCH } from '@/lib/mapTerrain';
 import { loadMapLibre, type LngLat } from './mapLibre';
-import { useTerrainMapStyle } from './useTerrainMapStyle';
+import { useTerrainMapStyle } from '@/hooks/useTerrainMapStyle';
+import { TerrainHillshade } from './TerrainHillshade';
 import { RoutePreview } from './RoutePreview';
 import { toLineString } from './geoJson';
 
@@ -46,12 +51,11 @@ type RouteMapProps = {
 
 export function RouteMap({ path, height = 220 }: RouteMapProps) {
   const theme = useTheme();
-  const styleUrl = mapStyleUrl();
-  const terrainTileUrl = mapTerrainTileUrl();
-  const mapStyle = useTerrainMapStyle(styleUrl);
+  const terrain = useTerrainMapStyle();
 
-  // No key, or nothing drawable → the honest SVG trace still tells the truth.
-  if (!mapStyle || path.length < 2) {
+  // No key, still loading, or nothing drawable → the honest SVG trace still
+  // tells the truth (and never flashes a map that's about to reload).
+  if (terrain.status !== 'ready' || path.length < 2) {
     return <RoutePreview path={path} height={height} />;
   }
 
@@ -60,7 +64,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
     // Native module absent (old dev build / jest) — fall back to the trace.
     return <RoutePreview path={path} height={height} />;
   }
-  const { Map, Camera, GeoJSONSource, Layer, RasterDEMSource } = MapLibre;
+  const { Map, Camera, GeoJSONSource, Layer } = MapLibre;
 
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -98,13 +102,18 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
         borderColor: theme.colors.border,
       }}
     >
-      <Map mapStyle={mapStyle} style={{ flex: 1 }}>
-        <Camera {...cameraProps} pitch={TERRAIN_CAMERA_PITCH} duration={0} />
-        {terrainTileUrl ? (
-          <RasterDEMSource id={TERRAIN_SOURCE_ID} url={terrainTileUrl} encoding="mapbox">
-            <Layer type="hillshade" id="route-hillshade" />
-          </RasterDEMSource>
-        ) : null}
+      <Map mapStyle={terrain.mapStyle} style={{ flex: 1 }}>
+        <Camera
+          {...cameraProps}
+          pitch={terrain.terrainReady ? TERRAIN_CAMERA_PITCH : 0}
+          duration={0}
+        />
+        <TerrainHillshade
+          MapLibre={MapLibre}
+          terrainReady={terrain.terrainReady}
+          terrainTileUrl={mapTerrainTileUrl()}
+          layerId="route-hillshade"
+        />
         <GeoJSONSource id={SOURCE_ID} data={toLineString(path)}>
           <Layer
             type="line"

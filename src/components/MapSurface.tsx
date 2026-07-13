@@ -20,7 +20,10 @@
  * never a routed/snapped line. No off-route detection, no alerts, ever.
  *
  * P4-2: 3D terrain on this same surface — a terrain-RGB RasterDEMSource +
- * hillshade (mapTerrain.ts) and an initial camera tilt, purely presentational.
+ * hillshade (mapTerrain.ts, via the shared TerrainHillshade) and an initial
+ * camera tilt, purely presentational. The map only mounts once
+ * useTerrainMapStyle has settled — see RouteMap.tsx for why a live style swap
+ * after mount is unsafe (it resets MapLibre's camera).
  */
 import React from 'react';
 import { Pressable, View } from 'react-native';
@@ -28,10 +31,11 @@ import { MapPin } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
 import type { LatLng } from '@core/geo';
 import { useTheme } from '@/theme';
-import { mapStyleUrl, mapTerrainTileUrl } from '@/lib/config';
-import { TERRAIN_CAMERA_PITCH, TERRAIN_SOURCE_ID } from '@/lib/mapTerrain';
+import { mapTerrainTileUrl } from '@/lib/config';
+import { TERRAIN_CAMERA_PITCH } from '@/lib/mapTerrain';
 import { loadMapLibre, type LngLat } from './mapLibre';
-import { useTerrainMapStyle } from './useTerrainMapStyle';
+import { useTerrainMapStyle } from '@/hooks/useTerrainMapStyle';
+import { TerrainHillshade } from './TerrainHillshade';
 import { spotIcon } from './activityIcons';
 import { Text } from './Text';
 import { toLineString } from './geoJson';
@@ -98,10 +102,8 @@ function SpotPin({ spot, onPress }: { spot: PinnableSpot; onPress: () => void })
 
 function MapSurfaceInner({ center, zoom, pins, onPressPin, guidePath }: MapSurfaceProps) {
   const theme = useTheme();
-  const styleUrl = mapStyleUrl();
-  const terrainTileUrl = mapTerrainTileUrl();
-  const mapStyle = useTerrainMapStyle(styleUrl);
-  if (!mapStyle) {
+  const terrain = useTerrainMapStyle();
+  if (terrain.status === 'unavailable') {
     return <MapUnavailable message="The map needs a MapTiler key to render. Recording still works." />;
   }
 
@@ -109,22 +111,31 @@ function MapSurfaceInner({ center, zoom, pins, onPressPin, guidePath }: MapSurfa
   if (!MapLibre) {
     return <MapUnavailable message="The map needs an updated dev build to render. Recording still works." />;
   }
-  const { Map, Camera, ViewAnnotation, GeoJSONSource, Layer, RasterDEMSource } = MapLibre;
+  if (terrain.status === 'loading') {
+    return <MapUnavailable message="Loading the map…" />;
+  }
+  const { Map, Camera, ViewAnnotation, GeoJSONSource, Layer } = MapLibre;
   const hasGuide = guidePath != null && guidePath.length >= 2;
 
   return (
     <View style={{ flex: 1 }}>
-      <Map mapStyle={mapStyle} style={{ flex: 1 }} logo={false}>
+      <Map mapStyle={terrain.mapStyle} style={{ flex: 1 }} logo={false}>
         {/* Omit the Camera entirely when we have no honest center — a bare zoom
             would park MapLibre at [0,0]; no Camera lets the style default hold. */}
         {center ? (
-          <Camera center={center} zoom={zoom} pitch={TERRAIN_CAMERA_PITCH} duration={0} />
+          <Camera
+            center={center}
+            zoom={zoom}
+            pitch={terrain.terrainReady ? TERRAIN_CAMERA_PITCH : 0}
+            duration={0}
+          />
         ) : null}
-        {terrainTileUrl ? (
-          <RasterDEMSource id={TERRAIN_SOURCE_ID} url={terrainTileUrl} encoding="mapbox">
-            <Layer type="hillshade" id="record-hillshade" />
-          </RasterDEMSource>
-        ) : null}
+        <TerrainHillshade
+          MapLibre={MapLibre}
+          terrainReady={terrain.terrainReady}
+          terrainTileUrl={mapTerrainTileUrl()}
+          layerId="record-hillshade"
+        />
         {hasGuide ? (
           <GeoJSONSource id={GUIDE_SOURCE_ID} data={toLineString(guidePath)}>
             <Layer
