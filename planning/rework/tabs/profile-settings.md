@@ -141,7 +141,9 @@ spec as the named owner, so it isn't silently dropped between specs:
   service/retire threshold → "what did I use last time."
 - **Earth arms** (shoes, bikes + components, skis) as an **additive migration** — a 017+
   claimant that queues at build time per `benchmarks-templates.md`'s migration-ledger
-  rule; no number pre-assigned.
+  rule; no number pre-assigned. *(Correction, P9 build 2026-07-13: Earth arms already
+  landed at the 014 dimension-unify merge — `category` is unconstrained TEXT, so no new
+  migration was needed or claimed; next free remains 019.)*
 - **Two read models, both descriptive**: *last-used* derives from session gear refs;
   *wear-vs-threshold* renders accumulated hours/mileage against the user's own service
   number — shown when the user opens the quiver, never fired at them.
@@ -249,7 +251,9 @@ Build pass: P9 (§ 6), deferred; nothing else waits on it.
    migration (017+ claimant, queued at build time), last-used + wear-vs-threshold read
    models over session gear refs, reserve-repack dates as date-keyed threshold rows.
    Sequenced after P5; nothing waits on it. ⚑7 must be ruled before any reminder
-   mechanics exist — until then, display only.
+   mechanics exist — until then, display only. *(Correction, shipped 2026-07-13: Earth
+   arms had already landed at the 014 merge, so P9 claimed no migration — next free
+   remains 019.)*
 
 ## 7. Dependencies
 
