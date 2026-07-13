@@ -1,7 +1,7 @@
 # Handoff → P4-2: 3D terrain map
 
 **Written:** 2026-07-13, at the close of P4-1 (SDK 56 + MapLibre v11).
-**Base:** branch `chore/sdk56-maplibre-v11`, head `7c2cb75` — ⚠️ **not pushed, not merged.**
+**Base:** P4-1 is **merged + pushed to `main`** — `origin/main == 6ec347e` (2026-07-13). Branch P4-2 straight off `main`. (The merge-vs-stack red box below is resolved — merged.)
 
 ## Model + how to run
 
