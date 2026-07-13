@@ -134,6 +134,18 @@ describe('deriveGearTotals', () => {
     expect(totals.days).toBe(1);
   });
 
+  it('accrues from whitewater.boatGearId — the boat pick is a ref home too', () => {
+    const boat: Gear = { id: 'k1', name: 'Antix 2.0', category: 'kayak' };
+    const paddle: GearSessionLike = {
+      occurredAt: '2026-06-22T15:00:00Z',
+      tz: 'UTC',
+      payload: { durationMin: 120, whitewater: { boatGearId: 'k1' } },
+    };
+    const totals = deriveGearTotals(boat, [boat], [paddle]);
+    expect(totals.sessions).toBe(1);
+    expect(totals.lastUsed?.day).toBe('2026-06-22');
+  });
+
   it('accrues from wind.gearIds and sky.gearRefs — cross-dimension refs count', () => {
     const wing: Gear = { id: 'w1', name: '9m Unit', category: 'wing' };
     const windSession: GearSessionLike = {
@@ -229,6 +241,17 @@ describe('gearStatusLine', () => {
     expect(gearStatusLine(shock, { sessions: 5, durationHr: 12, days: 5 })).toBe(
       '12 hr of your 80 hr mark'
     );
+  });
+
+  it('never attributes whole-outing distance/duration to sky gear', () => {
+    // A hike & fly's endurance km is mostly hiking; the wing's line says only
+    // what is honestly the wing's — the session count.
+    const wing: Gear = { id: 'pg1', name: 'Rush 6', category: 'paraglider' };
+    expect(gearStatusLine(wing, { sessions: 3, distanceKm: 22, durationHr: 6, days: 3 })).toBe(
+      '3 sessions'
+    );
+    const reserve: Gear = { id: 'r1', name: 'Companion', category: 'reserve' };
+    expect(gearStatusLine(reserve, { sessions: 1, distanceKm: 5, days: 1 })).toBe('1 session');
   });
 
   it('never speaks in imperatives — no alerts, no advice (constitution)', () => {

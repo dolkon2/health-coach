@@ -137,7 +137,7 @@ export type GearTotals = {
  *  rides along because days and the acquiredOn gate are civil-day questions:
  *  a LocalDate can only be compared against the session's own local day
  *  (observation.ts LocalDate contract), never a UTC slice. Gear refs live in
- *  three payload homes, one per dimension heritage (see sessionGearIds). */
+ *  four payload homes across the dimension heritages (see sessionGearIds). */
 export type GearSessionLike = {
   occurredAt: ISOInstant;
   tz: IANATimezone;
@@ -146,19 +146,22 @@ export type GearSessionLike = {
     durationMin?: number;
     endurance?: { distanceM?: number };
     wind?: { gearIds?: string[] };
+    whitewater?: { boatGearId?: string };
     sky?: { gearRefs?: Array<{ gearId: string }> };
   };
 };
 
 /**
- * Every gear id a session references, across the three homes the dimensions
+ * Every gear id a session references, across the four homes the dimensions
  * left refs in: top-level `gearIds` (Earth accrual), `wind.gearIds` (Water's
- * kit expansion), and `sky.gearRefs` (Sky's per-segment gear use). Deduped —
- * a session that tags the same item in two homes still counts it once.
+ * kit expansion), `whitewater.boatGearId` (Water's boat pick), and
+ * `sky.gearRefs` (Sky's per-segment gear use). Deduped — a session that tags
+ * the same item in two homes still counts it once.
  */
 export function sessionGearIds(payload: GearSessionLike['payload']): string[] {
   const ids = new Set<string>(payload.gearIds ?? []);
   for (const id of payload.wind?.gearIds ?? []) ids.add(id);
+  if (payload.whitewater?.boatGearId != null) ids.add(payload.whitewater.boatGearId);
   for (const ref of payload.sky?.gearRefs ?? []) ids.add(ref.gearId);
   return [...ids];
 }
@@ -274,6 +277,15 @@ export function gearStatusLine(gear: Gear, totals: GearTotals): string {
     return `${plural(totals.days, 'day')} this quiver entry`;
   }
 
+  // Sky gear: a sky session's durationMin and endurance distance cover the
+  // whole outing (hike/ground time, the full GPS envelope) — attributing them
+  // to the wing would state hike kilometres as wing wear. Sessions counted is
+  // the only whole-session fact that is honestly the gear's; the airtime
+  // story is gearWear.ts's (air segments only).
+  if (gear.category === 'paraglider' || gear.category === 'harness' || gear.category === 'reserve') {
+    return plural(totals.sessions, 'session');
+  }
+
   // No mark set (or no data the mark could read): just the totals the record has.
   const base = plural(totals.sessions, 'session');
   return totals.distanceKm != null ? `${base} · ${round(totals.distanceKm)} km` : base;
@@ -374,7 +386,10 @@ export function repackDueAt(spec: ReserveSpec): string | undefined {
  * explicitly 0. With no baseline but tracked hours on record, the tracked sum
  * is returned — the known floor of the wing's life.
  */
-export function paragliderTotalHours(spec: ParagliderSpec, trackedHours: number): number | undefined {
+export function paragliderTotalHours(
+  spec: Pick<ParagliderSpec, 'hoursBaseline'>,
+  trackedHours: number
+): number | undefined {
   if (spec.hoursBaseline === undefined) {
     return trackedHours > 0 ? trackedHours : undefined;
   }
