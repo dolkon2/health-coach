@@ -7,6 +7,7 @@
 import { describe, it, expect } from '@jest/globals';
 import {
   addDays,
+  daysBetween,
   dayNavLabel,
   dayNavCapsLabel,
   dayOfMonth,
@@ -227,5 +228,14 @@ describe('weekdayMonZero — Mon=0…Sun=6 (dayAssignment scale)', () => {
     expect(weekdayMonZero('2026-07-04')).toBe(5); // Saturday
     expect(weekdayMonZero('2026-07-05')).toBe(6); // Sunday
     expect(weekdayMonZero('2026-07-12')).toBe(6); // Sunday — Bench Day repeats Sun
+  });
+});
+
+describe('daysBetween — whole civil days, calendar math only', () => {
+  it('counts forward, backward, and across a leap boundary', () => {
+    expect(daysBetween('2026-07-10', '2026-07-13')).toBe(3);
+    expect(daysBetween('2026-07-13', '2026-07-10')).toBe(-3);
+    expect(daysBetween('2026-07-13', '2026-07-13')).toBe(0);
+    expect(daysBetween('2024-02-28', '2024-03-01')).toBe(2); // leap year
   });
 });

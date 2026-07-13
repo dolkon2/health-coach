@@ -33,6 +33,17 @@ export function todayLocalDate(d: Date = new Date()): LocalDate {
 }
 
 /**
+ * Whole civil days from `a` to `b` (positive when `b` is later). Pure
+ * calendar arithmetic via UTC epoch math — no DST wobble, no zone lookup:
+ * two LocalDates are already civil-day facts.
+ */
+export function daysBetween(a: LocalDate, b: LocalDate): number {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86_400_000);
+}
+
+/**
  * `date` ± `n` days, civil-day arithmetic in the device's local zone.
  * Negative `n` walks backward; zero is a no-op. Crosses month/year boundaries
  * via the `Date` constructor's normalization (which DST-shifts correctly).
