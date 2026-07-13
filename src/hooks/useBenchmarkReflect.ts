@@ -22,6 +22,7 @@ import type { WeightTrendPoint } from '@core/trend';
 import type { ExpenditureWindow } from '@core/expenditure';
 import { isKind } from '@core/observation';
 import { listBenchmarks, getBenchmarkById } from '@/storage/benchmarks';
+import { pausedBenchmarkIds } from '@/storage/benchmarkGroups';
 import { listObservations } from '@/storage/observations';
 import { todayLocalDate } from '@/lib/date';
 import { outcomeStatus, type OutcomeStatus } from '@/lib/benchmarkStatus';
@@ -112,13 +113,20 @@ export function useBenchmarkReflect(
   const reload = useCallback(() => {
     let cancelled = false;
     (async () => {
-      const active = await listBenchmarks({ status: 'active' });
-      // Pull in the focused benchmark when it isn't among the active set — an
-      // archived goal still has a story to reflect on. Prepended so it leads.
-      let list = active;
-      if (focusId && !active.some((b) => b.id === focusId)) {
+      const [active, paused] = await Promise.all([
+        listBenchmarks({ status: 'active' }),
+        pausedBenchmarkIds(),
+      ]);
+      // The group-pause framing effect: browse mode drops paused-group
+      // members, same as Home's glance — their own status/pinned is untouched.
+      const filtered = active.filter((b) => !paused.has(b.id));
+      // Pull in the focused benchmark when it isn't among the filtered set —
+      // an archived OR paused-grouped goal still has a story to reflect on
+      // when reached by its own direct link. Prepended so it leads.
+      let list = filtered;
+      if (focusId && !filtered.some((b) => b.id === focusId)) {
         const focused = await getBenchmarkById(focusId);
-        if (focused) list = [focused, ...active];
+        if (focused) list = [focused, ...filtered];
       }
       if (cancelled) return;
       setBenchmarks(list);

@@ -28,6 +28,7 @@ import type { ExpenditureWindow } from '@core/expenditure';
 import { isKind } from '@core/observation';
 import { isoWeekStart } from '@core/stimulus';
 import { listBenchmarks } from '@/storage/benchmarks';
+import { pausedBenchmarkIds } from '@/storage/benchmarkGroups';
 import { listObservations } from '@/storage/observations';
 import { listProtocolTicks } from '@/storage/protocolTicks';
 import { getUserProtocols } from '@/storage/settings';
@@ -105,8 +106,13 @@ export function useBenchmarkStatuses(
   const reload = useCallback(() => {
     let cancelled = false;
     (async () => {
-      const active = await listBenchmarks({ status: 'active' });
-      const pinned = active.filter((b) => b.pinned);
+      const [active, paused] = await Promise.all([
+        listBenchmarks({ status: 'active' }),
+        pausedBenchmarkIds(),
+      ]);
+      // The group-pause framing effect: a paused group drops its members from
+      // Today's glance without touching their own pinned/status row.
+      const pinned = active.filter((b) => b.pinned && !paused.has(b.id));
       const nowIso = new Date().toISOString();
       const needSessions = pinned.some(
         (b) => b.behavior && behaviorFaceRoute(b.behavior) === 'session'
