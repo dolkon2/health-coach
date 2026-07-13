@@ -43,3 +43,13 @@ export function mapStyleUrl(): string | null {
   if (!MAPTILER_KEY) return null;
   return `https://api.maptiler.com/maps/${MAP_STYLE_ID}/style.json?key=${MAPTILER_KEY}`;
 }
+
+/**
+ * MapTiler terrain-RGB TileJSON URL for 3D terrain (P4-2), or `null` with no
+ * key — rides the same MAPTILER_KEY as the base style rather than adding a
+ * second keyed dependency; the caller degrades to the flat 2D style when null.
+ */
+export function mapTerrainTileUrl(): string | null {
+  if (!MAPTILER_KEY) return null;
+  return `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`;
+}
