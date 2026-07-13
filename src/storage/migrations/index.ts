@@ -29,6 +29,7 @@ import { migration014 } from './014_dimension_unify';
 import { migration015 } from './015_spots_sport';
 import { migration016 } from './016_routes';
 import { migration017 } from './017_recording_buffer';
+import { migration018 } from './018_benchmark_groups';
 
 // Minimal structural type to avoid a circular import with db.ts (which
 // imports `migrations` from here). SqlDatabase satisfies this.
@@ -66,4 +67,5 @@ export const migrations: Migration[] = [
   migration015,
   migration016,
   migration017,
+  migration018,
 ];
