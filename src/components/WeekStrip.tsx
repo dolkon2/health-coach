@@ -4,11 +4,11 @@
  * presentation + a swipe gesture — week visibility and selection state live
  * on the caller; the strip just renders what it's given and reports taps.
  *
- * Visual signals (each is a single, load-bearing dot):
- *   • selected day: filled outline in the accent color
- *   • today (when ≠ selected): a subtler thin outline (borderStrong)
- *   • day had food logged: a small caution dot below the cell (matches the
- *     partial-entry dot in the daily-total card)
+ * Visual signals (mockup structure — letters only, the date lives in the
+ * DayNavHeader above; no day-of-month numbers in the strip):
+ *   • selected day: the weekday letter inside a raised white disc
+ *   • today (when ≠ selected): a quiet thin ring (borderStrong)
+ *   • day had food logged: a small muted dot below the cell
  *
  * No future bound — Pass 2 allows future-week paging for meal planning.
  */
@@ -18,10 +18,9 @@ import { runOnJS } from 'react-native-reanimated';
 import type { LocalDate } from '@core/observation';
 import { Text } from './Text';
 import { useTheme } from '@/theme';
-import { dayOfMonth, weekdayLetter, weekOf } from '@/lib/date';
+import { weekdayLetter, weekOf } from '@/lib/date';
 
-const CELL_WIDTH = 40;
-const CELL_HEIGHT = 56;
+const CELL_SIZE = 40;
 const SWIPE_THRESHOLD = 60;
 
 type Props = {
@@ -70,42 +69,45 @@ export function WeekStrip({
           const isSelected = d === selectedDate;
           const isToday = d === today;
           const hasFood = daysWithFood.has(d);
-          const borderColor = isSelected
-            ? theme.colors.accent
-            : isToday
-              ? theme.colors.borderStrong
-              : 'transparent';
           return (
             <Pressable
               key={d}
               onPress={() => onSelectDay(d)}
               accessibilityRole="button"
               accessibilityLabel={`View ${d}${isToday ? ' (today)' : ''}${hasFood ? ', food logged' : ''}`}
-              style={{ alignItems: 'center', gap: 4 }}
+              style={{ alignItems: 'center', gap: 6 }}
             >
+              {/* Selected day → a raised white disc holding the letter; today
+                  (when not selected) → a quiet ring; other days → bare letter. */}
               <View
-                style={{
-                  width: CELL_WIDTH,
-                  height: CELL_HEIGHT,
-                  borderRadius: CELL_WIDTH / 2,
-                  borderWidth: isSelected ? 2 : 1,
-                  borderColor,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 2,
-                }}
+                style={[
+                  {
+                    width: CELL_SIZE,
+                    height: CELL_SIZE,
+                    borderRadius: CELL_SIZE / 2,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isSelected ? theme.colors.surface : 'transparent',
+                    borderWidth: !isSelected && isToday ? 1 : 0,
+                    borderColor: theme.colors.borderStrong,
+                  },
+                  isSelected ? theme.shadow.sm : null,
+                ]}
               >
-                <Text variant="label" color={theme.colors.textMuted}>
+                <Text
+                  variant="label"
+                  color={isSelected ? theme.colors.text : theme.colors.textMuted}
+                >
                   {weekdayLetter(d)}
                 </Text>
-                <Text variant="body">{dayOfMonth(d)}</Text>
               </View>
+              {/* Soft "food logged" marker — muted, not an alert. */}
               <View
                 style={{
-                  width: 4,
-                  height: 4,
-                  borderRadius: 2,
-                  backgroundColor: hasFood ? theme.colors.caution : 'transparent',
+                  width: 5,
+                  height: 5,
+                  borderRadius: 2.5,
+                  backgroundColor: hasFood ? theme.colors.textMuted : 'transparent',
                 }}
               />
             </Pressable>

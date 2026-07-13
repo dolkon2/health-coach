@@ -72,6 +72,20 @@ export function dayNavLabel(date: LocalDate, today: LocalDate): string {
   });
 }
 
+/**
+ * The caps day-nav title — "THU · JUL 9" (uppercase weekday · month day).
+ * The Nutrition day header shows the explicit date in the caps register
+ * (the mockup's own structure), not the "Today/Yesterday" wording — the
+ * WeekStrip's selected cell already carries the "which day" cue.
+ */
+export function dayNavCapsLabel(date: LocalDate): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d)
+    .toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    .toUpperCase()
+    .replace(', ', ' · ');
+}
+
 /** e.g. "S" / "M" / "T" — the single-letter weekday for the strip's day cells. */
 export function weekdayLetter(date: LocalDate): string {
   const [y, m, d] = date.split('-').map(Number);

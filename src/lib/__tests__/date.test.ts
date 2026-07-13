@@ -8,6 +8,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   addDays,
   dayNavLabel,
+  dayNavCapsLabel,
   dayOfMonth,
   localTimeLabel,
   noonOfLocalDate,
@@ -208,5 +209,12 @@ describe('weekdayLetter + dayOfMonth — strip cell content', () => {
   it('returns the day-of-month integer for the date number', () => {
     expect(dayOfMonth('2026-06-28')).toBe(28);
     expect(dayOfMonth('2026-07-01')).toBe(1);
+  });
+});
+
+describe('dayNavCapsLabel — "THU · JUL 9" caps day-nav title', () => {
+  it('renders uppercase weekday · month day', () => {
+    expect(dayNavCapsLabel('2026-07-09')).toBe('THU · JUL 9');
+    expect(dayNavCapsLabel('2026-07-12')).toBe('SUN · JUL 12');
   });
 });

@@ -13,7 +13,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import type { LocalDate } from '@core/observation';
 import { Text } from './Text';
 import { useTheme } from '@/theme';
-import { dayNavLabel } from '@/lib/date';
+import { dayNavCapsLabel } from '@/lib/date';
 
 type Props = {
   selectedDate: LocalDate;
@@ -31,7 +31,7 @@ export function DayNavHeader({
   onJumpToToday,
 }: Props) {
   const theme = useTheme();
-  const label = dayNavLabel(selectedDate, today);
+  const label = dayNavCapsLabel(selectedDate);
   const isToday = selectedDate === today;
 
   return (
@@ -39,8 +39,8 @@ export function DayNavHeader({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: theme.spacing[3],
+        justifyContent: 'space-between',
+        paddingHorizontal: theme.spacing[2],
       }}
     >
       <Pressable
@@ -49,7 +49,7 @@ export function DayNavHeader({
         accessibilityRole="button"
         accessibilityLabel="Previous day"
       >
-        <ChevronLeft size={28} color={theme.colors.textSecondary} strokeWidth={1.5} />
+        <ChevronLeft size={18} color={theme.colors.textMuted} strokeWidth={2} />
       </Pressable>
       <Pressable
         onPress={isToday ? undefined : onJumpToToday}
@@ -58,7 +58,9 @@ export function DayNavHeader({
         accessibilityLabel={isToday ? undefined : 'Jump to today'}
         hitSlop={6}
       >
-        <Text variant="displayLg">{label}</Text>
+        <Text variant="label" color={theme.colors.textSecondary}>
+          {label}
+        </Text>
       </Pressable>
       <Pressable
         onPress={onNext}
@@ -66,7 +68,7 @@ export function DayNavHeader({
         accessibilityRole="button"
         accessibilityLabel="Next day"
       >
-        <ChevronRight size={28} color={theme.colors.textSecondary} strokeWidth={1.5} />
+        <ChevronRight size={18} color={theme.colors.textMuted} strokeWidth={2} />
       </Pressable>
     </View>
   );
