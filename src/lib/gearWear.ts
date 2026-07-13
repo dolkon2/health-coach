@@ -15,7 +15,7 @@
  * A SkyGearUse with segmentIds narrows accrual to exactly those segments
  * (positional, stringified — segments carry no id of their own).
  */
-import type { ObservationOf, SkySegment } from '@core/observation';
+import type { ObservationOf } from '@core/observation';
 import {
   paragliderTotalHours,
   repackDueAt,
@@ -26,6 +26,7 @@ import {
 import { localDayOf } from '@core/timeline';
 import type { LocalDate } from '@core/observation';
 import { daysBetween } from './date';
+import { totalAirtimeSec } from './skySegmentStats';
 
 type SkySession = ObservationOf<'session'>;
 
@@ -38,26 +39,26 @@ function sessionAirtimeMinFor(gearId: string, s: SkySession): number {
   const track = sky?.track;
   const segments = sky?.segments;
   if (track != null && segments != null && segments.length > 0) {
-    const counted: SkySegment[] =
+    // Segment identity is positional (SkyGearUse doc) — narrow first, then
+    // the shared airtime rule (skySegmentStats) counts the air ones.
+    const counted =
       ref.segmentIds != null
         ? segments.filter((seg, i) => ref.segmentIds!.includes(String(i)))
         : segments;
-    return (
-      counted
-        .filter((seg) => seg.kind === 'air')
-        .reduce((sum, seg) => sum + (track[seg.endIdx].tsSec - track[seg.startIdx].tsSec), 0) / 60
-    );
+    return totalAirtimeSec(track, counted) / 60;
   }
   // No track → the manual duration is the flight time by convention
-  // (skyLedger.ts's rule, USHPA caveat and all).
+  // (skyLedger.ts's rule, USHPA caveat and all). A hand log with no duration
+  // contributes nothing — the running total stays the tracked floor
+  // (paragliderTotalHours' framing), never a fabricated number.
   return s.payload.durationMin ?? 0;
 }
 
 /**
  * Total tracked airtime for a gear item across sky sessions, in hours.
  * `onOrAfterDay` gates by the session's own civil day (e.g. "hours flown
- * since the last trim date"). 0 is a legitimate measured zero here — the
- * record was consulted and contained no flights.
+ * since the last trim date"). The sum is the tracked floor of the gear's
+ * airtime — sessions the record knows nothing about contribute nothing.
  */
 export function skyAirtimeHrFor(
   gearId: string,
@@ -66,8 +67,12 @@ export function skyAirtimeHrFor(
 ): number {
   let min = 0;
   for (const s of sessions) {
+    // Contribution first: it's a cheap array probe, and it skips the
+    // Intl-backed civil-day resolution for the (typical) non-sky majority.
+    const m = sessionAirtimeMinFor(gearId, s);
+    if (m === 0) continue;
     if (onOrAfterDay != null && localDayOf(s.occurredAt, s.tz) < onOrAfterDay) continue;
-    min += sessionAirtimeMinFor(gearId, s);
+    min += m;
   }
   return min / 60;
 }
@@ -86,7 +91,7 @@ export function paragliderWearLines(
 ): string[] {
   const lines: string[] = [];
   const tracked = skyAirtimeHrFor(gearId, sessions);
-  const total = paragliderTotalHours(spec ?? { style: 'xc' }, tracked);
+  const total = paragliderTotalHours(spec ?? {}, tracked);
   if (total != null) {
     lines.push(
       spec?.hoursBaseline != null
@@ -94,10 +99,12 @@ export function paragliderWearLines(
         : `${round(total)} hr tracked on the wing`
     );
   }
-  if (spec != null) {
-    const trim = retrimStatus(spec, skyAirtimeHrFor(gearId, sessions, spec.lastTrimDate?.slice(0, 10)));
+  // The gated second pass exists only once a trim date does.
+  if (spec?.lastTrimDate != null) {
+    const trimDay = spec.lastTrimDate.slice(0, 10);
+    const trim = retrimStatus(spec, skyAirtimeHrFor(gearId, sessions, trimDay));
     if (trim != null) {
-      const since = `${round(trim.hoursSinceTrim)} hr since your ${spec.lastTrimDate!.slice(0, 10)} trim`;
+      const since = `${round(trim.hoursSinceTrim)} hr since your ${trimDay} trim`;
       lines.push(
         trim.pastMark == null
           ? since
@@ -114,17 +121,29 @@ export function paragliderWearLines(
  * A reserve's repack standing — the same threshold shape as a wear mark,
  * keyed by date instead of hours (profile spec §2). Shows the date and
  * days-elapsed; whether this may ever *remind* is ⚑7, unruled, so nothing
- * here fires — it renders only when the quiver is opened. Undefined when no
- * repack was ever logged: the question was never asked, nothing to report.
+ * here fires — it renders only when the quiver is opened. Undefined when the
+ * spec carries nothing: the question was never asked, nothing to report.
  */
 export function reserveRepackLine(
   spec: ReserveSpec | undefined,
   today: LocalDate
 ): string | undefined {
-  const last = spec?.lastRepackAt?.slice(0, 10);
-  if (spec == null || last == null || Number.isNaN(Date.parse(last))) return undefined;
+  if (spec == null) return undefined;
+  const last = spec.lastRepackAt?.slice(0, 10);
+  if (last == null || Number.isNaN(Date.parse(last))) {
+    // An interval with no repack on record is still the user's declared fact
+    // — silently hiding it would make the saved value look lost.
+    return spec.repackIntervalMonths != null
+      ? `No repack on record · your interval is ${spec.repackIntervalMonths} months`
+      : undefined;
+  }
   const elapsed = daysBetween(last, today);
-  const base = `Repacked ${last} — ${elapsed} day${elapsed === 1 ? '' : 's'} ago`;
+  // A future date (typo, or a pre-logged scheduled repack) gets the date
+  // stated plainly — "-3 days ago" is nonsense, not a fact.
+  const base =
+    elapsed >= 0
+      ? `Repacked ${last} — ${elapsed} day${elapsed === 1 ? '' : 's'} ago`
+      : `Repacked ${last}`;
   const due = repackDueAt(spec);
   if (due == null) return base;
   return today >= due

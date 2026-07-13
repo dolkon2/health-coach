@@ -36,6 +36,9 @@ export function todayLocalDate(d: Date = new Date()): LocalDate {
  * Whole civil days from `a` to `b` (positive when `b` is later). Pure
  * calendar arithmetic via UTC epoch math — no DST wobble, no zone lookup:
  * two LocalDates are already civil-day facts.
+ *
+ * Note: core/src/trend.ts and core/src/expenditure.ts carry private twins
+ * (core can't import src/lib) — an edit here should check those too.
  */
 export function daysBetween(a: LocalDate, b: LocalDate): number {
   const [ay, am, ad] = a.split('-').map(Number);

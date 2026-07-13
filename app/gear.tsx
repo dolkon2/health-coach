@@ -90,6 +90,13 @@ function posNum(s: string): number | undefined {
   return s.trim() !== '' && Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/** Like posNum, but an explicit 0 counts — a typed zero is a declared fact
+ *  (a brand-new wing's baseline IS 0; paragliderTotalHours' own contract). */
+function nonNegNum(s: string): number | undefined {
+  const n = Number(s);
+  return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 /** A real 'YYYY-MM-DD' from a raw text field, or undefined. */
 function localDateOrUndefined(s: string): string | undefined {
   const t = s.trim();
@@ -148,47 +155,72 @@ export default function GearScreen() {
   const active = useMemo(() => allGear.filter((g) => g.retiredOn == null), [allGear]);
   const bikes = useMemo(() => active.filter((g) => g.category === 'bike'), [active]);
 
+  // One grouping pass feeds the whole section render — the "which rows show"
+  // rule lives here once, not re-scanned per section node.
+  const byCategory = useMemo(() => {
+    const m = new Map<GearCategory, GearRecord[]>();
+    for (const g of active) {
+      const list = m.get(g.category);
+      if (list) list.push(g);
+      else m.set(g.category, [g]);
+    }
+    return m;
+  }, [active]);
+
   const sessionObs = useMemo(
     () => (sessions ?? []).filter((o): o is ObservationOf<'session'> => isKind(o, 'session')),
     [sessions]
   );
 
-  const sessionLikes = useMemo(
-    () =>
-      // tz rides along: days + acquiredOn gating are civil-day questions in
-      // the session's own zone (core/gear.ts GearSessionLike).
-      sessionObs.map((o) => ({ occurredAt: o.occurredAt, tz: o.tz, payload: o.payload })),
-    [sessionObs]
-  );
+  // Only sky-bearing sessions can carry airtime — shrink every scan inside
+  // gearWear.ts to the (typically small) sky subset.
+  const skySessions = useMemo(() => sessionObs.filter((o) => o.payload.sky != null), [sessionObs]);
 
-  // Empty until the record is actually read — a row without its lines is
-  // absence, which is honest; a computed 0 from an unread record is not.
+  // Stable within a civil day, changes at midnight — as a memo dep it
+  // refreshes the day-keyed lines when a render lands on a new day.
+  const today = todayLocalDate();
+
+  // Session-derived lines stay absent until the record is actually read — a
+  // row without a totals line is honest absence; a computed 0 from an unread
+  // record is not. A reserve's repack line derives from the gear spec alone,
+  // so it renders regardless of the session read.
   const linesById = useMemo(() => {
     const m = new Map<string, string[]>();
-    if (sessions == null) return m;
-    const today = todayLocalDate();
     for (const g of active) {
-      const totals = deriveGearTotals(g, allGear, sessionLikes);
-      const lines = [gearStatusLine(g, totals)];
-      if (totals.lastUsed != null) {
-        lines.push(`Last used ${totals.lastUsed.day} — ${agoLabel(daysBetween(totals.lastUsed.day, today))}`);
-      }
-      if (g.category === 'paraglider') {
-        lines.push(...paragliderWearLines(g.id, g.spec, sessionObs));
+      const lines: string[] = [];
+      if (sessions != null) {
+        // tz rides along: days + acquiredOn gating are civil-day questions in
+        // the session's own zone (core/gear.ts GearSessionLike).
+        const totals = deriveGearTotals(g, allGear, sessionObs);
+        lines.push(gearStatusLine(g, totals));
+        if (totals.lastUsed != null) {
+          lines.push(
+            `Last used ${totals.lastUsed.day} — ${agoLabel(daysBetween(totals.lastUsed.day, today))}`
+          );
+        }
+        if (g.category === 'paraglider') {
+          lines.push(...paragliderWearLines(g.id, g.spec, skySessions));
+        }
       }
       if (g.category === 'reserve') {
         const repack = reserveRepackLine(g.spec, today);
         if (repack != null) lines.push(repack);
       }
-      m.set(g.id, lines);
+      if (lines.length > 0) m.set(g.id, lines);
     }
     return m;
-  }, [active, allGear, sessionLikes, sessionObs, sessions]);
+  }, [active, allGear, sessionObs, skySessions, sessions, today]);
 
   const canSave = name.trim() !== '' && category != null;
 
   async function handleAdd() {
     if (!canSave || saving || category == null) return;
+    // A typed-but-unparseable repack date must not silently vanish on save —
+    // refuse loudly instead of storing a reserve that looks date-less.
+    if (category === 'reserve' && repackDate.trim() !== '' && localDateOrUndefined(repackDate) == null) {
+      setError('Last repacked needs a full date, like 2026-01-10.');
+      return;
+    }
     Keyboard.dismiss();
     setSaving(true);
     setError(null);
@@ -211,11 +243,12 @@ export default function GearScreen() {
         const targetDays = posNum(markDays);
         spec = targetDays != null ? { targetDays } : undefined;
       } else if (category === 'paraglider') {
+        const baseline = nonNegNum(hoursBaseline); // an explicit 0 is a declared fact
         spec =
           gliderStyle != null
             ? {
                 style: gliderStyle,
-                ...(posNum(hoursBaseline) != null ? { hoursBaseline: posNum(hoursBaseline) } : {}),
+                ...(baseline != null ? { hoursBaseline: baseline } : {}),
               }
             : undefined;
       } else if (category === 'reserve') {
@@ -287,19 +320,18 @@ export default function GearScreen() {
         </Card>
       ) : (
         ELEMENTS.filter((el) =>
-          el.categories.some((c) => active.some((g) => g.category === c.value))
+          el.categories.some((c) => byCategory.has(c.value))
         ).map((el) => (
           <View key={el.label} style={{ marginTop: theme.spacing[8], gap: theme.spacing[4] }}>
             <Text variant="label" color={theme.colors.textMuted}>
               {el.label}
             </Text>
             {el.categories
-              .filter((c) => active.some((g) => g.category === c.value))
+              .filter((c) => byCategory.has(c.value))
               .map((c) => (
                 <View key={c.value} style={{ gap: theme.spacing[3] }}>
                   <Text variant="label">{c.label}</Text>
-                  {active
-                    .filter((g) => g.category === c.value)
+                  {(byCategory.get(c.value) ?? [])
                     .map((g) => (
                       <Card key={g.id} style={{ gap: theme.spacing[2] }}>
                         <View

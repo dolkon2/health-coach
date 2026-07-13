@@ -160,6 +160,18 @@ describe('reserveRepackLine', () => {
     );
   });
 
+  it('states a future repack date plainly — never a negative "days ago"', () => {
+    expect(reserveRepackLine({ lastRepackAt: '2027-01-04' }, '2026-07-13')).toBe(
+      'Repacked 2027-01-04'
+    );
+  });
+
+  it('names an interval saved without a repack on record, so the value never looks lost', () => {
+    expect(reserveRepackLine({ repackIntervalMonths: 6 }, '2026-07-13')).toBe(
+      'No repack on record · your interval is 6 months'
+    );
+  });
+
   it('never speaks in imperatives — no alerts, no advice (constitution)', () => {
     const lines = [
       reserveRepackLine({ lastRepackAt: '2026-01-10', repackIntervalMonths: 6 }, '2026-07-13'),
