@@ -48,7 +48,8 @@ import { deleteHealthKitExport } from '@/lib/healthkit/writer';
 import { listBenchmarks } from '@/storage/benchmarks';
 import { listBenchmarkGroupsWithCounts } from '@/storage/benchmarkGroups';
 import { summarizeBenchmark } from '@/lib/benchmarkForm';
-import { listGear } from '@/storage/gear';
+import { listGear, type GearRecord } from '@/storage/gear';
+import { sessionGearIds } from '@core/gear';
 import type { ObservationOf } from '@core/observation';
 import type { Benchmark } from '@core/benchmark';
 import type { BenchmarkGroup } from '@core/benchmarkGroup';
@@ -76,7 +77,7 @@ export default function ProfileScreen() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
-  const [gearCount, setGearCount] = useState<number | null>(null);
+  const [gearItems, setGearItems] = useState<GearRecord[] | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [groups, setGroups] = useState<Array<BenchmarkGroup & { memberCount: number }>>([]);
   const [groupSheetId, setGroupSheetId] = useState<string | 'new' | null>(null);
@@ -94,7 +95,7 @@ export default function ProfileScreen() {
       listBenchmarkGroupsWithCounts().catch(() => []),
     ]);
     setBenchmarks(bm);
-    setGearCount(gear ? gear.length : null);
+    setGearItems(gear);
     setGroups(grp);
   }, []);
 
@@ -114,6 +115,26 @@ export default function ProfileScreen() {
     () => (benchmarks ?? []).filter((b) => b.status !== 'active'),
     [benchmarks]
   );
+
+  // "What did I use last time" — the quiver module's last-used preview
+  // (profile spec §3, P9's read-model track): the newest logbook session
+  // tagging any quiver item, named. Direct refs only — the preview names what
+  // the user tagged; inherited component wear is the quiver screen's story.
+  const gearLastUsed = useMemo(() => {
+    if (gearItems == null || gearItems.length === 0) return undefined;
+    const byId = new Map(gearItems.map((g) => [g.id, g]));
+    for (const s of sessions) {
+      // sessions arrive newest-first — the first hit is the answer.
+      const named = sessionGearIds(s.payload).filter((id) => byId.has(id));
+      if (named.length > 0) {
+        return {
+          names: named.map((id) => byId.get(id)!.name),
+          day: localDayOf(s.occurredAt, s.tz),
+        };
+      }
+    }
+    return undefined;
+  }, [gearItems, sessions]);
 
   // The engine's per-session "what this contributed" line (same source as
   // Training/Home) — the card renders it; it never authors its own.
@@ -384,10 +405,11 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      {/* ── Gear quiver (P5) ─────────────────────────────────────────────── */}
-      {/* Preview only: item count + tap-through to the quiver. Absent when
-          empty; last-used / wear-vs-threshold read models are P9's track. */}
-      {gearCount != null && gearCount > 0 ? (
+      {/* ── Gear quiver (P5 + P9's last-used preview) ────────────────────── */}
+      {/* Preview only: item count + last-used, tap-through to the quiver.
+          Absent when empty; wear-vs-threshold stays quiver-side (shown only
+          when the quiver is opened — profile spec §2). */}
+      {gearItems != null && gearItems.length > 0 ? (
         <View style={{ marginTop: theme.spacing[10] }}>
           <Text variant="label" color={theme.colors.textMuted} style={{ marginBottom: theme.spacing[2] }}>
             Gear
@@ -399,8 +421,13 @@ export default function ProfileScreen() {
           >
             <Card>
               <Text variant="body">
-                {gearCount} {gearCount === 1 ? 'item' : 'items'} in your quiver
+                {gearItems.length} {gearItems.length === 1 ? 'item' : 'items'} in your quiver
               </Text>
+              {gearLastUsed != null ? (
+                <Text variant="bodySm" color={theme.colors.textSecondary}>
+                  Last used: {gearLastUsed.names.join(', ')} — {dayNavLabel(gearLastUsed.day, todayLocalDate())}
+                </Text>
+              ) : null}
               <Text variant="bodySm" color={theme.colors.textMuted}>
                 Tap to open →
               </Text>
