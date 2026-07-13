@@ -17,10 +17,9 @@
  * require runs only when RouteMap actually renders on-device, so importing this
  * file from anywhere is always safe.
  *
- * Pinned to @maplibre/maplibre-react-native v10 — its config plugin is compatible
- * with Expo SDK 53's @expo/config-plugins (v11 needs a newer Expo). v10's classic
- * API: MapView (mapStyle) / Camera (bounds) / ShapeSource (shape) / LineLayer
- * (camelCase style), exposed on the module's default aggregate export.
+ * @maplibre/maplibre-react-native v11 (New-Architecture only): Map (mapStyle) /
+ * Camera (center|bounds + padding) / GeoJSONSource (data) / Layer (type="line",
+ * style-spec paint/layout), all named exports off the module namespace.
  */
 import React from 'react';
 import { View } from 'react-native';
@@ -53,7 +52,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
     // Native module absent (old dev build / jest) — fall back to the trace.
     return <RoutePreview path={path} height={height} />;
   }
-  const { MapView, Camera, ShapeSource, LineLayer } = MapLibre;
+  const { Map, Camera, GeoJSONSource, Layer } = MapLibre;
 
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -72,18 +71,14 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
   const tiny = maxLat - minLat < 0.0006 && maxLng - minLng < 0.0006;
   const cameraProps = tiny
     ? {
-        centerCoordinate: [(minLng + maxLng) / 2, (minLat + maxLat) / 2] as LngLat,
-        zoomLevel: 15,
+        center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2] as LngLat,
+        zoom: 15,
       }
     : {
-        bounds: {
-          ne: [maxLng, maxLat] as LngLat,
-          sw: [minLng, minLat] as LngLat,
-          paddingTop: 28,
-          paddingBottom: 28,
-          paddingLeft: 28,
-          paddingRight: 28,
-        },
+        // v11 bounds are a flat [west, south, east, north] with a separate
+        // padding inset object (was v10's { ne, sw, paddingTop, … }).
+        bounds: [minLng, minLat, maxLng, maxLat] as [number, number, number, number],
+        padding: { top: 28, right: 28, bottom: 28, left: 28 },
       };
 
   return (
@@ -95,20 +90,23 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
         borderColor: theme.colors.border,
       }}
     >
-      <MapView mapStyle={styleUrl} style={{ flex: 1 }}>
-        <Camera {...cameraProps} animationDuration={0} />
-        <ShapeSource id={SOURCE_ID} shape={toLineString(path)}>
-          <LineLayer
+      <Map mapStyle={styleUrl} style={{ flex: 1 }}>
+        <Camera {...cameraProps} duration={0} />
+        <GeoJSONSource id={SOURCE_ID} data={toLineString(path)}>
+          <Layer
+            type="line"
             id={LAYER_ID}
-            style={{
-              lineColor: theme.colors.accent,
-              lineWidth: 3,
-              lineCap: 'round',
-              lineJoin: 'round',
+            paint={{
+              'line-color': theme.colors.accent,
+              'line-width': 3,
+            }}
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
             }}
           />
-        </ShapeSource>
-      </MapView>
+        </GeoJSONSource>
+      </Map>
     </View>
   );
 }

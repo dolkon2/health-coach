@@ -102,37 +102,40 @@ function MapSurfaceInner({ center, zoom, pins, onPressPin, guidePath }: MapSurfa
   if (!MapLibre) {
     return <MapUnavailable message="The map needs an updated dev build to render. Recording still works." />;
   }
-  const { MapView, Camera, MarkerView, ShapeSource, LineLayer } = MapLibre;
+  const { Map, Camera, ViewAnnotation, GeoJSONSource, Layer } = MapLibre;
   const hasGuide = guidePath != null && guidePath.length >= 2;
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView mapStyle={styleUrl} style={{ flex: 1 }} logoEnabled={false}>
+      <Map mapStyle={styleUrl} style={{ flex: 1 }} logo={false}>
         {/* Omit the Camera entirely when we have no honest center — a bare zoom
             would park MapLibre at [0,0]; no Camera lets the style default hold. */}
         {center ? (
-          <Camera centerCoordinate={center} zoomLevel={zoom} animationDuration={0} />
+          <Camera center={center} zoom={zoom} duration={0} />
         ) : null}
         {hasGuide ? (
-          <ShapeSource id={GUIDE_SOURCE_ID} shape={toLineString(guidePath)}>
-            <LineLayer
+          <GeoJSONSource id={GUIDE_SOURCE_ID} data={toLineString(guidePath)}>
+            <Layer
+              type="line"
               id={GUIDE_LAYER_ID}
-              style={{
-                lineColor: theme.colors.textMuted,
-                lineWidth: 2.5,
-                lineDasharray: [2, 2],
-                lineCap: 'round',
-                lineJoin: 'round',
+              paint={{
+                'line-color': theme.colors.textMuted,
+                'line-width': 2.5,
+                'line-dasharray': [2, 2],
+              }}
+              layout={{
+                'line-cap': 'round',
+                'line-join': 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
         ) : null}
         {pins.map((spot) => (
-          <MarkerView key={spot.id} coordinate={[spot.lng, spot.lat]} allowOverlap>
+          <ViewAnnotation key={spot.id} lngLat={[spot.lng, spot.lat]}>
             <SpotPin spot={spot} onPress={() => onPressPin(spot)} />
-          </MarkerView>
+          </ViewAnnotation>
         ))}
-      </MapView>
+      </Map>
     </View>
   );
 }
