@@ -35,13 +35,18 @@ export const MAPTILER_KEY: string | null =
 export const MAP_STYLE_ID: string =
   process.env.EXPO_PUBLIC_MAP_STYLE_ID || 'outdoor';
 
+/** Shared key guard for every MapTiler endpoint — `null` with no key configured. */
+function mapTilerUrl(path: string): string | null {
+  if (!MAPTILER_KEY) return null;
+  return `https://api.maptiler.com/${path}?key=${MAPTILER_KEY}`;
+}
+
 /**
  * MapTiler style URL for the route map, or `null` when no key is configured (the
  * caller falls back to the SVG trace). Never hardcodes or logs the key.
  */
 export function mapStyleUrl(): string | null {
-  if (!MAPTILER_KEY) return null;
-  return `https://api.maptiler.com/maps/${MAP_STYLE_ID}/style.json?key=${MAPTILER_KEY}`;
+  return mapTilerUrl(`maps/${MAP_STYLE_ID}/style.json`);
 }
 
 /**
@@ -50,6 +55,5 @@ export function mapStyleUrl(): string | null {
  * second keyed dependency; the caller degrades to the flat 2D style when null.
  */
 export function mapTerrainTileUrl(): string | null {
-  if (!MAPTILER_KEY) return null;
-  return `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`;
+  return mapTilerUrl('tiles/terrain-rgb-v2/tiles.json');
 }
