@@ -108,7 +108,9 @@ export function useBenchmarkStatuses(
     (async () => {
       const [active, paused] = await Promise.all([
         listBenchmarks({ status: 'active' }),
-        pausedBenchmarkIds(),
+        // A failed group-pause read degrades to "nothing paused" — it must
+        // never take down Today's whole glance over an unrelated query.
+        pausedBenchmarkIds().catch(() => new Set<string>()),
       ]);
       // The group-pause framing effect: a paused group drops its members from
       // Today's glance without touching their own pinned/status row.

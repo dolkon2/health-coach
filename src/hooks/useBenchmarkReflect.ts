@@ -115,7 +115,9 @@ export function useBenchmarkReflect(
     (async () => {
       const [active, paused] = await Promise.all([
         listBenchmarks({ status: 'active' }),
-        pausedBenchmarkIds(),
+        // A failed group-pause read degrades to "nothing paused" — it must
+        // never take down Reflect's whole browse list over an unrelated query.
+        pausedBenchmarkIds().catch(() => new Set<string>()),
       ]);
       // The group-pause framing effect: browse mode drops paused-group
       // members, same as Home's glance — their own status/pinned is untouched.

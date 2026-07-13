@@ -136,8 +136,10 @@ export function BenchmarkDetailSheet({
                   color={theme.colors.textMuted}
                   style={{ marginTop: theme.spacing[3] }}
                 >
-                  In {groups.map((g) => g.title).join(', ')}
-                  {groups.some((g) => g.paused) ? ' (paused)' : ''}
+                  In{' '}
+                  {groups
+                    .map((g) => `${g.title}${g.paused ? ' (paused)' : ''}`)
+                    .join(', ')}
                 </Text>
               ) : null}
 

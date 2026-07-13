@@ -83,7 +83,9 @@ export function useBenchmarkDetail(
     (async () => {
       const [b, g] = await Promise.all([
         getBenchmarkById(benchmarkId),
-        listGroupsForBenchmark(benchmarkId),
+        // A failed groups read degrades to "no chips" — it must never take
+        // the whole sheet down over a query unrelated to the benchmark itself.
+        listGroupsForBenchmark(benchmarkId).catch(() => []),
       ]);
       if (cancelled) return;
       setBenchmark(b);
