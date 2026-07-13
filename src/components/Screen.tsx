@@ -23,7 +23,7 @@ import { useTheme } from '@/theme';
 // so it reads as a soft mottling under the light ground, never a dark wall;
 // content layers over it transparently, so white cards stay clean on top.
 const BASALT_HAZE = require('../../assets/basalt-haze.jpg');
-const HAZE_OPACITY = 0.06;
+const HAZE_OPACITY = 0.1;
 
 type ScreenProps = {
   children: React.ReactNode;
@@ -39,7 +39,11 @@ export function Screen({ children, scroll, style, footer, refreshing, onRefresh 
   const theme = useTheme();
 
   const padding: ViewStyle = {
-    paddingTop: theme.spacing[4],
+    // Breathing room below the nav header (Dylan, 2026-07-12: titled modal
+    // screens — New template, Spots, … — felt cramped up top). Applies to
+    // every Screen; tab screens have an empty-title header so the extra room
+    // just reads as airier.
+    paddingTop: theme.spacing[8],
     paddingHorizontal: theme.spacing[6],
     paddingBottom: footer ? theme.spacing[10] : theme.spacing[6],
   };

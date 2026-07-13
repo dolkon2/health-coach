@@ -33,6 +33,11 @@ export const lightColors = {
   bg: '#DFE4E1',
   surface: '#FFFFFF',
   surfaceRaised: '#FFFFFF',
+  // Card fill — slightly translucent white so the basalt haze reads faintly
+  // through cards, tying them into the ground (Dylan, 2026-07-12). Distinct
+  // from `surface` (kept fully opaque for sheets, the segmented active chip,
+  // and the week-strip disc, which should stay solid).
+  card: 'rgba(255,255,255,0.85)',
   border: '#CFD6D2',
   borderStrong: gray400,
   // Text — the monochrome ramp.
