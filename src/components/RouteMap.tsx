@@ -20,13 +20,19 @@
  * @maplibre/maplibre-react-native v11 (New-Architecture only): Map (mapStyle) /
  * Camera (center|bounds + padding) / GeoJSONSource (data) / Layer (type="line",
  * style-spec paint/layout), all named exports off the module namespace.
+ *
+ * P4-2: 3D terrain on the same hero — a terrain-RGB RasterDEMSource + hillshade
+ * (mapTerrain.ts) and an initial camera tilt, purely presentational (no
+ * elevation number is read off the DEM here).
  */
 import React from 'react';
 import { View } from 'react-native';
 import type { LatLng } from '@core/geo';
 import { useTheme } from '@/theme';
-import { mapStyleUrl } from '@/lib/config';
+import { mapStyleUrl, mapTerrainTileUrl } from '@/lib/config';
+import { TERRAIN_CAMERA_PITCH, TERRAIN_SOURCE_ID } from '@/lib/mapTerrain';
 import { loadMapLibre, type LngLat } from './mapLibre';
+import { useTerrainMapStyle } from './useTerrainMapStyle';
 import { RoutePreview } from './RoutePreview';
 import { toLineString } from './geoJson';
 
@@ -41,9 +47,11 @@ type RouteMapProps = {
 export function RouteMap({ path, height = 220 }: RouteMapProps) {
   const theme = useTheme();
   const styleUrl = mapStyleUrl();
+  const terrainTileUrl = mapTerrainTileUrl();
+  const mapStyle = useTerrainMapStyle(styleUrl);
 
   // No key, or nothing drawable → the honest SVG trace still tells the truth.
-  if (!styleUrl || path.length < 2) {
+  if (!mapStyle || path.length < 2) {
     return <RoutePreview path={path} height={height} />;
   }
 
@@ -52,7 +60,7 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
     // Native module absent (old dev build / jest) — fall back to the trace.
     return <RoutePreview path={path} height={height} />;
   }
-  const { Map, Camera, GeoJSONSource, Layer } = MapLibre;
+  const { Map, Camera, GeoJSONSource, Layer, RasterDEMSource } = MapLibre;
 
   let minLat = Infinity;
   let maxLat = -Infinity;
@@ -90,8 +98,13 @@ export function RouteMap({ path, height = 220 }: RouteMapProps) {
         borderColor: theme.colors.border,
       }}
     >
-      <Map mapStyle={styleUrl} style={{ flex: 1 }}>
-        <Camera {...cameraProps} duration={0} />
+      <Map mapStyle={mapStyle} style={{ flex: 1 }}>
+        <Camera {...cameraProps} pitch={TERRAIN_CAMERA_PITCH} duration={0} />
+        {terrainTileUrl ? (
+          <RasterDEMSource id={TERRAIN_SOURCE_ID} url={terrainTileUrl} encoding="mapbox">
+            <Layer type="hillshade" id="route-hillshade" />
+          </RasterDEMSource>
+        ) : null}
         <GeoJSONSource id={SOURCE_ID} data={toLineString(path)}>
           <Layer
             type="line"
