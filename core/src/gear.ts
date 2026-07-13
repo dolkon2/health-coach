@@ -119,19 +119,25 @@ export interface Kit {
  * are undefined — not 0 — when no counted session carried that field (null ≠ 0:
  * an untimed session is unknown time, never zero time). `days` counts distinct
  * civil days, so two laps on one day are one day on the skis.
+ *
+ * `lastUsed` is the most recent counting session — "what did I use last time"
+ * as a fact off the same accrual pass (a component's inherited rides and the
+ * acquiredOn gate apply to it identically). Absent when nothing ever counted.
  */
 export type GearTotals = {
   sessions: number;
   distanceKm?: number;
   durationHr?: number;
   days: number;
+  lastUsed?: { occurredAt: ISOInstant; day: LocalDate };
 };
 
 /** The slice of a session Observation the accrual reads — keeps core decoupled
  *  from the full Observation shape (any session-like record can accrue). `tz`
  *  rides along because days and the acquiredOn gate are civil-day questions:
  *  a LocalDate can only be compared against the session's own local day
- *  (observation.ts LocalDate contract), never a UTC slice. */
+ *  (observation.ts LocalDate contract), never a UTC slice. Gear refs live in
+ *  three payload homes, one per dimension heritage (see sessionGearIds). */
 export type GearSessionLike = {
   occurredAt: ISOInstant;
   tz: IANATimezone;
@@ -139,8 +145,23 @@ export type GearSessionLike = {
     gearIds?: string[];
     durationMin?: number;
     endurance?: { distanceM?: number };
+    wind?: { gearIds?: string[] };
+    sky?: { gearRefs?: Array<{ gearId: string }> };
   };
 };
+
+/**
+ * Every gear id a session references, across the three homes the dimensions
+ * left refs in: top-level `gearIds` (Earth accrual), `wind.gearIds` (Water's
+ * kit expansion), and `sky.gearRefs` (Sky's per-segment gear use). Deduped —
+ * a session that tags the same item in two homes still counts it once.
+ */
+export function sessionGearIds(payload: GearSessionLike['payload']): string[] {
+  const ids = new Set<string>(payload.gearIds ?? []);
+  for (const id of payload.wind?.gearIds ?? []) ids.add(id);
+  for (const ref of payload.sky?.gearRefs ?? []) ids.add(ref.gearId);
+  return [...ids];
+}
 
 /**
  * Derive a gear item's totals from the sessions that tagged it. A session
@@ -164,10 +185,11 @@ export function deriveGearTotals(
   let count = 0;
   let distanceM: number | undefined;
   let durationMin: number | undefined;
+  let lastUsed: GearTotals['lastUsed'];
   const days = new Set<string>();
 
   for (const s of sessions) {
-    const ids = s.payload.gearIds ?? [];
+    const ids = sessionGearIds(s.payload);
     const direct = ids.includes(gear.id);
     const viaParent = parent != null && ids.includes(parent.id);
     if (!direct && !viaParent) continue;
@@ -184,6 +206,11 @@ export function deriveGearTotals(
 
     count += 1;
     days.add(day);
+    // ISO instants compare lexically; ties keep the first seen, which is fine
+    // — same instant, same fact.
+    if (lastUsed == null || s.occurredAt > lastUsed.occurredAt) {
+      lastUsed = { occurredAt: s.occurredAt, day };
+    }
     const dM = s.payload.endurance?.distanceM;
     if (dM != null) distanceM = (distanceM ?? 0) + dM;
     if (s.payload.durationMin != null) {
@@ -196,6 +223,7 @@ export function deriveGearTotals(
     ...(distanceM != null ? { distanceKm: distanceM / 1000 } : {}),
     ...(durationMin != null ? { durationHr: durationMin / 60 } : {}),
     days: days.size,
+    ...(lastUsed != null ? { lastUsed } : {}),
   };
 }
 

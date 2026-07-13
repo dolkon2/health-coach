@@ -17,6 +17,7 @@ import { describe, it, expect } from '@jest/globals';
 import {
   deriveGearTotals,
   gearStatusLine,
+  sessionGearIds,
   type Gear,
   type GearSessionLike,
 } from '../src/gear';
@@ -131,6 +132,60 @@ describe('deriveGearTotals', () => {
     expect(totals.distanceKm).toBeUndefined();
     expect(totals.durationHr).toBeUndefined();
     expect(totals.days).toBe(1);
+  });
+
+  it('accrues from wind.gearIds and sky.gearRefs — cross-dimension refs count', () => {
+    const wing: Gear = { id: 'w1', name: '9m Unit', category: 'wing' };
+    const windSession: GearSessionLike = {
+      occurredAt: '2026-06-20T18:00:00Z',
+      tz: 'UTC',
+      payload: { durationMin: 90, wind: { gearIds: ['w1'] } },
+    };
+    expect(deriveGearTotals(wing, [wing], [windSession]).sessions).toBe(1);
+    expect(deriveGearTotals(wing, [wing], [windSession]).durationHr).toBe(1.5);
+
+    const glider: Gear = { id: 'pg1', name: 'Rush 6', category: 'paraglider' };
+    const skySession: GearSessionLike = {
+      occurredAt: '2026-06-21T16:00:00Z',
+      tz: 'UTC',
+      payload: { sky: { gearRefs: [{ gearId: 'pg1' }] } },
+    };
+    expect(deriveGearTotals(glider, [glider], [skySession]).sessions).toBe(1);
+  });
+
+  it('reports the most recent counting session as lastUsed, gates and all', () => {
+    const totals = deriveGearTotals(SHOES, [SHOES], [
+      session('2026-06-01T08:00:00Z', ['sh1']),
+      session('2026-06-09T08:00:00Z', ['sh1']),
+      session('2026-06-05T08:00:00Z', ['sh1']),
+      session('2026-06-20T08:00:00Z', ['other-gear']), // untagged — not a use
+    ]);
+    expect(totals.lastUsed).toEqual({ occurredAt: '2026-06-09T08:00:00Z', day: '2026-06-09' });
+
+    // A component's lastUsed obeys the acquiredOn gate — a parent ride before
+    // install was never a use of the component.
+    const componentTotals = deriveGearTotals(CHAIN, [BIKE, CHAIN], [
+      session('2026-06-15T10:00:00Z', ['b1']),
+    ]);
+    expect(componentTotals.lastUsed).toBeUndefined();
+
+    // Nothing ever counted → absent, never a fabricated value.
+    expect(deriveGearTotals(SKIS, [SKIS], []).lastUsed).toBeUndefined();
+  });
+});
+
+describe('sessionGearIds', () => {
+  it('unions the three ref homes and dedupes across them', () => {
+    const ids = sessionGearIds({
+      gearIds: ['a', 'b'],
+      wind: { gearIds: ['b', 'c'] },
+      sky: { gearRefs: [{ gearId: 'c' }, { gearId: 'd' }] },
+    });
+    expect([...ids].sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('returns empty for a session with no refs anywhere', () => {
+    expect(sessionGearIds({})).toEqual([]);
   });
 });
 
