@@ -28,6 +28,7 @@ export { LogbookCalendar } from './LogbookCalendar';
 export { WeekStrip } from './WeekStrip';
 export { DayNavHeader } from './DayNavHeader';
 export { DayMealList, type DayMealListProps } from './DayMealList';
+export { MacroBar, type MacroBarProps } from './MacroBar';
 export { ExpenditureCard } from './ExpenditureCard';
 export { WeighInHistory } from './WeighInHistory';
 export { DimensionTag } from './DimensionTag';

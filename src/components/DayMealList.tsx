@@ -23,6 +23,7 @@ import { blendComposite } from '@core/nutrition/fidelity';
 import { captureLabel } from '@core/nutrition/captureTier';
 import { Card } from './Card';
 import { Text } from './Text';
+import { MacroBar } from './MacroBar';
 import { SwipeToDelete } from './SwipeToDelete';
 import { FidelityTreatment } from './FidelityTreatment';
 import { useTheme } from '@/theme';
@@ -33,7 +34,6 @@ import {
   itemMacroSummary,
   mealDisplayName,
   removeItemFromMeal,
-  type DailyMacroTotal,
 } from '@/lib/foodLog';
 import { deleteObservation, updateObservation } from '@/storage/observations';
 
@@ -41,18 +41,6 @@ type FoodObs = ObservationOf<'foodEntry'>;
 
 const macroStr = (v: number | null | undefined): string =>
   v == null ? '—' : String(Math.round(v));
-
-function TotalMacro({ label, total }: { label: string; total: DailyMacroTotal }) {
-  const theme = useTheme();
-  return (
-    <View>
-      <Text variant="data">{macroStr(total.value)}</Text>
-      <Text variant="label" color={theme.colors.textSecondary}>
-        {label}
-      </Text>
-    </View>
-  );
-}
 
 export type DayMealListProps = {
   entries: ReadonlyArray<FoodObs>;
@@ -145,16 +133,28 @@ export function DayMealList({
 
   return (
     <View style={{ gap: theme.spacing[3] }}>
-      <Card raised style={{ gap: theme.spacing[2] }}>
-        <Text variant="label" color={theme.colors.textSecondary}>
-          Daily total
-        </Text>
-        <View style={{ flexDirection: 'row', gap: theme.spacing[5] }}>
-          <TotalMacro label="Cal" total={totals.kcal} />
-          <TotalMacro label="P" total={totals.proteinG} />
-          <TotalMacro label="C" total={totals.carbsG} />
-          <TotalMacro label="F" total={totals.fatG} />
+      <Card raised style={{ gap: theme.spacing[3], padding: theme.spacing[3] }}>
+        <View style={{ gap: theme.spacing[1] }}>
+          <Text variant="label" color={theme.colors.textSecondary}>
+            Daily total
+          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: theme.spacing[2] }}>
+            <Text variant="dataLg">{macroStr(totals.kcal.value)}</Text>
+            <Text variant="label" color={theme.colors.textSecondary}>
+              kcal
+            </Text>
+          </View>
         </View>
+        {/* Stacked P/C/F bar + colored-dot breakdown — the macro color system
+            (Dylan, 2026-07-12): protein rust, carb teal, fat ochre, the same
+            three the per-meal bars and Home's glance card use. */}
+        <MacroBar
+          proteinG={totals.proteinG.value}
+          carbsG={totals.carbsG.value}
+          fatG={totals.fatG.value}
+          height={8}
+          legend
+        />
         {totals.partialCount > 0 ? (
           <View
             style={{ flexDirection: 'row', alignItems: 'center', gap: theme.spacing[2] }}
@@ -231,7 +231,7 @@ export function DayMealList({
                       confirmTitle={`Delete ${mealName}?`}
                       confirmMessage="This is permanent."
                     >
-                      <Card style={{ gap: theme.spacing[2] }}>
+                      <Card style={{ gap: theme.spacing[2], padding: theme.spacing[3] }}>
                         <Pressable
                           onPress={() =>
                             router.push({ pathname: '/log-food', params: { editId: o.id } })
@@ -275,6 +275,13 @@ export function DayMealList({
                               {captureLabel(o.payload)}
                             </Text>
                           </View>
+                          {/* Per-meal macro breakdown — same rust/teal/ochre
+                              system as the daily total, at meal scale. */}
+                          <MacroBar
+                            proteinG={o.payload.proteinG ?? null}
+                            carbsG={o.payload.carbsG ?? null}
+                            fatG={o.payload.fatG ?? null}
+                          />
                         </Pressable>
 
                         {expandable ? (
