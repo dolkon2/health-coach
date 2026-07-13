@@ -21,9 +21,13 @@
  * connection state now — settings.tsx; Home only reads `connected` to decide
  * whether the steps/sleep strip renders).
  *
- * Glance-tier order: Nutrition → Pinned Spots → Benchmarks (Dylan, 2026-07-12
- * — Nutrition leads). Today's-template card (H5) is NOT built in this pass —
- * it needs Training's per-template recurrence property, which doesn't exist yet.
+ * Glance-tier order: Today's session → Nutrition → Pinned Spots → Benchmarks.
+ * The today's-template card (H5) leads: it's the day's plan, the most
+ * actionable "what's on" item. It surfaces any active SessionTemplate whose
+ * `dayAssignment` matches today's weekday (the recurrence property the earlier
+ * pass was waiting on — it exists now: sessionTemplate.ts's dayAssignment +
+ * isActive, the same "repeats <Day>" a TemplateCard already shows). Absent,
+ * not empty: no card on a day with nothing scheduled.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
@@ -37,12 +41,16 @@ import {
   BenchmarkDetailSheet,
   SpotCard,
   StepsSleepStrip,
+  MacroBar,
+  TemplateCard,
   PillActionButton,
   DiamondGlyph,
   TriangleGlyph,
 } from '@/components';
 import { useTheme } from '@/theme';
-import { todayLocalLabel, yearLabel } from '@/lib/date';
+import { todayLocalLabel, yearLabel, todayLocalDate, weekdayMonZero } from '@/lib/date';
+import { listTemplates } from '@/storage/sessionTemplates';
+import type { SessionTemplate } from '@core/sessionTemplate';
 import { useTodayObservations } from '@/hooks/useTodayObservations';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
 import { useBenchmarkStatuses } from '@/hooks/useBenchmarkStatuses';
@@ -61,6 +69,16 @@ export default function HomeScreen() {
   const { nutritionFocus, weightUnit } = useSettings();
   const [pickerVisible, setPickerVisible] = useState(false);
   const [benchmarkDetailId, setBenchmarkDetailId] = useState<string | null>(null);
+  const [todaysTemplates, setTodaysTemplates] = useState<SessionTemplate[]>([]);
+
+  // Today's scheduled sessions (H5) — active templates assigned to today's
+  // weekday. One table read on focus; the filter is Mon=0…Sun=6 to match
+  // dayAssignment's own scale (see weekdayMonZero).
+  const reloadTodaysTemplates = useCallback(async () => {
+    const all = await listTemplates();
+    const todayDow = weekdayMonZero(todayLocalDate());
+    setTodaysTemplates(all.filter((t) => t.isActive && t.dayAssignment === todayDow));
+  }, []);
 
   const { foodEntriesToday, stepsToday, sleepToday, reload: reloadToday } = useTodayObservations();
   const { points: trendPoints, reload: reloadTrend } = useWeightTrend();
@@ -94,9 +112,24 @@ export default function HomeScreen() {
       reloadBenchmarks();
       reloadExpenditure();
       reloadSpots();
+      reloadTodaysTemplates();
       syncNow();
-    }, [reloadToday, reloadTrend, reloadBenchmarks, reloadExpenditure, reloadSpots, syncNow])
+    }, [
+      reloadToday,
+      reloadTrend,
+      reloadBenchmarks,
+      reloadExpenditure,
+      reloadSpots,
+      reloadTodaysTemplates,
+      syncNow,
+    ])
   );
+
+  function openTemplate(t: SessionTemplate) {
+    // Mirror Training's template open — the logger with the template's
+    // activity pre-selected; templateId carried for the Pass 3 backlink.
+    router.push({ pathname: '/log-session', params: { activity: t.activity, templateId: t.id } });
+  }
 
   function openPicker() {
     reloadSessions();
@@ -195,6 +228,22 @@ export default function HomeScreen() {
         </View>
       ) : null}
 
+      {/* Today's scheduled sessions (H5) — active templates whose recurrence
+          day is today. Sits under Nutrition, above Spots (Dylan, 2026-07-12).
+          Absent on a day with nothing scheduled. */}
+      {todaysTemplates.length > 0 ? (
+        <View style={{ marginTop: showNutritionCard ? theme.spacing[8] : theme.spacing[6] }}>
+          <Text variant="label" style={{ marginBottom: theme.spacing[2] }}>
+            Today
+          </Text>
+          <View style={{ gap: theme.spacing[3] }}>
+            {todaysTemplates.map((t) => (
+              <TemplateCard key={t.id} template={t} onPress={() => openTemplate(t)} />
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {/* Pinned Spots — a floor module (home-tab.md § 2): the "Spots →" link
           keeps a one-line presence even at zero spots, since it's the only
           door to the spots list. Condensed cards (cap 3) render above it
@@ -272,48 +321,5 @@ export default function HomeScreen() {
       />
 
     </Screen>
-  );
-}
-
-/**
- * A compact protein/carb/fat bar for Home's Nutrition card — glance-tier
- * visual only, no gram numbers (the full P/C/F breakdown already lives on
- * Nutrition's own Daily total card). Colors follow `chartSeries`' own stated
- * macro-breakdown order (`tokens.ts`: "rust, teal, ochre, then sky") —
- * protein/carb/fat map to body/water/earth, not invented hues. Renders
- * nothing when every macro is unknown: no bar is the honest state, never a
- * fabricated even split (food-logging-spec § null ≠ 0).
- */
-function MacroBar({
-  proteinG,
-  carbsG,
-  fatG,
-}: {
-  proteinG: number | null;
-  carbsG: number | null;
-  fatG: number | null;
-}) {
-  const theme = useTheme();
-  const segments = [
-    { grams: proteinG ?? 0, color: theme.colors.element.body },
-    { grams: carbsG ?? 0, color: theme.colors.element.water },
-    { grams: fatG ?? 0, color: theme.colors.element.earth },
-  ];
-  if (segments.every((s) => s.grams <= 0)) return null;
-
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        height: 6,
-        borderRadius: theme.radius.sm,
-        overflow: 'hidden',
-        gap: 2,
-      }}
-    >
-      {segments.map((s, i) =>
-        s.grams > 0 ? <View key={i} style={{ flex: s.grams, backgroundColor: s.color }} /> : null
-      )}
-    </View>
   );
 }

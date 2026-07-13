@@ -16,6 +16,7 @@ import {
   todayLocalDate,
   weekOf,
   weekdayLetter,
+  weekdayMonZero,
 } from '@/lib/date';
 
 describe('localTimeLabel — tz-aware wall-clock time', () => {
@@ -216,5 +217,15 @@ describe('dayNavCapsLabel — "THU · JUL 9" caps day-nav title', () => {
   it('renders uppercase weekday · month day', () => {
     expect(dayNavCapsLabel('2026-07-09')).toBe('THU · JUL 9');
     expect(dayNavCapsLabel('2026-07-12')).toBe('SUN · JUL 12');
+  });
+});
+
+describe('weekdayMonZero — Mon=0…Sun=6 (dayAssignment scale)', () => {
+  it('maps each weekday to the DAYS_OF_WEEK index, not JS getDay()', () => {
+    expect(weekdayMonZero('2026-06-29')).toBe(0); // Monday
+    expect(weekdayMonZero('2026-06-30')).toBe(1); // Tuesday
+    expect(weekdayMonZero('2026-07-04')).toBe(5); // Saturday
+    expect(weekdayMonZero('2026-07-05')).toBe(6); // Sunday
+    expect(weekdayMonZero('2026-07-12')).toBe(6); // Sunday — Bench Day repeats Sun
   });
 });

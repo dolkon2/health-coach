@@ -86,6 +86,17 @@ export function dayNavCapsLabel(date: LocalDate): string {
     .replace(', ', ' · ');
 }
 
+/**
+ * Weekday index in the app's Mon=0…Sun=6 convention — the same scale
+ * `SessionTemplate.dayAssignment` and `DAYS_OF_WEEK` use (NOT JS's Sun=0).
+ * Used to match recurring templates to a given day (Home's today's-template
+ * card). Converts `getDay()` (Sun=0…Sat=6) by rotating Sunday to the end.
+ */
+export function weekdayMonZero(date: LocalDate): number {
+  const [y, m, d] = date.split('-').map(Number);
+  return (new Date(y, m - 1, d).getDay() + 6) % 7;
+}
+
 /** e.g. "S" / "M" / "T" — the single-letter weekday for the strip's day cells. */
 export function weekdayLetter(date: LocalDate): string {
   const [y, m, d] = date.split('-').map(Number);
