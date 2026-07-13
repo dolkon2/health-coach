@@ -15,7 +15,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, SpotCard } from '@/components';
+import { Screen, Text, Card, Button, SpotCard } from '@/components';
 import { useTheme } from '@/theme';
 import { listSpots } from '@/storage/spots';
 import { fetchCurrentForSpots, type CurrentConditions } from '@/lib/conditions/current';
@@ -83,24 +83,42 @@ export default function SpotsScreen() {
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
-      <Text variant="label" color={theme.colors.accent}>
-        Spots
-      </Text>
-      <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
-        Your places
-      </Text>
+      {/* Title row with a "+ New spot" door. Top breathing room now comes
+          from Screen's paddingTop (shared across all screens). */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text variant="label" color={theme.colors.accent}>
+            Spots
+          </Text>
+          <Text variant="displayLg" style={{ marginTop: theme.spacing[2] }}>
+            Your places
+          </Text>
+        </View>
+        <Button
+          label="+ New spot"
+          variant="secondary"
+          size="sm"
+          onPress={() => router.push('/new-spot')}
+        />
+      </View>
 
       <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[3] }}>
-        Is it runnable, is it windy — your go-to places with live conditions. Spots
-        are created while logging a Water or Wind session for now — the map pin
-        picker and save-as-spot flows are a later pass.
+        Is it runnable, is it windy — your go-to places with live conditions. Add one
+        here, or save one while logging a Water or Wind session. (The map-pin
+        picker is a later pass.)
       </Text>
 
       <View style={{ marginTop: theme.spacing[6], gap: theme.spacing[5] }}>
         {spots === null ? null : isEmpty ? (
           <Card>
             <Text variant="body" color={theme.colors.textMuted}>
-              No spots yet. Pin one from the map, or save one from a logged session.
+              No spots yet. Tap “+ New spot”, or save one from a logged session.
             </Text>
           </Card>
         ) : (

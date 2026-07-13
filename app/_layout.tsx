@@ -104,6 +104,10 @@ function ThemedStack() {
         name="spot/[id]"
         options={{ title: 'Spot', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="new-spot"
+        options={{ title: 'New spot', presentation: 'modal' }}
+      />
     </Stack>
   );
 }
