@@ -12,7 +12,9 @@ import type { ObservationOf } from '@core/observation';
 import type { WeightTrendPoint } from '@core/trend';
 import type { ExpenditureWindow } from '@core/expenditure';
 import { isKind } from '@core/observation';
+import type { BenchmarkGroup } from '@core/benchmarkGroup';
 import { getBenchmarkById } from '@/storage/benchmarks';
+import { listGroupsForBenchmark } from '@/storage/benchmarkGroups';
 import { listObservations } from '@/storage/observations';
 import { daysAgoUtc, todayLocalDate } from '@/lib/date';
 import {
@@ -58,10 +60,12 @@ export function useBenchmarkDetail(
 ): {
   benchmark: Benchmark | null;
   lens: BenchmarkLens | null;
+  groups: BenchmarkGroup[];
   loading: boolean;
   reload: () => void;
 } {
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
+  const [groups, setGroups] = useState<BenchmarkGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState<ObservationOf<'session'>[]>([]);
   const [foodEntries, setFoodEntries] = useState<ObservationOf<'foodEntry'>[]>([]);
@@ -71,14 +75,19 @@ export function useBenchmarkDetail(
   const reload = useCallback(() => {
     if (!benchmarkId) {
       setBenchmark(null);
+      setGroups([]);
       return;
     }
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const b = await getBenchmarkById(benchmarkId);
+      const [b, g] = await Promise.all([
+        getBenchmarkById(benchmarkId),
+        listGroupsForBenchmark(benchmarkId),
+      ]);
       if (cancelled) return;
       setBenchmark(b);
+      setGroups(g);
 
       const face = b?.behavior;
       const needLongSessions =
@@ -126,7 +135,10 @@ export function useBenchmarkDetail(
       }
     })()
       .catch(() => {
-        if (!cancelled) setBenchmark(null);
+        if (!cancelled) {
+          setBenchmark(null);
+          setGroups([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -169,5 +181,5 @@ export function useBenchmarkDetail(
     };
   }, [benchmark, sessions, foodEntries, longSessions, romReadings, trendPoints, measured]);
 
-  return { benchmark, lens, loading, reload };
+  return { benchmark, lens, groups, loading, reload };
 }

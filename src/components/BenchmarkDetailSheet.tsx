@@ -62,7 +62,11 @@ export function BenchmarkDetailSheet({
   const theme = useTheme();
   const router = useRouter();
   const { weightUnit } = useSettings();
-  const { benchmark, lens, reload } = useBenchmarkDetail(benchmarkId, trendPoints, measured);
+  const { benchmark, lens, groups, reload } = useBenchmarkDetail(
+    benchmarkId,
+    trendPoints,
+    measured
+  );
   const [saving, setSaving] = useState(false);
 
   async function setStatus(status: Benchmark['status']) {
@@ -122,6 +126,19 @@ export function BenchmarkDetailSheet({
                     <FaceBadge key={l} label={BENCHMARK_FACE_LABEL[l]} />
                   ))}
                 </View>
+              ) : null}
+
+              {/* Group membership (P4-3 / B4) — read-only here; add/remove/
+                  pause lives on Profile's group management module. */}
+              {groups.length > 0 ? (
+                <Text
+                  variant="bodySm"
+                  color={theme.colors.textMuted}
+                  style={{ marginTop: theme.spacing[3] }}
+                >
+                  In {groups.map((g) => g.title).join(', ')}
+                  {groups.some((g) => g.paused) ? ' (paused)' : ''}
+                </Text>
               ) : null}
 
               {/* Hero — outcome wins when both faces exist (v0.4 rule); a
