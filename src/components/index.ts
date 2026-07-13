@@ -4,6 +4,7 @@ export { Button } from './Button';
 export { Screen } from './Screen';
 export { Field } from './Field';
 export { ChipSelect, type ChipOption } from './ChipSelect';
+export { SegmentedControl } from './SegmentedControl';
 export { SessionCard } from './SessionCard';
 export { BenchmarkStatusCard, type BenchmarkStatusCardProps } from './BenchmarkStatusCard';
 export { BenchmarkDetailSheet } from './BenchmarkDetailSheet';

@@ -34,7 +34,7 @@ import {
   Screen,
   Text,
   Button,
-  ChipSelect,
+  SegmentedControl,
   DayNavHeader,
   WeekStrip,
   DayMealList,
@@ -183,14 +183,13 @@ export default function NutritionScreen() {
       </Text>
 
       <View style={{ marginTop: theme.spacing[3] }}>
-        <ChipSelect
+        <SegmentedControl
           options={[
             { value: 'intake', label: 'Intake' },
             { value: 'trend', label: 'Trend' },
           ]}
           value={subTab}
           onChange={setSubTab}
-          columns={2}
         />
       </View>
 

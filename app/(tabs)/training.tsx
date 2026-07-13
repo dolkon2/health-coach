@@ -40,7 +40,7 @@ import {
   Text,
   Card,
   Button,
-  ChipSelect,
+  SegmentedControl,
   Field,
   SwipeToDelete,
   TemplateCard,
@@ -178,38 +178,24 @@ export default function TrainingScreen() {
 
   return (
     <Screen scroll footer={footerAction}>
-      {/* History moved to Profile's logbook (T4); this keeps a one-tap door to
-          it — the user never loses access (profile-settings.md §5). */}
-      <View
-        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-      >
-        <Text variant="label" color={theme.colors.accent}>
-          Training
-        </Text>
-        <Pressable
-          onPress={() => router.push('/profile')}
-          accessibilityRole="button"
-          accessibilityLabel="Open your history on Profile"
-          hitSlop={8}
-        >
-          <Text variant="label" color={theme.colors.textMuted}>
-            History →
-          </Text>
-        </Pressable>
-      </View>
-      {/* Templates | Routes segmented switch — mirrors Nutrition's
-          Intake/Trend ChipSelect. Defaults to Templates on every mount (no
-          re-entry reset needed yet: unlike Nutrition's modal round-trips,
-          nothing here navigates away and back mid-flow). */}
+      <Text variant="label" color={theme.colors.accent}>
+        Training
+      </Text>
+      {/* Templates | Routes segmented switch — the shared SegmentedControl,
+          identical to Nutrition's Intake/Trend switch (Dylan, 2026-07-12:
+          "I want them identical"). The old redundant "History →" link is
+          gone with it; History still lives on Profile's logbook (T4).
+          Defaults to Templates on every mount (no re-entry reset needed yet:
+          unlike Nutrition's modal round-trips, nothing here navigates away
+          and back mid-flow). */}
       <View style={{ marginTop: theme.spacing[3] }}>
-        <ChipSelect
+        <SegmentedControl
           options={[
             { value: 'templates', label: 'Templates' },
             { value: 'routes', label: 'Routes' },
           ]}
           value={subTab}
           onChange={setSubTab}
-          columns={2}
         />
       </View>
 
