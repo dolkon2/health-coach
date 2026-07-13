@@ -15,6 +15,7 @@
 import type { ReactNode } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
+import type { ColorValue } from 'react-native';
 import { Settings, User } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useTheme } from '@/theme';
@@ -27,21 +28,21 @@ import { useTheme } from '@/theme';
  * originally. Shape carries identity; color stays the tab's active/inactive
  * tint, never an element hue.
  */
-function HomeTabIcon({ color }: { color: string }) {
+function HomeTabIcon({ color }: { color: ColorValue }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 20 20">
       <Circle cx={10} cy={10} r={7} fill="none" stroke={color} strokeWidth={2} />
     </Svg>
   );
 }
-function TrainingTabIcon({ color }: { color: string }) {
+function TrainingTabIcon({ color }: { color: ColorValue }) {
   return (
     <Svg width={18} height={18} viewBox="0 0 18 18">
       <Path d="M9 2 L16 9 L9 16 L2 9 Z" fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
     </Svg>
   );
 }
-function MapTabIcon({ color }: { color: string }) {
+function MapTabIcon({ color }: { color: ColorValue }) {
   return (
     <Svg width={20} height={16} viewBox="0 0 16 13">
       <Circle cx={2} cy={9} r={1.6} fill={color} />
@@ -51,14 +52,14 @@ function MapTabIcon({ color }: { color: string }) {
     </Svg>
   );
 }
-function NutritionTabIcon({ color }: { color: string }) {
+function NutritionTabIcon({ color }: { color: ColorValue }) {
   return (
     <Svg width={18} height={16} viewBox="0 0 14 12">
       <Path d="M7 0.5 L13.5 11.5 L0.5 11.5 Z" fill={color} />
     </Svg>
   );
 }
-function SocialTabIcon({ color }: { color: string }) {
+function SocialTabIcon({ color }: { color: ColorValue }) {
   return (
     <Svg width={22} height={16} viewBox="0 0 18 13">
       <Circle cx={6} cy={6.5} r={4} fill="none" stroke={color} strokeWidth={2} />
