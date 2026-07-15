@@ -126,16 +126,18 @@ export default function BenchmarksScreen() {
         Goals the app can mirror — a rhythm to keep, a number to move, or both. Tap to open.
       </Text>
 
-      <View style={{ marginTop: theme.spacing[4] }}>
-        <SegmentedControl
-          options={[
-            { value: 'domain', label: 'By domain' },
-            { value: 'type', label: 'By type' },
-          ]}
-          value={listView}
-          onChange={setListView}
-        />
-      </View>
+      {active.length > 0 ? (
+        <View style={{ marginTop: theme.spacing[4] }}>
+          <SegmentedControl
+            options={[
+              { value: 'domain', label: 'By domain' },
+              { value: 'type', label: 'By type' },
+            ]}
+            value={listView}
+            onChange={setListView}
+          />
+        </View>
+      ) : null}
 
       {showSearch ? (
         <Field
