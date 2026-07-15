@@ -63,6 +63,7 @@ import {
   snowSportActivities,
   type Activity,
 } from '@/lib/activity';
+import { groupTemplatesForLibrary } from '@/lib/templateGrouping';
 import type { SessionTemplate } from '@core/sessionTemplate';
 import type { Route } from '@core/route';
 
@@ -144,6 +145,17 @@ export default function TrainingScreen() {
     if (!q) return templates;
     return templates.filter((t) => t.name.toLowerCase().includes(q));
   }, [templates, search]);
+
+  // Grouping-wrapper swap (training-tab.md § 3 B, T6): the data layer,
+  // cards, search, and empty state above are untouched — only how the
+  // filtered list is split into headed groups changes. R2 (2026-07-14):
+  // one-offs (no day assignment) get their own list; day-assigned templates
+  // split into Active/Deactivated by isActive. Order confirmed with Dylan:
+  // One-offs → Active → Deactivated.
+  const groupedTemplates = useMemo(
+    () => groupTemplatesForLibrary(filteredTemplates ?? []),
+    [filteredTemplates]
+  );
 
   const reviewPending = reviewPendingActivities();
 
@@ -247,7 +259,7 @@ export default function TrainingScreen() {
             />
           ) : null}
 
-          <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>
+          <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[5] }}>
             {filteredTemplates === null ? null : filteredTemplates.length === 0 ? (
               <Card>
                 <Text variant="body" color={theme.colors.textMuted}>
@@ -257,21 +269,32 @@ export default function TrainingScreen() {
                 </Text>
               </Card>
             ) : (
-              filteredTemplates.map((t) => (
-                <SwipeToDelete
-                  key={t.id}
-                  onDelete={() => removeTemplateAndReload(t.id)}
-                  confirmTitle="Delete template?"
-                  confirmMessage={`${t.name} — permanent.`}
-                >
-                  <TemplateCard
-                    template={t}
-                    onPress={() =>
-                      router.push({ pathname: '/edit-template', params: { templateId: t.id } })
-                    }
-                  />
-                </SwipeToDelete>
-              ))
+              <>
+                <TemplateGroup
+                  title="One-offs"
+                  templates={groupedTemplates.oneOffs}
+                  onOpen={(t) =>
+                    router.push({ pathname: '/edit-template', params: { templateId: t.id } })
+                  }
+                  onDelete={removeTemplateAndReload}
+                />
+                <TemplateGroup
+                  title="Active"
+                  templates={groupedTemplates.active}
+                  onOpen={(t) =>
+                    router.push({ pathname: '/edit-template', params: { templateId: t.id } })
+                  }
+                  onDelete={removeTemplateAndReload}
+                />
+                <TemplateGroup
+                  title="Deactivated"
+                  templates={groupedTemplates.deactivated}
+                  onOpen={(t) =>
+                    router.push({ pathname: '/edit-template', params: { templateId: t.id } })
+                  }
+                  onDelete={removeTemplateAndReload}
+                />
+              </>
             )}
           </View>
         </>
@@ -353,6 +376,44 @@ export default function TrainingScreen() {
         />
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * One headed group of TemplateCards on the library screen (T6 grouping-
+ * wrapper swap). Absent, not empty: renders nothing when its slice has no
+ * templates, so a library with only one-offs never shows a bare "Active"
+ * header with nothing under it.
+ */
+function TemplateGroup({
+  title,
+  templates,
+  onOpen,
+  onDelete,
+}: {
+  title: string;
+  templates: SessionTemplate[];
+  onOpen: (t: SessionTemplate) => void;
+  onDelete: (id: string) => void;
+}) {
+  const theme = useTheme();
+  if (templates.length === 0) return null;
+  return (
+    <View style={{ gap: theme.spacing[3] }}>
+      <Text variant="label" color={theme.colors.textMuted}>
+        {title}
+      </Text>
+      {templates.map((t) => (
+        <SwipeToDelete
+          key={t.id}
+          onDelete={() => onDelete(t.id)}
+          confirmTitle="Delete template?"
+          confirmMessage={`${t.name} — permanent.`}
+        >
+          <TemplateCard template={t} onPress={() => onOpen(t)} />
+        </SwipeToDelete>
+      ))}
+    </View>
   );
 }
 
