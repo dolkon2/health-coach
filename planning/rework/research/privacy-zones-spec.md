@@ -253,6 +253,23 @@ again either way). Constitution check: it fires on a user action (their share), 
 impatience — a consent surface, not engagement theater. It's still an interposed screen the
 user didn't summon, so it's flagged (⚑Z1) rather than silently decided.
 
+### 4.5a Per-share zone-touch warning (added 2026-07-15, mitigates the ⚑Z2 override)
+
+Distinct from Z1 (a one-time setup nudge, shown once ever): because ⚑Z2 was overridden to
+show friends the exact, untrimmed distance/stats rather than the visible-line figure, a
+session whose track actually starts or ends **inside one of the owner's configured zones**
+carries a real, session-specific version of the risk Z2 accepted in general. At the Share
+action, when (and only when) the track touches a zone, show a one-line caution before the
+share completes: *"This activity starts or ends near a place you've marked private. Friends
+will see the exact distance and stats for this one — combined with where the visible line
+ends, that could reveal how close it started to that place."* → **Share anyway / Save
+instead** (the existing Share/Save choice, not a new button). Rationale straight from
+Dylan's own framing: most sessions don't start or end at home, so this fires rarely and costs
+nothing on the common case — it's the situational warning for the specific case where exact
+stats and a private place actually collide, rather than a blanket caveat shown on every
+share. No warning at all fires for a session with no zone touched, regardless of the Z2
+posture.
+
 ### 4.6 Recording is untouched
 
 Zones play no part in Record, live stats, save, or the owner's own logbook and maps. The
@@ -351,7 +368,10 @@ of home locations this way at the popular radius. The override stands as a delib
 founder call, not a silent reinterpretation. The geometry itself is still zone-filtered (no
 raw points ever leave the server) — only the numeric distance/elevation/pace figures go
 exact instead of visible-line-derived. The owner's own logbook keeps exact totals regardless
-(unaffected either way — the mirror was never in scope here).
+(unaffected either way — the mirror was never in scope here). **Mitigation added the same
+day (§4.5a):** a session that actually starts or ends inside a configured zone gets a
+one-line warning at the Share action — not a blanket caveat on every share, since (per
+Dylan) most sessions aren't logged from home and exact stats are the point for those.
 
 ### 5.7 Cost
 
@@ -480,8 +500,9 @@ own passes. Total: **M + M + S** — small against what it unblocks (all of shar
    emitted segment chord intersects one (§5.3 guard).
 5. No synthetic coordinate is ever emitted — every output point exists in the raw track.
 6. Gaps are never bridged; cut ends carry no marker distinguishable from a track's real end.
-7. Shared stats are computed from emitted geometry only (⚑Z2 posture, once confirmed) — no
-   published number includes suppressed portions.
+7. Shared stats reflect the exact, untrimmed activity (⚑Z2 — overridden 2026-07-15; no
+   longer suppressed to the visible-line figure). The enforced mitigation is the §4.5a
+   zone-touch warning at Share time, not stat suppression.
 8. The 200 m endpoint trim applies to every shared track, zones or none.
 9. Emitted display points carry no per-point timestamps.
 10. Body-dimension sessions never reach the filter because they never reach a projection
@@ -520,6 +541,11 @@ own passes. Total: **M + M + S** — small against what it unblocks (all of shar
   safe/recommended posture. The override is deliberate and stands; geometry stays
   zone-filtered regardless (the trimmed line is still all a viewer ever sees) — only the
   numeric distance/elevation/pace figures are exact rather than visible-line-derived.
+  **Mitigation added same day (§4.5a):** rather than a blanket privacy caveat on every
+  share, a targeted one-line warning fires only when a session's track actually starts or
+  ends inside a configured zone — the specific case where exact stats + a private place
+  actually collide. Ordinary away-from-home sessions (Dylan's stated common case) share
+  with no friction and exact stats, unwarned.
 - **Decisions (obvious calls) taken here, on the record, not re-raised:** mid-route in-zone
   suppression everywhere (mandated + it's what users assume they're getting); 400 m default
   radius, 200–1,600 m free slider, cap 10; drop-points-only (no boundary interpolation, no
@@ -547,7 +573,10 @@ views never filtered. Defense against the published attacks is layered: spatial 
 the stats-describe-only-the-visible-line defense, which Dylan overrode 2026-07-15 (⚑Z2:
 shared stats show the exact, untrimmed distance; the geometry itself stays zone-filtered,
 only the numbers go exact, flagged plainly as reopening the CCS 2022 distance-subtraction
-attack). Retroactivity is free by construction (per-read filtering): add or move a zone and
+attack). The mitigation is a targeted warning (§4.5a), not stat suppression: sessions that
+actually start or end inside a zone get a one-line caution at Share time; ordinary
+away-from-home sessions — the common case — share with exact stats and no warning.
+Retroactivity is free by construction (per-read filtering): add or move a zone and
 all history is re-filtered on next read. Storage: server `privacy_zones` (owner-only RLS,
 cloak columns, timestamp-named Supabase migration) + a local mirror claiming the next free
 local number (≥018) at build time. Build: **Z1 local entity + editor (M, buildable now) →
