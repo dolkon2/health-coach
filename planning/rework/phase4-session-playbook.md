@@ -66,10 +66,10 @@ P4-5 through P4-9. The four ✅ sessions need none of those answers and can star
 | P4-2 | 3D terrain + v11 camera/gesture polish | Sonnet | ✅ Safe after P4-1 |
 | P4-3 | Benchmark groups storage + pause/resume (B4) | Sonnet | ✅ Safe now (decision-proof) |
 | P4-4 | Gear Quiver rework — display-only (P9) | Sonnet (or Fable) | ✅ Safe now — 🟥 reminders only |
-| P4-5 | Sections definition (T0 · paper/plan) | **Opus** (plan) | 🟥 Blocked on "what is a Section" |
-| P4-6 | Templates 3a/3b application + Sections build (T6) | Sonnet | 🟥 Blocked on P4-5 + 3a/3b ruling |
-| P4-7 | Benchmarks type-decision application (B5) | Sonnet | 🟥 Blocked on the type ruling |
-| P4-8 | Explore v1 (M5) | **Opus** plan → build | 🟥 Blocked on the Explore design + P4-1 |
+| P4-5 | ~~Sections definition (T0 · paper/plan)~~ | — | ✅ Not needed — Section resolved as Routes-only (R1), Training gets no Sections primitive |
+| P4-6 | Templates 3a application (T6, layout-only — no Sections build) | Sonnet | ✅ Safe now — R1 + R2 both resolved |
+| P4-7 | Benchmarks type-decision application (B5, derived + domain/type tab) | Sonnet | ✅ Safe now — R3 + R4 both resolved |
+| P4-8 | Explore v1 (M5) | **Opus** plan → build | 🟥 Blocked — parked for its own dedicated design session (R7) |
 | P4-9 | Route builder in Explore (M6) + T3 `+ New Route` | Sonnet | 🟥 Blocked on P4-8 |
 
 **Two independent tracks.** The ✅ platform/decision-proof track (P4-1 → P4-2, plus the
@@ -85,31 +85,33 @@ sit on P4-1 having landed.
 lean where the research or existing docs already point one way — treat the lean as **provisional**,
 not decided. Answer them in any order, whenever; nothing below waits on this playbook.*
 
-**🟥 R1 — What is a "Section"?** (bench ⚑3 = training ⚑2; gates P4-5/P4-6.) The only surviving
-reading is *a reusable block of work smaller than a template* (hangboard warmup, core finisher)
-that composes into templates — the geometry meaning ("river sections", route lines) is dead,
-owned by Spots and Routes. You've never explicitly confirmed that reading. **Sub-call:** is a
-Section standalone-loggable, or compose-into-a-template only? If you meant nothing by "Sections,"
-say so and the whole 3a/3b question collapses to "one Templates list."
+**✅ R1 — What is a "Section"? RESOLVED 2026-07-14.** Dylan: "ya its sections of routes." A
+Section is a named, timed stretch *within a route* (specific rapids on the Little White Salmon
+his friends compare times on; the hill between two points on a road run) — a Strava-segment-like
+primitive, lives entirely in Routes/Map. **The training reading (a reusable work-block smaller
+than a template) is dead** — Training does not get a Sections concept at all. This collapses
+P4-5 (see below) and simplifies P4-6 to a pure layout pass, no Sections primitive to build there.
+A *Routes* Sections primitive is real future work but explicitly parked with Explore/route
+builder (R7) — Dylan wants that whole cluster thought through in its own dedicated session.
 
-**🟥 R2 — Templates library: two lists (3a) or one unified stream (3b)?** (bench ⚑3.)
-*Lean: 3b now* — one list with All/Templates/Sections filter chips, because the shared skeleton
-makes 3a a cheap wrapper-swap later if Sections ever proliferate, and 3a's benefits only show up
-at a scale a single-user library may never reach. Provisional; depends on R1.
+**✅ R2 — Templates library: two lists (3a) or one unified stream (3b)? RESOLVED 2026-07-14: 3a.**
+Dylan wants two separate lists — one-offs get their own list, Templates splits active/deactivated
+— reversing this doc's 3b lean. No Sections filter chip needed (R1). Ordering not fully pinned:
+leaning one-offs → active → deactivated, but he also floated one-offs living in the middle;
+confirm exact order at P4-6 build time.
 
-**🟥 R3 — Benchmarks type field: derived, stored, or none?** (bench ⚑1; gates P4-7.)
-*Lean: B (derived classification, no schema)* — the three types map one-to-one onto shipped
-structure (Compliance ≈ behavior face, Outcome ≈ outcome face + target, Trend ≈ outcome face
-direction-only), so storing them duplicates truth, and per-face derivation is the only shape that
-handles a dual-face benchmark honestly. **The real call is yours:** the Notion mockups imply a
-*type-first creation flow*, which would break v0.4's load-bearing "the user never picks a type"
-rule — that's a deliberate constitution amendment, not a drift. If you want type-first creation,
-say so and it stands.
+**✅ R3 — Benchmarks type field: derived, stored, or none? RESOLVED 2026-07-14: derived (lean B),
+no type-first creation flow.** Dylan: "I think its cool for it to be assumed and not need to sort
+through a drop down" — confirms the existing rule stands, no dropdown, no v0.4 amendment. The
+Notion type-first mockup was not what he wants; treat it as the drift this doc worried it might
+be, not a deliberate override.
 
-**🟥 R4 — Benchmarks list layout: by-domain (2a) or by-type (2b)?** (bench ⚑2.)
-*Lean: 2a with per-face type badges* — composes with the groups model and degrades gracefully
-however R3 lands; cheap to swap via B3's wrapper. Note 2b is mechanically blocked until R3
-resolves. Coupled to R3; low stakes.
+**✅ R4 — Benchmarks list layout: by-domain (2a) or by-type (2b)? RESOLVED 2026-07-14: both,
+via a tab — not a straight swap.** Dylan: "I think there should be a distinction tab and
+organization aspect for type." Reads as: keep the by-domain view (2a, how it works today) as one
+tab, and add a by-type (Behavior/Outcome/Both) view as a second tab/organization mode — not
+replacing 2a, adding to it. Confirm this reading at P4-7 build time before committing to the UI
+shape.
 
 **🟥 R5 — Benchmark-group management placement.** (bench ⚑5 = profile ⚑5.) *Lean: Profile*
 (benchmarks are identity-shaped). **Not blocking:** P4-3 (B4) ships group management on the
@@ -122,11 +124,13 @@ arguably pass the "sparingly earned / the data said something safety-relevant" b
 contestable. **Not blocking:** P4-4 (P9) ships display-only regardless; rule this before any
 reminder mechanics are built.
 
-**🟥 R7 — The Explore design.** (map ⚑5; gates P4-8/P4-9.) Not a flag with a lean — Explore/"Now"
-is your in-flight design and has not been delivered to the repo yet (the mockup renders an
-"OPEN · EXPLORE LAYOUT" placeholder). M5 cannot start without it. The route builder (M6) lives
-*inside* Explore, so P4-9 waits on P4-8 which waits on this. Treat the mockup's arrival as
-settling only Record-mode chrome, **not** Explore.
+**🟥 R7 — The Explore design.** (map ⚑5; gates P4-8/P4-9.) **Explicitly parked 2026-07-14 for its
+own dedicated session — not to be decided piecemeal.** Directional color given in the meantime:
+Explore and Forecasting are two separate map layers, not one; Explore leans social ("finding
+friends routes and exploring"), Forecasting is its own aspect entirely; the route builder's
+placement (inside Explore or elsewhere) is bundled into the same "needs deep thinking" cluster,
+including where a Routes-Sections primitive (R1) would live. M5/M6 still cannot start without
+that session. Treat the mockup's arrival as settling only Record-mode chrome, **not** Explore.
 
 **🟨 R8 — Offline tile terms** (map ⚑4; not gating any Phase 4 session). *Lean: self-hosted
 Protomaps extracts* — `OfflineManager.createPack` collides with MapTiler's metered terms and
@@ -274,55 +278,36 @@ skills, and write me a handoff prompt. Do not push without asking me.
 
 ---
 
-### P4-5 — Sections definition (T0 · paper/plan) · **Opus** (`/model claude-opus-4-8`)
+### P4-5 — ~~Sections definition (T0 · paper/plan)~~ · NOT NEEDED
 
-**Blocked on 🟥 R1** (what a Section is). A paper pass — no product code — that answers "what is a
-Section" under the layout-agnostic constraint and proposes its data shape (own table vs
-JSON-referenced blocks inside templates), which in turn decides whether T6 claims a migration.
-Opus because it's the design-judgment gate the whole templates track hangs on.
-
-Reads: `benchmarks-templates.md` (§2 definitional gate, §10.3, ⚑3) · `tabs/training-tab.md`
-(§6 T6, §9 open questions) · `core/src/sessionTemplate.ts` + `session_templates` (migration 005)
-· the latest handoff.
-
-```
-Plan/paper mode only — no product code. Read planning/rework/phase4-session-playbook.md,
-planning/rework/benchmarks-templates.md (§2 definitional gate, §10.3, ⚑3),
-planning/rework/tabs/training-tab.md (§6 T6 + §9 open questions), core/src/sessionTemplate.ts,
-and the latest handoff in dev-log/.
-My ruling on what a Section is: [PASTE ANSWER to R1 — reusable work-block, standalone-loggable
-or compose-only; or "nothing, collapse to one Templates list"].
-Produce a one-page T0 spec: what a Section is, whether it's standalone-loggable, and its
-data-shape proposal (own table = a migration claimant vs JSON-referenced blocks in templates),
-staying layout-agnostic so either 3a or 3b can render it. End with a build prompt I can hand to
-P4-6. Write the spec into planning/rework/ (new file or a T0 section of benchmarks-templates.md,
-your call — say which). No jest/tsc/sim. Do not push without asking me.
-```
+**Resolved away, 2026-07-14.** R1 answered "Section" as a Routes-only concept (a timed stretch
+within a route) — Training never gets its own Sections primitive, so there is no T0 spec to
+write and nothing for this session to do. A *Routes* Sections definition is real future work, but
+it's bundled into the Explore/route-builder deep-think session (R7), not a standalone pass.
 
 ---
 
-### P4-6 — Templates 3a/3b application + Sections build (T6) · Sonnet
+### P4-6 — Templates 3a application (T6, layout only) · Sonnet
 
-**Blocked on P4-5 (T0 spec) + 🟥 R2** (3a vs 3b). Applies the library-layout decision as the
-grouping-wrapper swap on T2's shared skeleton, and builds the Sections primitive T0 defined.
+**Unblocked 2026-07-14** — R1 (no Sections in Training) + R2 (3a, two lists) both resolved.
+Applies the two-list layout as the grouping-wrapper swap on T2's shared skeleton. No Sections
+primitive to build (R1), so no migration claim either.
 
 Reads: `tabs/training-tab.md` (§3B shared skeleton, §6 T6) · `benchmarks-templates.md` (§10.3) ·
-the P4-5 T0 spec · `app/(tabs)/training.tsx` + `edit-template.tsx` ·
-`src/storage/migrations/index.ts` (next-free at build time, if Sections is a table) · the latest
-handoff.
+`app/(tabs)/training.tsx` + `edit-template.tsx` · the latest handoff.
 
 ```
 Read planning/rework/phase4-session-playbook.md, planning/rework/tabs/training-tab.md (§3B, §6
-T6), planning/rework/benchmarks-templates.md (§10.3), the T0 Sections spec from P4-5,
-app/(tabs)/training.tsx, app/edit-template.tsx, src/storage/migrations/index.ts, and the latest
-handoff in dev-log/.
-My layout ruling (R2): [PASTE — 3a two lists / 3b unified stream].
+T6), planning/rework/benchmarks-templates.md (§10.3), app/(tabs)/training.tsx,
+app/edit-template.tsx, and the latest handoff in dev-log/.
+Decisions already made (2026-07-14): 3a — two separate lists, one-offs get their own list,
+Templates splits active/deactivated. Ordering not fully pinned (leaning one-offs → active →
+deactivated, but confirm with me before locking it in). "Sections" is a Routes-only concept
+(R1) — Training does not get a Sections primitive, filter chip, or migration; build the plain
+two-list layout only.
 Build T6: apply the layout decision as the grouping-wrapper swap on the existing shared library
-skeleton (the data layer, cards, search, and empty state don't change — only the grouping
-wrapper), and build the Sections primitive per the T0 spec. If Sections becomes a table, claim
-the next-free migration number at build time from src/storage/migrations/index.ts (do NOT
-hardcode); if it's JSON-in-templates, no migration. Design the model so a save-as-section
-affordance lands cleanly. Single-concern commits; flag don't reinterpret.
+skeleton — the data layer, cards, search, and empty state don't change, only the grouping
+wrapper. Single-concern commits; flag don't reinterpret.
 Finish: full jest, tsc LAST, /code-review, sim smoke test, then status-sync + dev-log-closeout
 skills, and write me a handoff prompt. Do not push without asking me.
 ```
@@ -331,10 +316,9 @@ skills, and write me a handoff prompt. Do not push without asking me.
 
 ### P4-7 — Benchmarks type-decision application (B5) · Sonnet
 
-**Blocked on 🟥 R3** (the type field ruling). Small either way: a no-op-beyond-badges if you
-pick derived (lean B), or a migration + serializer plumbing if you pick a stored column. If you
-override to type-first creation, this session also builds that creation flow (the deliberate
-v0.4 amendment). Sized after R3 lands.
+**Unblocked 2026-07-14** — R3 (derived, no dropdown) + R4 (domain tab + a new type tab, not a
+swap) both resolved. This session adds a Behavior/Outcome/Both view as a second tab alongside
+the existing by-domain view — no schema change, no migration, purely derived + a new UI mode.
 
 Reads: `benchmarks-templates.md` (§4 what a type column implies, §10.1, ⚑1) · `src/storage/
 benchmarks.ts` + `core/src/benchmark.ts` (the B1 classifier is already shipped) ·
@@ -345,13 +329,14 @@ handoff.
 Read planning/rework/phase4-session-playbook.md, planning/rework/benchmarks-templates.md
 (§4, §10.1, ⚑1), src/storage/benchmarks.ts, core/src/benchmark.ts, src/storage/migrations/
 index.ts, and the latest handoff in dev-log/.
-My type ruling (R3): [PASTE — derived/no-schema (lean B) / stored column / none / type-first
-creation as a deliberate v0.4 amendment].
-Build B5 to match: if derived, wire the existing B1 classifier into card badges and (if chosen)
-2b grouping — no schema; if a stored column, add it with migration (claim the next-free number
-at build time, do NOT hardcode) + serializer/CRUD plumbing + a backfill from faces; if
-type-first creation, build that creation step as the recorded v0.4 amendment. Also apply my
-list-layout ruling (R4): [PASTE — 2a by-domain / 2b by-type] as B3's wrapper swap.
+Decisions already made (2026-07-14): type stays fully derived, no schema, no dropdown, no
+type-first creation flow — wire the existing B1 classifier into card badges. List layout is
+NOT a straight 2a-vs-2b swap: keep the existing by-domain view as one tab and add a
+Behavior/Outcome/Both view as a second tab/organization mode. Confirm this two-tab reading with
+me before locking the exact UI if anything about it feels ambiguous once you're looking at the
+real screen.
+Build B5 to match: wire B1's classifier into card badges (no schema, no migration), and add the
+by-type tab alongside the existing by-domain view via B3's wrapper swap.
 Single-concern commits; flag don't reinterpret.
 Finish: full jest, tsc LAST, /code-review, sim smoke test, then status-sync + dev-log-closeout
 skills, and write me a handoff prompt. Do not push without asking me.

@@ -378,16 +378,17 @@ your eyes to confirm a call already taken (or a proposal already made).**
 
 **Bites at its pass (each named at the gating pass):**
 
-7. **Benchmarks type field vs "the user never picks a type"** (bench ⚑1; locked #12).
-   Type as derived metadata is compatible; a *type-first creation flow* breaks the
-   load-bearing v0.4 entry rule and takes your deliberate amendment. Lean on the table:
-   derived classification, no schema (brief § 10.1). Gates B5 + 2b.
-8. **Benchmarks list layout 2a by-domain vs 2b by-type** (bench ⚑2; locked #12). Lean:
-   2a with per-face type badges. Gates B3's wrapper swap only.
-9. **Templates 3a two-lists vs 3b unified stream + the "what is a Section" gate**
-   (bench ⚑3 = training ⚑2; locked #12). Reusable work-blocks is the only surviving
-   reading of "Sections" — never explicitly confirmed by you. Lean: 3b now with a cheap
-   wrapper-swap escape. Gates T0/T6.
+7. ~~**Benchmarks type field vs "the user never picks a type"**~~ **RESOLVED 2026-07-14**:
+   derived, no schema, no dropdown, no type-first creation flow — the existing rule stands.
+   Gates B5 (now unblocked); see `phase4-session-playbook.md` R3.
+8. ~~**Benchmarks list layout 2a by-domain vs 2b by-type**~~ **RESOLVED 2026-07-14**: both,
+   as two tabs, not a straight swap — by-domain stays, by-type/face is added alongside it.
+   See `phase4-session-playbook.md` R4.
+9. ~~**Templates 3a two-lists vs 3b unified stream + the "what is a Section" gate**~~
+   **RESOLVED 2026-07-14**: Section = a timed stretch within a *route* (Strava-segment-like) —
+   the reusable-work-block reading was wrong; Training gets no Sections primitive at all.
+   Templates is **3a, two lists** (reverses this doc's 3b lean). Gates T6 (now unblocked, no
+   T0 needed); see `phase4-session-playbook.md` R1/R2.
 10. **Social MVP coordination scope** (social ⚑1; locked #12). Candidate cut for
     reaction: S1–S6 with DMs + challenges deferred; sub-calls: DMs in/out, chat-only
     groups first. Gates the backend-era plan; nothing sooner.
