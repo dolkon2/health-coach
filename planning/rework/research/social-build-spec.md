@@ -552,6 +552,31 @@ guardrail sets are disjoint-by-surface rather than overlapping.
 
 ## 7. ⚑ Open founder flags — the complete deduplicated roster
 
+> **UPDATE 2026-07-15 (same day, after this spec was written):** Dylan resolved most of
+> this roster in a decision round recorded in Notion ("👥 Social Layer + Supabase —
+> Planning Status" → the "Resolved 2026-07-15" sections). Now **resolved**: ⚑N5 (yes —
+> photos ship early), ⚑N7 (arc split confirmed: arc 1 = accounts/DMs/group chats +
+> public accounts/discovery/privacy/moderation; arc 2 = shares/heatmap/leaderboards/
+> advanced chat), ⚑N8 (program-grab → arc 2 fast-follow), ⚑P1 (after-the-fact only;
+> capture door = arc-2 enhancement), ⚑G1 (invite-link-only), ⚑G2 (G-track after
+> Messages, doesn't jump), ⚑G3 (show member counts), ⚑Z1 (interstitial ships), ⚑B1
+> (free tier until traction demands Pro), ⚑L1 (24 h commitment accepted), ⚑L2
+> (liability-lawyer half confirmed; entity half lives on as ⚑L3), and **⚑Z2 —
+> OVERRIDDEN, not accepted**: friends see **exact, untrimmed stats** (flagged once per
+> the constitution — this reopens the CCS 2022 distance-subtraction attack; geometry
+> itself stays zone-filtered), mitigated by a **targeted per-session warning** that
+> fires only when a track starts/ends inside one of the owner's zones (recorded as
+> `privacy-zones-spec.md` §4.5a). One new fence: live-location viewers see position
+> only, never stats, until post-trip share. **Still open: ⚑B2, ⚑L3, ⚑L4, ⚑L5, ⚑L6,
+> and carried ⚑2.**
+>
+> **Drift warning, verified 2026-07-15:** these resolutions are recorded in Notion but
+> are **not yet folded into the source specs on `main`** (privacy-zones-spec.md still
+> carries ⚑Z2 as open, no §4.5a exists). The fold-in is the first docs session's work;
+> until it lands, the Notion record + this banner outrank the source specs' flag
+> sections. The roster below is preserved as written for the fold-in session to work
+> from.
+
 Every still-open flag across all seven source docs, each with its origin, where it
 bites, and a recommended default. Resolved flags (⚑N1–N4, ⚑N6, ⚑A, ⚑D, ⚑E, ⚑3–⚑6,
 constitution amendment) are **not** listed — see `social-expansion-plan.md` §7 for
@@ -652,5 +677,7 @@ binary (S1 is that gate, and it grew — §6.3), and the Profile logbook before 
 **media = 019; next free = 020**) and the platform facts (SDK 56, MapLibre v11), and
 confirmed B0 hasn't started — including the still-open `.gitignore` `.env` gap, which
 is why §5 says: fix that and wire B0 first, then photos (PH1) and the zones editor
-(Z1), both pre-backend and flag-independent, while Dylan walks the 17-flag roster —
-of which only ⚑N5, ⚑L1–⚑L4 bite before arc 1's build begins.
+(Z1), both pre-backend and flag-independent. The flag roster (§7) was mostly resolved
+by Dylan on 2026-07-15 — see the §7 banner; still open are ⚑B2, ⚑L3–⚑L6, and carried
+⚑2, of which only ⚑L4 (the one-way Supabase region call) bites before arc 1's build
+begins, at B0.
