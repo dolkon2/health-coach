@@ -2,24 +2,29 @@
  * Benchmarks — the goal layer's management surface (Phase 5 Pass 2; List
  * container v2 per benchmarks-templates.md B3/§10.2 — Dylan's confirmed lean,
  * 2026-07-11: grouped by domain (2a) with per-face type badges from the
- * decision-proof classifier, never a user-picked type).
+ * decision-proof classifier, never a user-picked type; B5,
+ * phase4-session-playbook.md R4, 2026-07-14: a By type tab added alongside
+ * By domain — "both, via a tab", not a straight 2a/2b swap).
  *
  * Reached from Home's "Benchmarks →" and Training's Progress & tools. Active
  * benchmarks group by domain (Earth/Water/Sky/Body/Nutrition/General — the
- * resolved dimension's "home turf", benchmarkDomain.ts); each card carries
+ * resolved dimension's "home turf", benchmarkDomain.ts) or by type
+ * (Behavior/Outcome/Both — which face(s) the benchmark carries,
+ * benchmarkType.ts), switched by the SegmentedControl B3's "pluggable
+ * group-by wrapper" comment anticipated. Either mode, each card carries
  * Compliance/Outcome/Trend badges (benchmarkClassify.ts) as metadata, never
  * structure — a dual-face benchmark stays whole in one section. Search
  * appears only past the same ≥10-item clutter threshold Training's library
  * uses. Tap opens the detail sheet (B2) rather than jumping straight to
  * Structured entry; "+ New" still pushes /edit-benchmark, the only door to
  * creation this surface owns (benchmarks are otherwise created contextually).
- * Archived benchmarks stay a flat muted section at the bottom, ungrouped —
- * the domain lens is for what's active and being worked, same as before.
+ * Archived benchmarks stay a flat muted section at the bottom, ungrouped in
+ * either mode — the grouping lens is for what's active and being worked.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Screen, Text, Card, Button, Field, BenchmarkDetailSheet } from '@/components';
+import { Screen, Text, Card, Button, Field, SegmentedControl, BenchmarkDetailSheet } from '@/components';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { useWeightTrend } from '@/hooks/useWeightTrend';
@@ -27,9 +32,12 @@ import { useExpenditure } from '@/hooks/useExpenditure';
 import { listBenchmarks } from '@/storage/benchmarks';
 import { summarizeBenchmark } from '@/lib/benchmarkForm';
 import { groupBenchmarksByDomain } from '@/lib/benchmarkDomain';
+import { groupBenchmarksByType } from '@/lib/benchmarkType';
 import { benchmarkLabels, BENCHMARK_FACE_LABEL } from '@core/benchmarkClassify';
 import type { WeightUnit } from '@/lib/units';
 import type { Benchmark } from '@core/benchmark';
+
+type ListView = 'domain' | 'type';
 
 const SEARCH_THRESHOLD = 10;
 
@@ -40,6 +48,7 @@ export default function BenchmarksScreen() {
   const [benchmarks, setBenchmarks] = useState<Benchmark[] | null>(null);
   const [search, setSearch] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [listView, setListView] = useState<ListView>('domain');
   // The detail sheet needs these for its outcome faces; this screen has no
   // other use for them, but the sheet no longer fetches its own (BenchmarkDetailSheet.tsx).
   const { points: trendPoints } = useWeightTrend();
@@ -81,9 +90,13 @@ export default function BenchmarksScreen() {
     [filtered]
   );
 
-  // The pluggable group-by wrapper: 2a today, swappable for a 2b (by-type)
-  // grouping function later without touching the card/search/states below.
-  const groupedActive = useMemo(() => groupBenchmarksByDomain(active), [active]);
+  // The pluggable group-by wrapper B3 anticipated: 2a by default, swapped
+  // for 2b (by-type) via the SegmentedControl below — the card/search/states
+  // beneath never change, only which grouping key runs.
+  const groupedActive = useMemo(
+    () => (listView === 'domain' ? groupBenchmarksByDomain(active) : groupBenchmarksByType(active)),
+    [active, listView]
+  );
 
   function openBenchmark(id: string) {
     setDetailId(id);
@@ -112,6 +125,17 @@ export default function BenchmarksScreen() {
       <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[3] }}>
         Goals the app can mirror — a rhythm to keep, a number to move, or both. Tap to open.
       </Text>
+
+      <View style={{ marginTop: theme.spacing[4] }}>
+        <SegmentedControl
+          options={[
+            { value: 'domain', label: 'By domain' },
+            { value: 'type', label: 'By type' },
+          ]}
+          value={listView}
+          onChange={setListView}
+        />
+      </View>
 
       {showSearch ? (
         <Field
