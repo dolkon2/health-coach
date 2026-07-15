@@ -443,21 +443,17 @@ Apple/Google standard third-party-beneficiary clauses (generators handle these c
 
 ## 5. ⚑ Flags for Dylan — the genuine calls
 
-- **⚑L1 — The 24-hour commitment.** The content policy (§2) commits to acting on
-  objectionable-content reports within 24 hours. That's Apple's de-facto review bar, so
-  the alternative is basically "don't ship social" — but it's *your* pager. Accepting it
-  means: push/email alert on every report, an enforcement runbook you can run from a
-  phone, and a thought about coverage when you're on a river with no signal for a weekend.
-  Recommendation: accept it, wire the alerting into S1 (B1/B6), and keep a trusted
-  second person's break-glass access in mind for later.
-- **⚑L2 — What gets a real lawyer pre-launch vs post-traction.** Recommendation: spend
-  real money pre-social-launch on exactly two things — (1) the **assumption-of-risk /
-  liability stack** (§4.7 — dangerous-sports app hosting other people's programs and
-  conditions data), and (2) **entity formation** (see ⚑L3). Everything else — privacy
-  policy, generic ToS clauses, MHMDA page — ships on generator + this doc's structure and
-  gets a full legal review at traction/revenue. The one exception pulling the other way:
-  the MHMDA standalone policy (⚑L5) has a private right of action, so if the lawyer
-  session happens anyway, put it in the reviewed pile.
+- **⚑L1 — RESOLVED 2026-07-15 (Dylan): accept the 24-hour commitment.** Confirmed as
+  "effectively required to ship any social features... Apple's de facto bar and a real
+  operational commitment." Wire the alerting into S1 (B1/B6); keep a trusted second
+  person's break-glass access in mind for later.
+- **⚑L2 — PARTIALLY RESOLVED 2026-07-15 (Dylan).** The **assumption-of-risk / liability
+  stack** (§4.7 — dangerous-sports app hosting other people's programs and conditions
+  data) is confirmed: "a paid lawyer is specifically required for liability assumption
+  questions before launch." **Entity formation (⚑L3) is not yet decided — still open.**
+  Recommendation stands for everything else: privacy policy, generic ToS clauses, MHMDA
+  page ship on generator + this doc's structure and get a full legal review at
+  traction/revenue.
 - **⚑L3 — Entity + jurisdiction.** Hosting other people's content, taking on moderation
   duties, and publishing a dangerous-sports app as a **personally-liable individual** is a
   real risk posture. TODO(lawyer): whether to form an LLC (or equivalent) before the

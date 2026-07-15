@@ -736,21 +736,23 @@ S-pass's UI.
 
 ## 12. ⚑ Flags for Dylan
 
-- **⚑B1 — When to start paying the $25/mo.** Free tier is fully sufficient for the whole
-  build (50k MAU, 500 MB DB) but **free projects pause after ~7 days of low activity** —
-  fine while agents are hitting it, a silent outage the day a tester's phone is syncing.
-  Recommendation: stay Free through B0–B2 development, flip to Pro the day the first
-  TestFlight invite with social features goes out (also unlocks branching, Smart CDN,
-  500 Realtime connections). Pure cost-timing call.
-- **⚑B2 — The backup mirror (phase-2 sync posture).** Phase 1 is upload-on-share:
-  private data never leaves the phone — a strong, simple promise. The alternative future:
-  mirror *everything* server-side under owner-only RLS, which buys real things — backup
-  if the phone dies, multi-device someday — at the cost of that promise becoming "your
-  private logbook also lives, readable only by you, on the server." Schema is already
-  shaped for it (§4); this is purely a product/privacy posture call. Recommendation:
-  decide after arc 1 ships, not now; nothing in B1–B4 forecloses either answer.
-- **Carried, still open, unchanged:** ⚑N5 (photos-local early ship), ⚑N7 (MVP arc),
-  ⚑N8 (program-grab timing), ⚑2 (placeholder tab).
+- **⚑B1 — RESOLVED 2026-07-15 (Dylan): stay on the free tier through early dev; flip to
+  Pro ($25/mo) only when user traction demands it.** Confirms the recommendation below in
+  spirit — the trigger is traction, not a fixed TestFlight date. The ~7-day pause risk (a
+  silent outage the day a real tester's phone syncs) is accepted as a known cost of
+  staying free; revisit the flip the moment an outside tester is actually using synced
+  features.
+- **⚑B2 — The backup mirror (phase-2 sync posture). Still open as of 2026-07-15** —
+  flagged again by Dylan as a deliberate choice to make later, not decided now. Phase 1 is
+  upload-on-share: private data never leaves the phone — a strong, simple promise. The
+  alternative future: mirror *everything* server-side under owner-only RLS, which buys
+  real things — backup if the phone dies, multi-device someday — at the cost of that
+  promise becoming "your private logbook also lives, readable only by you, on the
+  server." Schema is already shaped for it (§4); this is purely a product/privacy posture
+  call. Recommendation: decide after arc 1 ships, not now; nothing in B1–B4 forecloses
+  either answer.
+- **Carried, still open:** ⚑2 (placeholder tab). ⚑N5/N7/N8 resolved 2026-07-15 in
+  `social-expansion-plan.md` §7.
 
 Decided-by-default in this spec, flag only if you disagree: no Google sign-in at launch;
 no passwords; no anonymous accounts; webhook (at-most-once) push delivery with the pgmq
@@ -799,6 +801,6 @@ renditions in a private bucket behind reused signed URLs; push is a closed human
 pipeline — no client can insert a notification, no schedule exists, so an app-authored
 digest is structurally impossible, which is what amended rule 6 demanded. The repo being
 public is handled by exact key placement (publishable key in the app via `.env.local` +
-EAS; secret key and DB password never in any file) plus a `.gitignore` fix. Two flags for
-Dylan: ⚑B1 Pro-plan timing, ⚑B2 the backup-mirror posture. Build lands as B0–B4, the
-server halves of the plan's S1–S5.
+EAS; secret key and DB password never in any file) plus a `.gitignore` fix. One flag still
+open for Dylan: ⚑B2 the backup-mirror posture (⚑B1 Pro-plan timing resolved 2026-07-15 —
+stay free until traction). Build lands as B0–B4, the server halves of the plan's S1–S5.

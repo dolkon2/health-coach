@@ -622,18 +622,13 @@ here); *when* the track starts relative to arc 2 is his priority call, folded in
 
 **Open (product calls, yours):**
 
-- **⚑G1 — Group discoverability at MVP.** Invite-link-only (recommended: the Discord
-  model, quiet, zero moderation surface for strangers, and influencer groups still
-  work — the link rides their profile/bio) vs. searchable public groups (more growth,
-  more moderation exposure, needs join-request or open-join semantics designed).
-  Schema forecloses nothing either way.
-- **⚑G2 — When the G-track starts, and whether segments jump the queue.** The track
-  slots naturally after arc 1 (S5/Messages), with the plan's "communities emulated in
-  ad-hoc threads" signal as the go-trigger; G4 needs only G1 if segments should lead.
-  Pure priority call against arc 2 (S6 program-grab, S7 heatmap) — interacts with ⚑N7.
-- **⚑G3 — Member counts on group surfaces** (§1.3): permitted post-override, small
-  reversal of `social-tab.md` §6.2's "no member counts as status." Recommendation:
-  show them (GroupCard + invite preview).
+- **⚑G1 — RESOLVED 2026-07-15 (Dylan): invite-link-only to start** (the Discord model) —
+  avoids stranger-moderation overhead; searchable public groups may be evaluated later.
+- **⚑G2 — RESOLVED 2026-07-15 (Dylan): the G-track starts after Messages (arc 1) has real
+  usage** — i.e. in/after arc 2, alongside S6/S7. Leaderboards and advanced chat are
+  explicitly "slotted after messages"; segments (G4) do not jump the queue ahead of that.
+- **⚑G3 — RESOLVED 2026-07-15 (Dylan): show member counts** — informational, on
+  GroupCard + invite preview. Matches the recommendation.
 
 **Decided-by-default in this spec (flag only if you disagree):** no moderator tier at
 MVP; admins can mint admins; pinning is admin-only; members can mint invites; no

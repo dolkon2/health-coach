@@ -504,11 +504,11 @@ own passes. Total: **M + M + S** — small against what it unblocks (all of shar
 
 ## 11. ⚑ Flagged concerns (for Dylan)
 
-- **⚑Z1 — the first-share interstitial (§4.5).** One-time screen when someone first shares
-  a session with a map and has no private places set: "This shares your route, including
-  where it started. Hide the area around home first?" Recommendation: yes — it's the one
-  moment the protection matters and it fires on the user's own action; but it is an
-  interposed screen you didn't summon, so it's your call, not mine.
+- **⚑Z1 — RESOLVED 2026-07-15 (Dylan): yes, ship the first-share interstitial (§4.5).**
+  Confirmed in his own words: home area should be hidden on the first share screen, and
+  sharing stays opt-in and intentional each time — matches the one-time screen exactly
+  (fires on the user's own first share, private places set up right there, never re-shown
+  once configured).
 - **⚑Z2 — what numbers your friends see (§5.6).** The research is unambiguous: if shared
   distance includes the hidden parts, your home is findable by arithmetic (researchers
   recovered 85% of homes protected by the most common setting). The fix that actually works:
@@ -549,6 +549,7 @@ filtering): add or move a zone and all history is re-filtered on next read. Stor
 `privacy_zones` (owner-only RLS, cloak columns, timestamp-named Supabase migration) + a local
 mirror claiming the next free local number (≥018) at build time. Build: **Z1 local entity +
 editor (M, buildable now) → Z2 server filter (M, lands with Social S2, gates S3/S6/S7) → Z3
-share-surface integration (S)**. Two flags for Dylan: the first-share setup prompt (⚑Z1) and
-whether friends see exact totals or visible-line totals (⚑Z2 — recommendation: visible-line;
-it's the only posture the researchers couldn't defeat).
+share-surface integration (S)**. One flag still open for Dylan: whether friends see exact
+totals or visible-line totals (⚑Z2 — recommendation: visible-line; it's the only posture the
+researchers couldn't defeat). ⚑Z1 (the first-share setup prompt) resolved 2026-07-15 — yes,
+ship it.

@@ -69,8 +69,9 @@ segments member-set inside member-created activity groups (⚑N4); chat = roll-y
 Supabase (⚑N6, lean); **and the constitution amended** (rules 5 + 6) to record the public/
 kudos/notifications posture — done at his instruction (§8).
 
-Still needs Dylan (§7): photos-local early ship (⚑N5); the MVP arc cut (⚑N7); program-grab
-timing — launch hook or fast-follow (⚑N8); carried ⚑2 (placeholder tab).
+Resolved 2026-07-15 (Dylan, written notes ahead of the P6 capstone run): photos-local early
+ship (⚑N5); the MVP arc cut (⚑N7); program-grab timing (⚑N8) — see §7. Still needs Dylan:
+carried ⚑2 (placeholder tab).
 
 ## 1. The social model (post-override) — accounts, sections, per-session share
 
@@ -580,6 +581,12 @@ cadence). Privacy zones apply live (suppress points in-zone — which also means
 *starting* only outside the home zone). Viewer side is a Map layer. Sized XL end-to-end
 (real-time transport + consent UX + battery validation); nothing in §6 depends on it.
 
+**Stat visibility, live vs. post-trip (Dylan, 2026-07-15, recorded ahead of build):** while
+a session is live, viewers get position only — no derived stats (speed, distance-so-far,
+river-level/section data). Exact distance and full stats become visible to friends only
+once the session ends and is actually Shared, same as any other session. Keeps the live
+channel a location beacon, not a leaderboard-in-progress.
+
 ## 6. The revised build ladder
 
 Extends and renumbers `social-tab.md` §7 — that ladder is superseded by this one (banner on
@@ -653,20 +660,21 @@ discovery + section privacy), so budget it as the large pass it is.
 
 ## 7. ⚑ Flags for Dylan
 
-*(Updated 2026-07-11 after Dylan's second decision round — ⚑N1/N2/N3/N4/N6 now resolved, and
-the constitution amended. Only three product calls remain open, all pure scope/priority.)*
+*(Updated 2026-07-15 — ⚑N5/N7/N8 resolved via Dylan's written notes ahead of the P6 capstone
+session. Only the carried placeholder-tab flag remains open.)*
 
 **Still open:**
-- **⚑N5 — Photos-local early ship.** S0.8 before the backend era (recommended — self-contained,
-  standalone value as a visual logbook) or held to ride S2. Pure scope-queue call.
-- **⚑N7 — MVP arc** (§6 sequencing note): S1–S5 as arc 1 (accounts→Messages), S6 (shares +
-  the "grab their split" payoff) and S7 (heatmap) as arc 2. Note S1 is heavy post-override
-  (public accounts + discovery + section privacy + moderation).
-- **⚑N8 — Program-grab timing.** Grabbing an influencer's split (§1.3) is slotted at S6, but
-  it's the headline use-case you named — a lightweight version can ride S3/S4 once public
-  benchmark/template sections render. Founder priority call: is it the launch hook or a
-  fast-follow?
 - **Carried: ⚑2** (placeholder tab content, pre-Ring-4) — unchanged, still yours.
+
+**Resolved 2026-07-15 (Dylan, written notes ahead of the capstone run):**
+- **⚑N5 → ship photos-local (S0.8) early, before the backend era.** Confirms the
+  recommendation — self-contained, standalone value as a visual logbook.
+- **⚑N7 → the MVP arc split is confirmed.** **Arc 1 = S1–S5** — accounts, DMs, and small
+  group chats, "confirmed as the top priority," plus public accounts, discovery, privacy/
+  safety controls, and moderation. **Arc 2 = S6 (shares + program-grab), S7 (heatmap), and
+  the world-building-style/leaderboard/advanced-chat territory (S8–S9).**
+- **⚑N8 → program-grab ("grab their split") moves to Arc 2** — a fast-follow, not the
+  launch headline. Stays slotted at S6 (§1.3, §6); not pulled forward into S3/S4.
 
 **Resolved with Dylan 2026-07-11 (settled inputs):**
 - **⚑N1 → side-by-side Share/Save, no pre-selection** (§1.1).

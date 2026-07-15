@@ -417,15 +417,13 @@ queue) stays Dylan's, unchanged.
 
 ## 10. ⚑ Flags for Dylan
 
-- **⚑P1 — Mid-recording capture on the Map live panel?** Strava offers snap-while-
-  recording; our Record panel could carry a small camera button (photos land as prepared
-  media, attached at save). Recommendation: **defer** — the after-the-fact picker covers
-  the need, the record path is freshly verified and shouldn't grow surface before the
-  physical-device checklist passes, and PH2's capture door gets us most of the way.
-  Pure product-scope call; nothing below depends on it.
-- **⚑N5 — carried, unchanged** (plan §7): whether PH1/S0.8 jumps the pre-backend queue.
-  This spec strengthens the "yes" case only in that the P2 gate is now verified
-  satisfied.
+- **⚑P1 — RESOLVED 2026-07-15 (Dylan): defer.** Start with photos sourced from the user's
+  own photos app (the after-the-fact picker, PH2); an in-app "snap a photo" button on the
+  live Map recording screen is a future Arc 2 enhancement, not MVP — matches the
+  recommendation exactly.
+- **⚑N5 — RESOLVED 2026-07-15** (`social-expansion-plan.md` §7): ship photos-local
+  (PH1/S0.8) early, before the backend era. This spec's P2-gate verification supported the
+  "yes" case; Dylan's notes confirm it.
 
 *(Cap = 6, hero = first, EXIF gate, no-prompt rule, no captions at MVP, storage
 platform + costs: all settled in plan §4 / backend spec §6.2 — not reopened.)*
