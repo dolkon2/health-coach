@@ -333,21 +333,25 @@ entry point, and it's the filter.** (Verified hazard this rule kills: `RouteMap`
 camera bounds from the path it's handed — hand it raw points and the *bounding box* recenters
 on the hidden area even with the line filtered.)
 
-### 5.6 Stats — the distance-differential defense (⚑Z2)
+### 5.6 Stats — the distance-differential defense (⚑Z2 — RESOLVED 2026-07-15)
 
 The CCS 2022 finding (§2): if shared stats still include hidden portions, the hidden length
 is recoverable by subtraction and the zone is defeated — 85% at the popular radius, and cut
 jitter doesn't help. Only two defenses work. **Engineering recommendation — the Relive
-model: shared stats describe the shared geometry.** The projection computes distance,
-elevation gain, and splits **from the visible runs**; displayed pace derives from visible
-distance over visible-span time. Self-consistent (the numbers match the line viewers see),
-zero-tell (nothing signals suppression — a rounded number only-when-hidden would itself be a
-tell), and the only posture the attack literature couldn't break. The owner's own logbook
-keeps exact totals everywhere — the mirror is untouched; and the caption is theirs ("20 km
-birthday run!") if they want the real number public — that's their disclosure to make, not
-the app's. This is user-visible (your friends see slightly smaller numbers than your
-logbook — typically −400 m from the default trims) and therefore flagged, not just decided:
-⚑Z2.
+model: shared stats describe the shared geometry.** The projection would compute distance,
+elevation gain, and splits **from the visible runs**; displayed pace would derive from
+visible distance over visible-span time — self-consistent, zero-tell, and the only posture
+the attack literature couldn't break.
+
+**Decided 2026-07-15 (Dylan): overridden — friends see the exact, untrimmed distance, not
+the visible-line figure.** Flagged plainly before recording: this reopens exactly the
+subtraction attack the paragraph above describes — a viewer who compares the exact total to
+the visible line's own length can recover the trimmed portion, and CCS 2022 recovered ~85%
+of home locations this way at the popular radius. The override stands as a deliberate
+founder call, not a silent reinterpretation. The geometry itself is still zone-filtered (no
+raw points ever leave the server) — only the numeric distance/elevation/pace figures go
+exact instead of visible-line-derived. The owner's own logbook keeps exact totals regardless
+(unaffected either way — the mirror was never in scope here).
 
 ### 5.7 Cost
 
@@ -509,16 +513,13 @@ own passes. Total: **M + M + S** — small against what it unblocks (all of shar
   sharing stays opt-in and intentional each time — matches the one-time screen exactly
   (fires on the user's own first share, private places set up right there, never re-shown
   once configured).
-- **⚑Z2 — what numbers your friends see (§5.6).** The research is unambiguous: if shared
-  distance includes the hidden parts, your home is findable by arithmetic (researchers
-  recovered 85% of homes protected by the most common setting). The fix that actually works:
-  **the shared copy's stats describe the shared line** — so a 10.0 km run shows to friends
-  as ~9.6 km (the hidden ends aren't counted), while your own logbook always keeps the exact
-  10.0. Alternative: show exact totals like Strava does and accept the known weakness. My
-  recommendation is the safe version — it's the privacy-hardest-line answer and the only one
-  the researchers couldn't break — but it's user-visible (feed numbers run slightly small),
-  so it's yours to confirm. Your caption can always carry the real number if you want it
-  public.
+- **⚑Z2 — RESOLVED 2026-07-15 (Dylan): exact distance, not trimmed, on shared stats.**
+  Flagged once, plainly, before recording: the research is unambiguous that this reopens
+  the subtraction attack (researchers recovered 85% of homes protected by the most common
+  setting when shared numbers include the hidden portion) — it's the opposite of the
+  safe/recommended posture. The override is deliberate and stands; geometry stays
+  zone-filtered regardless (the trimmed line is still all a viewer ever sees) — only the
+  numeric distance/elevation/pace figures are exact rather than visible-line-derived.
 - **Decisions (obvious calls) taken here, on the record, not re-raised:** mid-route in-zone
   suppression everywhere (mandated + it's what users assume they're getting); 400 m default
   radius, 200–1,600 m free slider, cap 10; drop-points-only (no boundary interpolation, no
@@ -542,14 +543,14 @@ suppressions (in-zone points anywhere, first 200 m, last 200 m), splits the surv
 unbridged runs, decimates after masking, and derives every stat, thumbnail, bound, and
 profile from the filtered copy. The owner's stored track is never modified, and their own
 views never filtered. Defense against the published attacks is layered: spatial cloaking
-(one-time offset circle), drop-raw-points-only cuts, no per-point timestamps, and — pending
-⚑Z2 — shared stats that describe only the visible line, the one defense the CCS 2022
-distance-subtraction attack couldn't break. Retroactivity is free by construction (per-read
-filtering): add or move a zone and all history is re-filtered on next read. Storage: server
-`privacy_zones` (owner-only RLS, cloak columns, timestamp-named Supabase migration) + a local
-mirror claiming the next free local number (≥018) at build time. Build: **Z1 local entity +
-editor (M, buildable now) → Z2 server filter (M, lands with Social S2, gates S3/S6/S7) → Z3
-share-surface integration (S)**. One flag still open for Dylan: whether friends see exact
-totals or visible-line totals (⚑Z2 — recommendation: visible-line; it's the only posture the
-researchers couldn't defeat). ⚑Z1 (the first-share setup prompt) resolved 2026-07-15 — yes,
-ship it.
+(one-time offset circle), drop-raw-points-only cuts, no per-point timestamps — but **not**
+the stats-describe-only-the-visible-line defense, which Dylan overrode 2026-07-15 (⚑Z2:
+shared stats show the exact, untrimmed distance; the geometry itself stays zone-filtered,
+only the numbers go exact, flagged plainly as reopening the CCS 2022 distance-subtraction
+attack). Retroactivity is free by construction (per-read filtering): add or move a zone and
+all history is re-filtered on next read. Storage: server `privacy_zones` (owner-only RLS,
+cloak columns, timestamp-named Supabase migration) + a local mirror claiming the next free
+local number (≥018) at build time. Build: **Z1 local entity + editor (M, buildable now) →
+Z2 server filter (M, lands with Social S2, gates S3/S6/S7) → Z3 share-surface integration
+(S)**. Both flags resolved 2026-07-15: ⚑Z1 (first-share setup prompt) ships; ⚑Z2 (stat
+exactness) overridden to exact totals.

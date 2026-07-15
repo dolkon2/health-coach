@@ -742,15 +742,16 @@ S-pass's UI.
   silent outage the day a real tester's phone syncs) is accepted as a known cost of
   staying free; revisit the flip the moment an outside tester is actually using synced
   features.
-- **⚑B2 — The backup mirror (phase-2 sync posture). Still open as of 2026-07-15** —
-  flagged again by Dylan as a deliberate choice to make later, not decided now. Phase 1 is
+- **⚑B2 — The backup mirror (phase-2 sync posture). Still open as of 2026-07-15** — Dylan's
+  own words: "honestly don't get it," so left open rather than guessed at. Phase 1 is
   upload-on-share: private data never leaves the phone — a strong, simple promise. The
   alternative future: mirror *everything* server-side under owner-only RLS, which buys
   real things — backup if the phone dies, multi-device someday — at the cost of that
   promise becoming "your private logbook also lives, readable only by you, on the
   server." Schema is already shaped for it (§4); this is purely a product/privacy posture
-  call. Recommendation: decide after arc 1 ships, not now; nothing in B1–B4 forecloses
-  either answer.
+  call, not an engineering one — recommend walking through the two options concretely
+  (what "backup" would actually mean day to day) at a later session, rather than deciding
+  from the abstract framing now. Nothing in B1–B4 forecloses either answer.
 - **Carried, still open:** ⚑2 (placeholder tab). ⚑N5/N7/N8 resolved 2026-07-15 in
   `social-expansion-plan.md` §7.
 
