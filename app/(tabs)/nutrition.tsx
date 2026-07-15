@@ -154,6 +154,7 @@ export default function NutritionScreen() {
   return (
     <Screen
       scroll
+      headerTransparent
       // Log food lives in the persistent footer, matching Home's log bar and
       // Training's footer action — the same `PillActionButton` system across
       // all three (Dylan, 2026-07-12). Only on Intake: logging doesn't apply

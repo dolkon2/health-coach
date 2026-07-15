@@ -86,7 +86,14 @@ export default function TabsLayout() {
           letterSpacing: 0.5,
           textTransform: 'uppercase',
         },
-        headerStyle: { backgroundColor: theme.colors.bg },
+        // Transparent + floating (Dylan, 2026-07-13): the header used to be an
+        // opaque bar that reserved its own height above every screen's content,
+        // reading as a "rail" cramping things down. Now it floats over the
+        // content on every tab (Map already worked this way — map-tab.md §2);
+        // each screen's own <Screen headerTransparent> pulls content up to sit
+        // level with the avatar/gear cluster instead of below a bar.
+        headerTransparent: true,
+        headerStyle: { backgroundColor: 'transparent' },
         headerTitle: '',
         headerShadowVisible: false,
         headerRight: () => <HeaderCluster />,
@@ -110,11 +117,8 @@ export default function TabsLayout() {
         name="map"
         options={{
           title: 'Map',
-          // Full-bleed: the map runs under a transparent, floating header so the
-          // avatar+gear cluster sits over it (map-tab.md §2). The sport-arm
-          // control renders as an in-screen overlay.
-          headerTransparent: true,
-          headerStyle: { backgroundColor: 'transparent' },
+          // Full-bleed: the sport-arm control renders as an in-screen overlay
+          // (map-tab.md §2). Transparent header is now the shared default above.
           tabBarIcon: ({ color }) => <MapTabIcon color={color} />,
         }}
       />

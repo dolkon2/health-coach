@@ -16,7 +16,7 @@ import { useTheme } from '@/theme';
 export default function SocialScreen() {
   const theme = useTheme();
   return (
-    <Screen>
+    <Screen headerTransparent>
       <View
         style={{
           flex: 1,

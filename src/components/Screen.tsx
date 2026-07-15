@@ -15,6 +15,7 @@
  */
 import React from 'react';
 import { View, ScrollView, RefreshControl, Image, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme';
 
 // Basalt haze — a wet-rock texture the whole app sits on (Dylan, 2026-07-12).
@@ -33,17 +34,26 @@ type ScreenProps = {
   /** Pull-to-refresh — only meaningful with `scroll`. Omit both to skip it. */
   refreshing?: boolean;
   onRefresh?: () => void;
+  /**
+   * Set on tab screens (Home/Training/Nutrition/Social), whose nav header is
+   * transparent and floats over the content rather than reserving its own
+   * bar (Dylan, 2026-07-13: the opaque header read as a "rail" cramping the
+   * content down). Content then starts right at the safe-area edge, level
+   * with the floating avatar/gear cluster, instead of below a header bar.
+   */
+  headerTransparent?: boolean;
 };
 
-export function Screen({ children, scroll, style, footer, refreshing, onRefresh }: ScreenProps) {
+export function Screen({ children, scroll, style, footer, refreshing, onRefresh, headerTransparent }: ScreenProps) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   const padding: ViewStyle = {
-    // Breathing room below the nav header (Dylan, 2026-07-12: titled modal
-    // screens — New template, Spots, … — felt cramped up top). Applies to
-    // every Screen; tab screens have an empty-title header so the extra room
-    // just reads as airier.
-    paddingTop: theme.spacing[8],
+    paddingTop: headerTransparent
+      ? insets.top + theme.spacing[2]
+      : // Breathing room below the nav header (Dylan, 2026-07-12: titled modal
+        // screens — New template, Spots, … — felt cramped up top).
+        theme.spacing[8],
     paddingHorizontal: theme.spacing[6],
     paddingBottom: footer ? theme.spacing[10] : theme.spacing[6],
   };

@@ -158,6 +158,7 @@ export default function HomeScreen() {
   return (
     <Screen
       scroll
+      headerTransparent
       footer={
         <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
           <PillActionButton

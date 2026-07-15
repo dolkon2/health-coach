@@ -177,7 +177,7 @@ export default function TrainingScreen() {
   );
 
   return (
-    <Screen scroll footer={footerAction}>
+    <Screen scroll headerTransparent footer={footerAction}>
       <Text variant="label" color={theme.colors.accent}>
         Training
       </Text>
