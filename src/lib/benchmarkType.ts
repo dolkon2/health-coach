@@ -18,20 +18,24 @@ export type BenchmarkTypeKey = 'behavior' | 'outcome' | 'both';
 
 export type BenchmarkTypeGroup = { key: BenchmarkTypeKey; label: string };
 
-const BEHAVIOR: BenchmarkTypeGroup = { key: 'behavior', label: 'Behavior' };
-const OUTCOME: BenchmarkTypeGroup = { key: 'outcome', label: 'Outcome' };
-const BOTH: BenchmarkTypeGroup = { key: 'both', label: 'Both' };
+/** The three groups, keyed and ordered for rendering: Behavior, then
+ *  Outcome, then Both — the Benchmark type's own face order (behavior before
+ *  outcome), dual-face last as the richer/rarer case. A closed, exhaustive
+ *  set (unlike benchmarkDomain.ts's open-ended, switch-resolved keys), so a
+ *  plain keyed record needs no Map or possibly-undefined lookup. */
+export const BENCHMARK_TYPE_GROUPS: Record<BenchmarkTypeKey, BenchmarkTypeGroup> = {
+  behavior: { key: 'behavior', label: 'Behavior' },
+  outcome: { key: 'outcome', label: 'Outcome' },
+  both: { key: 'both', label: 'Both' },
+};
 
-/** Section order for rendering: Behavior, then Outcome, then Both — the
- *  Benchmark type's own face order (behavior before outcome), dual-face last
- *  as the richer/rarer case. */
 export const BENCHMARK_TYPE_ORDER: readonly BenchmarkTypeKey[] = ['behavior', 'outcome', 'both'];
 
 /** The type group a benchmark's card sorts under. */
 export function benchmarkTypeGroup(b: Pick<Benchmark, 'behavior' | 'outcome'>): BenchmarkTypeGroup {
-  if (b.behavior && b.outcome) return BOTH;
-  if (b.behavior) return BEHAVIOR;
-  return OUTCOME;
+  if (b.behavior && b.outcome) return BENCHMARK_TYPE_GROUPS.both;
+  if (b.behavior) return BENCHMARK_TYPE_GROUPS.behavior;
+  return BENCHMARK_TYPE_GROUPS.outcome;
 }
 
 /** Group + order benchmarks by face-type, dropping empty sections. Stable
@@ -41,14 +45,12 @@ export function benchmarkTypeGroup(b: Pick<Benchmark, 'behavior' | 'outcome'>): 
 export function groupBenchmarksByType<T extends Pick<Benchmark, 'behavior' | 'outcome'>>(
   items: T[]
 ): Array<{ group: BenchmarkTypeGroup; items: T[] }> {
-  const byKey = new Map<BenchmarkTypeKey, { group: BenchmarkTypeGroup; items: T[] }>();
+  const byKey: Record<BenchmarkTypeKey, T[]> = { behavior: [], outcome: [], both: [] };
   for (const item of items) {
-    const group = benchmarkTypeGroup(item);
-    const bucket = byKey.get(group.key) ?? { group, items: [] };
-    bucket.items.push(item);
-    byKey.set(group.key, bucket);
+    byKey[benchmarkTypeGroup(item).key].push(item);
   }
-  return BENCHMARK_TYPE_ORDER.map((key) => byKey.get(key)).filter(
-    (b): b is { group: BenchmarkTypeGroup; items: T[] } => b != null
-  );
+  return BENCHMARK_TYPE_ORDER.filter((key) => byKey[key].length > 0).map((key) => ({
+    group: BENCHMARK_TYPE_GROUPS[key],
+    items: byKey[key],
+  }));
 }
