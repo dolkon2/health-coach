@@ -20,7 +20,8 @@ research into buildable passes. Planning only — no code.
   nothing image-shaped persists anywhere in the app.
 - Migration registry (`src/storage/migrations/index.ts`): 001–009, 010–013 burned,
   014–017 registered. 016 = `routes` (claimed by the in-flight Routes session), 017 =
-  `recording_buffer` (Session 8). **Next free is 018 — this spec claims it** (§2).
+  `recording_buffer` (Session 8), 018 = `benchmark_groups` (Phase 4, P4-3, claimed after
+  this spec was written). **Next free is 019 — this spec claims it** (§2).
 - The Profile logbook (P2) is **built**: `app/profile.tsx` renders list + calendar over
   `useSessionHistory`; entry tap routes to `/log-session?editId=` — the edit screen *is*
   today's session detail (RouteMap hero when a track exists). The S0.8 gate ("the logbook
@@ -101,16 +102,16 @@ Decisions, made plainly:
 - **Cap 6 per entry** (plan §4, settled) — enforced at the picker (`selectionLimit` =
   remaining slots) and re-checked at commit.
 
-### 2.2 The media sidecar table — **claims migration 018**
+### 2.2 The media sidecar table — **claims migration 019**
 
-**This spec claims local migration number 018 explicitly** — verified free against the
-working-tree registry (001–009, 014–017; 016 = routes, 017 = recording_buffer). Every
-later claimant queues behind it: the backend spec's `sync_outbox` ("next free ≥018 at
-build time") now reads **≥019**, and the gear Earth-arms migration
-(`profile-settings.md` P9) queues after that. Ripple recorded in §11.
+**This spec claims local migration number 019** — 018 was taken by `benchmark_groups`
+(Phase 4, P4-3) after this spec was first written; verified free against the working-tree
+registry (001–009, 014–018; 016 = routes, 017 = recording_buffer, 018 = benchmark_groups).
+Every later claimant queues behind it: the backend spec's `sync_outbox` ("next free ≥019 at
+build time") now reads **≥020**. Ripple recorded in §11.
 
 ```sql
--- 018_media.ts
+-- 019_media.ts
 CREATE TABLE media (
   id TEXT PRIMARY KEY,            -- uuid v7 (src/lib/id.ts); same id on the server forever
   observation_id TEXT NOT NULL,   -- owning session observation
@@ -348,7 +349,7 @@ the payload, so whatever grant governs the observation governs its photos. Cases
 
 - **PH1 — Photos, local-first (M). = the plan's S0.8; pre-backend; independent of all
   social work.** Deps + dev-client rebuild; `MediaRef` on `SessionPayload`; **migration
-  018** (`media` table); `src/lib/media/` (prepare/commit ingest, delete cascade,
+  019** (`media` table); `src/lib/media/` (prepare/commit ingest, delete cascade,
   janitor); Photos section on log-session detail (picker attach/remove, gallery,
   full-screen pager); logbook thumb strip. Verify bar: attach 6 from the roll → strip
   test passes (GPS fixture in, no EXIF out) → thumbs on the logbook card → gallery +
@@ -376,9 +377,10 @@ queue) stays Dylan's, unchanged.
 - **`core/src/observation.ts`**: additive `MediaRef` + `media?: MediaRef[]` on
   `SessionPayload` only. No engine reads it; `serialize.ts` passes it through as
   payload JSON unchanged.
-- **Migration 018 — claimed by this spec** (§2.2). Later claimants renumber from ≥019:
-  backend `sync_outbox`, gear Earth-arms (P9), both queue-at-build-time by their own
-  specs' rules.
+- **Migration 019 — claimed by this spec** (§2.2; 018 went to `benchmark_groups`
+  before this spec built). Later claimants renumber from ≥020: backend `sync_outbox`,
+  queue-at-build-time by its own spec's rules. (Gear Earth-arms/P9 needed no migration —
+  it landed at the 014 merge; see `profile-settings.md` §2/§6-P9.)
 - **`src/storage/observations.ts`**: `deleteObservation` gains the media cascade; new
   `src/storage/media.ts` for row CRUD; batched `listMediaForObservations(ids)` for the
   logbook strip (one query per window, not per card).
@@ -433,17 +435,17 @@ platform + costs: all settled in plan §4 / backend spec §6.2 — not reopened.
 ## 11. Dependencies & doc ripple
 
 - **`social-expansion-plan.md`** — §4 is this spec's authority; S0.8 in its ladder = PH1
-  here. Its "S0.8 (018+)" now reads as a hard claim: **018, this spec**.
-- **Supabase backend spec** — its §9.2 `sync_outbox` "next free ≥018" becomes **≥019**
-  (018 claimed here); its §9.3 media sidecar is PH3's contract, unchanged.
-- **`profile-settings.md`** — its §4 "next free is 017" was already stale (017 =
-  recording_buffer); with 018 claimed here the gear Earth-arms claimant (P9) queues from
-  **≥019**. Its P2 logbook is PH1's rendering host (verified built).
+  here. Its "S0.8 (018+)" now reads as a hard claim: **019, this spec**.
+- **Supabase backend spec** — its §9.2 `sync_outbox` "next free ≥018" becomes **≥020**
+  (019 claimed here); its §9.3 media sidecar is PH3's contract, unchanged.
+- **`profile-settings.md`** — its §2/§6-P9 correction (2026-07-13) already records that
+  gear Earth-arms needed no migration (satisfied at the 014 merge) — it does not queue
+  behind this spec. Its P2 logbook is PH1's rendering host (verified built).
 - **`social-tab.md` §6** — the plan's ripple item still pending: add **guardrail 9 =
   EXIF-strip at ingest** (currently ends at 8). Belongs to S0.5's doc pass; recorded
   here so it isn't dropped.
 - **Consolidated migration ledger** (S0.5) — record: 016 routes · 017 recording_buffer ·
-  **018 media (this spec)** · next free 019.
+  018 benchmark_groups · **019 media (this spec)** · next free 020.
 - **`ring2-camera-build.md`** — its deferred `expo-image-manipulator` install lands via
   PH1; the food path may reuse the downscale utility afterward. Nothing else touches it.
 - **Map track** — privacy zones gate feed *route thumbnails* (S3), not photos; photos
@@ -463,7 +465,7 @@ the GPS location cameras embed) is destroyed the moment it's imported, provably,
 test. Photos on a session you keep private **cannot** leave your phone; sharing a
 session is the only thing that ever uploads its photos.
 
-**Key decisions made here:** the photo bookkeeping table takes **migration number 018**;
+**Key decisions made here:** the photo bookkeeping table takes **migration number 019**;
 photo order lives in one place (the session record, first = cover); the map stays the
 hero on your own session detail with photos right under it, while the *feed* leads with
 the photo; storage cleanup only ever touches photos that already have a safe copy on the
