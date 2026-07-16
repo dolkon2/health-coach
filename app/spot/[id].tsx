@@ -1,36 +1,52 @@
 /**
- * Spot detail — a minimal tap-in for now: name, sport, notes, and live
- * conditions (weather always, gauge when the sport resolves one). Full P3
- * (session log beneath, edit/rename/re-tag, gauge-link search affordance)
- * is a later pass — this stub exists so the list's and Home's "tap → spot
- * detail" routing (pinned-spots-spec.md, home-tab.md §5) has somewhere real
- * to land rather than a dead route, per the P1/P2 scope this session built.
+ * Spot detail — name, sport, notes, live conditions (weather always, gauge
+ * when the sport resolves one), and the F1 Forecast dashboard (a card stack
+ * per `spotForecastPanels`, kept visually distinct from the live-conditions
+ * Card above it — live = now, forecast = ahead, never merged into one
+ * number). Full P3 (session log beneath, edit/rename/re-tag, gauge-link
+ * search affordance) is a later pass — this stub exists so the list's and
+ * Home's "tap → spot detail" routing (pinned-spots-spec.md, home-tab.md §5)
+ * has somewhere real to land rather than a dead route.
  */
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MapPin } from 'lucide-react-native';
-import { Screen, Text, Card } from '@/components';
+import {
+  Screen,
+  Text,
+  Card,
+  Button,
+  WindForecastCard,
+  RainShineForecastCard,
+  ForecastPanelPicker,
+} from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
-import { getSpot } from '@/storage/spots';
+import { getSpot, updateSpot } from '@/storage/spots';
 import { fetchCurrentForSpot, type CurrentConditions } from '@/lib/conditions/current';
+import { fetchForecast, type ForecastResult } from '@/lib/conditions/openMeteoForecast';
 import { spotHeadlineReading, updatedAtLabel } from '@/lib/spotHeadline';
 import { feedForSport } from '@core/conditions/feedForSport';
 import { activityById } from '@/lib/activity';
-import type { Spot } from '@core/spot';
+import { spotForecastPanels, type Spot, type ForecastPanel } from '@core/spot';
 
 export default function SpotDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [spot, setSpot] = useState<Spot | null | undefined>(undefined);
   const [current, setCurrent] = useState<CurrentConditions | undefined>(undefined);
+  const [forecast, setForecast] = useState<ForecastResult | null | undefined>(undefined);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
     if (!id) return;
     const s = await getSpot(id);
     setSpot(s);
-    if (s) setCurrent(await fetchCurrentForSpot(s));
+    if (s) {
+      setCurrent(await fetchCurrentForSpot(s));
+      setForecast(s.lat != null && s.lng != null ? await fetchForecast(s.lat, s.lng) : null);
+    }
   }, [id]);
 
   useFocusEffect(
@@ -38,6 +54,12 @@ export default function SpotDetailScreen() {
       reload();
     }, [reload])
   );
+
+  async function handlePanelsChange(panels: ForecastPanel[]) {
+    if (!spot) return;
+    const updated = await updateSpot(spot.id, { meta: { ...spot.meta, forecastPanels: panels } });
+    setSpot(updated);
+  }
 
   if (spot === undefined) return <Screen scroll>{null}</Screen>;
   if (spot === null) {
@@ -55,6 +77,33 @@ export default function SpotDetailScreen() {
   const feed = feedForSport(spot.sport);
   const headline = spotHeadlineReading(feed, current);
   const stamp = updatedAtLabel(current, Date.now());
+
+  const panels = spotForecastPanels(spot);
+  const renderablePanels = panels.filter((p) => p === 'wind' || p === 'rain-shine');
+  const forecastCards = [];
+  if (forecast) {
+    if (panels.includes('wind')) {
+      forecastCards.push(
+        <WindForecastCard
+          key="wind"
+          hourly={forecast.hourly}
+          model={forecast.model}
+          fetchedAtUtc={forecast.fetchedAtUtc}
+        />
+      );
+    }
+    if (panels.includes('rain-shine')) {
+      forecastCards.push(
+        <RainShineForecastCard
+          key="rain-shine"
+          hourly={forecast.hourly}
+          daily={forecast.daily}
+          model={forecast.model}
+          fetchedAtUtc={forecast.fetchedAtUtc}
+        />
+      );
+    }
+  }
 
   return (
     <Screen scroll>
@@ -87,6 +136,36 @@ export default function SpotDetailScreen() {
             </Text>
           ) : null}
         </Card>
+      </View>
+
+      <View style={{ marginTop: theme.spacing[6] }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text variant="label" color={theme.colors.textSecondary}>
+            Forecast
+          </Text>
+          <Button
+            label={pickerOpen ? 'Done' : 'Configure'}
+            variant="ghost"
+            size="sm"
+            onPress={() => setPickerOpen((v) => !v)}
+          />
+        </View>
+        {pickerOpen ? (
+          <View style={{ marginTop: theme.spacing[2] }}>
+            <ForecastPanelPicker value={spotForecastPanels(spot)} onChange={handlePanelsChange} />
+          </View>
+        ) : null}
+        {renderablePanels.length === 0 ? (
+          <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>
+            No forecast panels configured for this spot.
+          </Text>
+        ) : forecastCards.length > 0 ? (
+          <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>{forecastCards}</View>
+        ) : forecast === null ? (
+          <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>
+            Forecast unavailable.
+          </Text>
+        ) : null}
       </View>
 
       {spot.notes ? (
