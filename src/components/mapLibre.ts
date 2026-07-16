@@ -22,11 +22,31 @@
  * pointed at a terrain-RGB TileJSON. Style-level `terrain`/`sky` (the fields
  * that actually raise the mesh) have no component — they're set on the style
  * object itself; see mapTerrain.ts + useTerrainMapStyle.
+ *
+ * `Map`'s `ref`/`Camera`'s `ref` (map-tab.md Explore reframe): v11 exposes
+ * imperative handles as an ordinary `ref` prop, not `forwardRef` — `MapRefHandle.
+ * getCenter()` is Explore's crosshair reading "wherever the reticle points" on
+ * demand (no continuous region-change state); `CameraRefHandle.flyTo()` is
+ * location search's recenter. `onLongPress` is My Map's "pin a spot here" door.
  */
-import type { ComponentType, ReactElement, ReactNode } from 'react';
+import type { ComponentType, ReactElement, ReactNode, Ref } from 'react';
+import type { NativeSyntheticEvent } from 'react-native';
 import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
 
 export type LngLat = [number, number];
+
+/** The touch coordinate carried by `Map`'s onPress/onLongPress events. */
+export type MapPressEvent = { lngLat: LngLat; point: { x: number; y: number } };
+
+/** Imperative handle exposed via `Map`'s `ref` prop (v11 ref-as-prop, not forwardRef). */
+export type MapRefHandle = {
+  getCenter(): Promise<LngLat>;
+};
+
+/** Imperative handle exposed via `Camera`'s `ref` prop — only the method we use. */
+export type CameraRefHandle = {
+  flyTo(options: { center: LngLat; zoom?: number; duration?: number }): void;
+};
 
 /** MapLibre GL JS PositionAnchor format (v11 `anchor` prop). */
 export type Anchor =
@@ -53,6 +73,10 @@ export type MapLibreModule = {
     attribution?: boolean;
     compass?: boolean;
     children?: ReactNode;
+    /** v11 ref-as-prop (not forwardRef) — `getCenter()` for Explore's crosshair. */
+    ref?: Ref<MapRefHandle>;
+    /** Fires on a long touch-and-hold — My Map's "pin a spot here" door. */
+    onLongPress?: (event: NativeSyntheticEvent<MapPressEvent>) => void;
   }>;
   Camera: ComponentType<{
     /** Flat [west, south, east, north] (GeoJSON order); fits the viewport. */
@@ -67,6 +91,8 @@ export type MapLibreModule = {
     bearing?: number;
     /** Animation duration in ms (0 = jump). */
     duration?: number;
+    /** Ref to imperative camera methods — only `flyTo` (search recenter) is typed here. */
+    ref?: Ref<CameraRefHandle>;
   }>;
   GeoJSONSource: ComponentType<{ id?: string; data: object | string; children?: ReactNode }>;
   /** Unified layer: `type="line"` etc.; source is injected when nested. */

@@ -3,7 +3,7 @@ export { Card } from './Card';
 export { Button } from './Button';
 export { Screen } from './Screen';
 export { Field } from './Field';
-export { ChipSelect, type ChipOption } from './ChipSelect';
+export { ChipSelect, chipStyle, type ChipOption } from './ChipSelect';
 export { SegmentedControl } from './SegmentedControl';
 export { SessionCard } from './SessionCard';
 export { BenchmarkStatusCard, type BenchmarkStatusCardProps } from './BenchmarkStatusCard';
@@ -19,7 +19,12 @@ export { RoutePreview, routePathD, routeGuidePathsD } from './RoutePreview';
 export { ElevationProfile, elevationPaths } from './ElevationProfile';
 export { Splits } from './Splits';
 export { RouteMap } from './RouteMap';
-export { MapSurface } from './MapSurface';
+export {
+  MapSurface,
+  type MapSurfaceRef,
+  type RouteLayerRoute,
+  type TraceLayerTrace,
+} from './MapSurface';
 export { GpsRecorderPanel } from './GpsRecorderPanel';
 export { StimulusLedger } from './StimulusLedger';
 export { BenchmarkRhythm } from './BenchmarkRhythm';

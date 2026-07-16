@@ -6,15 +6,25 @@
  * createSpot/uuidv7 shape, so a spot made here is identical to one saved
  * from a Water/Wind session. `kind: 'place'` — nothing switches on kind for
  * generic spots (SpotCard/detail read `sport` + coords, not `kind`).
+ *
+ * `lat`/`lng` params (map-tab.md REFRAME AMENDMENT): My Map's long-hold door
+ * and Explore's "Pin this location" both land here with coordinates
+ * prefilled — the user still names the spot and can tag a sport, so there's
+ * one spot-creation code path for the whole app, not a second ad-hoc insert.
  */
 import { useState } from 'react';
 import { View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Screen, Text, Field, Button, ChipSelect } from '@/components';
 import { useTheme } from '@/theme';
 import { uuidv7 } from '@/lib/id';
 import { createSpot } from '@/storage/spots';
 import type { Spot } from '@core/spot';
+
+/** Coerce a possibly-array search param to a single string. */
+function paramStr(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
 
 // The sports that resolve a live conditions feed (feedForSport). '' = untagged
 // — a named place with no conditions, still valid.
@@ -31,10 +41,11 @@ const SPORT_OPTIONS = [
 export default function NewSpotScreen() {
   const theme = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const [name, setName] = useState('');
   const [sport, setSport] = useState('');
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
+  const [lat, setLat] = useState(() => paramStr(params.lat) ?? '');
+  const [lng, setLng] = useState(() => paramStr(params.lng) ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

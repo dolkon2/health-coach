@@ -1,9 +1,26 @@
 /**
- * Map — the geometry tab (planning/rework/tabs/map-tab.md). M2: Record is
- * real — background GPS recording + the on-map save sheet. At MVP the tab IS
- * Record — no mode switch renders until Explore ships.
+ * Map — the geometry tab. The REFRAME AMENDMENT (map-tab.md, 2026-07-15,
+ * authoritative over the rest of that doc) splits this into two live modes:
  *
- * The three Record states (map-tab §2):
+ *   - My Map (the landing): your established world — pinned spots, saved
+ *     routes, your own E/S/W traces, as togglable layers — with Record
+ *     living inside it, front-and-center. Long-hold → "pin a spot here."
+ *   - Explore: a fixed center crosshair reticle (pan the map under it,
+ *     Windy-style) with "View forecast" (a PointForecastSheet for that
+ *     coordinate, nothing saved) and "Pin this location". Blank canvas —
+ *     no spots/routes layer, no layer toggle row (Dylan, 2026-07-16).
+ *
+ * The mode switcher (SegmentedControl, base chrome) is structurally absent
+ * — not just hidden — while a recording is live: Record now lives inside My
+ * Map, so `isRecording` forces `mode` back to `'myMap'` the instant it goes
+ * true, and the switcher itself only renders when `!isRecording`.
+ *
+ * Base chrome shared by both modes: a location-search bar (MapTiler
+ * geocoding, Nominatim fallback) that recenters the camera, and a live blue
+ * dot (a deliberate one-off exception to the monochrome+4-element palette —
+ * see MapSurface.tsx's header comment).
+ *
+ * The three Record states below (now nested under My Map, map-tab §2):
  *   - Pre-start: full-bleed basemap + spots pins, sport-arm control, GPS
  *     readiness chip, Record button, quiet "Import a track" door.
  *   - Live: useBackgroundRecorder (task-based; survives lock/background,
@@ -41,13 +58,18 @@ import {
   ElementPickerSheet,
   RoutePreview,
   SaveRecordingSheet,
+  SegmentedControl,
+  chipStyle,
   type SaveRecordingTrack,
+  type MapSurfaceRef,
+  type RouteLayerRoute,
+  type TraceLayerTrace,
 } from '@/components';
 import { iconFor } from '@/components/activityIcons';
 import { useTheme } from '@/theme';
 import { useSettings } from '@/settings/useSettings';
 import { listSpots } from '@/storage/spots';
-import { getRoute } from '@/storage/routes';
+import { getRoute, listRoutes } from '@/storage/routes';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
 import { useBatteryOptPrompt } from '@/hooks/useBatteryOptPrompt';
@@ -65,7 +87,11 @@ import {
   resolveMapCenter,
   spotsWithCoords,
 } from '@/lib/mapRecord';
+import { sessionTracks } from '@/lib/mapTraces';
 import type { LngLat } from '@/components/mapLibre';
+
+type MapMode = 'myMap' | 'explore';
+type MapLayerKey = 'spots' | 'routes' | 'traces';
 
 /** Coerce a possibly-array search param to a single string. */
 function paramStr(v: string | string[] | undefined): string | undefined {
@@ -77,6 +103,21 @@ export default function MapScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ activity?: string; element?: string; routeId?: string }>();
+
+  // My Map is the landing (REFRAME AMENDMENT). Structurally forced back to
+  // 'myMap' below the instant a recording starts or a fresh Home deep-link
+  // arrives — Explore's render branch is never reachable in either case.
+  const [mode, setMode] = useState<MapMode>('myMap');
+  // My Map's layer toggle row — Spots/Routes on by default, traces off (a
+  // year of E/S/W tracks everywhere you've moved is a heavy default visual;
+  // Dylan, 2026-07-16).
+  const [visibleLayers, setVisibleLayers] = useState<Record<MapLayerKey, boolean>>({
+    spots: true,
+    routes: true,
+    traces: false,
+  });
+  const [routes, setRoutes] = useState<Route[]>([]);
+  const mapSurfaceRef = useRef<MapSurfaceRef>(null);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -132,15 +173,24 @@ export default function MapScreen() {
       .catch(() => setSpots([]));
   }, []);
 
+  // My Map's saved-routes layer — every route, unfiltered by activity (the
+  // element-tint filter happens at render time, see mapRoutes below).
+  const reloadRoutes = useCallback(() => {
+    listRoutes()
+      .then(setRoutes)
+      .catch(() => setRoutes([]));
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       reloadSpots();
+      reloadRoutes();
       reloadSessions();
       loc.check();
       // Re-probe for a live or orphaned recording every time the tab fronts —
       // the OS task may have kept recording while we were elsewhere.
       void recorder.attach();
-    }, [reloadSpots, reloadSessions, loc.check, recorder.attach])
+    }, [reloadSpots, reloadRoutes, reloadSessions, loc.check, recorder.attach])
   );
 
   // The armed sport: the deep link / last-used suggestion, unless the user
@@ -159,8 +209,13 @@ export default function MapScreen() {
   // A fresh Home deep-link (new activity/element params) wins over a stale
   // manual re-arm from a previous visit — the Map tab stays mounted across
   // visits, so without this the override would silently swallow the deep link.
+  // Record now lives inside My Map, so the same deep-link forces mode back
+  // there too — the only sane behavior once Explore stopped being a separate
+  // screen (not explicitly specced, but the only reading consistent with the
+  // reframe; flagged in the dev-log, not reinterpreted).
   useEffect(() => {
     setArmOverride(null);
+    setMode('myMap');
   }, [params.activity, params.element]);
 
   // Load (or clear) the followed route whenever the routeId param changes —
@@ -187,6 +242,16 @@ export default function MapScreen() {
 
   const isRecording = recorder.status === 'tracking' || recorder.status === 'starting';
 
+  // Structural, not visual: the instant a recording is live, Explore's
+  // render branch becomes unreachable — this isn't just what hides the
+  // switcher below (`!isRecording`), it's what guarantees a live recording
+  // is ALWAYS what's on screen, even if mode was somehow 'explore' a tick
+  // earlier (defensive — today only the deep-link effect above and the
+  // switcher itself can change mode, and neither fires mid-recording).
+  useEffect(() => {
+    if (isRecording) setMode('myMap');
+  }, [isRecording]);
+
   // The route Record would arm right now IF you pressed Record — absent
   // when the loaded route is for a different sport than the current arm
   // (re-arming away from a route un-follows it, honestly, both in this
@@ -205,9 +270,49 @@ export default function MapScreen() {
     (spot: Spot) => router.push({ pathname: '/spot/[id]', params: { id: spot.id } }),
     [router]
   );
+  const onPressRoute = useCallback(
+    (routeId: string) => router.push({ pathname: '/route/[id]', params: { id: routeId } }),
+    [router]
+  );
   const { center, zoom } = useMemo(
     () => resolveMapCenter({ userLoc: loc.userLoc, spots }),
     [loc.userLoc, spots]
+  );
+
+  // My Map's three layers (map-tab.md REFRAME AMENDMENT). Explore is a blank
+  // crosshair canvas — no pins/routes/traces layer, no toggle row (Dylan,
+  // 2026-07-16) — so every one of these is empty outside 'myMap', not just
+  // visually absent from the toggle row.
+  const mapPins = mode === 'myMap' && visibleLayers.spots ? pins : [];
+  const mapRoutes = useMemo<RouteLayerRoute[]>(() => {
+    if (mode !== 'myMap' || !visibleLayers.routes) return [];
+    const out: RouteLayerRoute[] = [];
+    for (const r of routes) {
+      if (r.points.length === 0) continue;
+      const activity = activityById(r.activityId);
+      const element = activity ? elementOf(activity) : undefined;
+      if (element !== 'earth' && element !== 'water' && element !== 'sky') continue;
+      out.push({ id: r.id, points: r.points, element });
+    }
+    return out;
+  }, [mode, visibleLayers.routes, routes]);
+  const mapTraces = useMemo<TraceLayerTrace[]>(() => {
+    if (mode !== 'myMap' || !visibleLayers.traces) return [];
+    return sessionTracks(sessions);
+  }, [mode, visibleLayers.traces, sessions]);
+
+  // My Map's creation door (REFRAME AMENDMENT): long-hold anywhere on the
+  // map → new-spot.tsx with the held coordinate prefilled. Wired only when
+  // `mode === 'myMap' && !isRecording` below — not internally guarded here —
+  // so a live recording or Explore never even receives the handler.
+  const onLongPressMyMap = useCallback(
+    (coord: LngLat) => {
+      router.push({
+        pathname: '/new-spot',
+        params: { lat: String(coord[1]), lng: String(coord[0]) },
+      });
+    },
+    [router]
   );
 
   function onPickActivity(activity: Activity) {
@@ -345,24 +450,84 @@ export default function MapScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.bg }}>
       <MapSurface
+        ref={mapSurfaceRef}
         center={center}
         zoom={zoom}
-        pins={pins}
+        pins={mapPins}
         onPressPin={onPressPin}
         guidePath={displayFollowRoute?.points}
+        routes={mapRoutes}
+        onPressRoute={onPressRoute}
+        traces={mapTraces}
+        onLongPress={mode === 'myMap' && !isRecording ? onLongPressMyMap : undefined}
       />
+
+      {/* Mode switcher — base chrome, structurally absent (not hidden) while
+          a recording is live: Record lives inside My Map now, so there is
+          nothing to switch away from mid-recording. */}
+      {!isRecording ? (
+        <View style={{ position: 'absolute', top: insets.top + theme.spacing[3], left: theme.spacing[6], right: theme.spacing[6] }}>
+          <SegmentedControl
+            options={[
+              { value: 'myMap', label: 'My Map' },
+              { value: 'explore', label: 'Explore' },
+            ]}
+            value={mode}
+            onChange={setMode}
+          />
+        </View>
+      ) : null}
+
+      {/* My Map's layer toggle row — Spots/Routes/My traces. Explore has no
+          layers to toggle (blank crosshair canvas, Dylan 2026-07-16). */}
+      {mode === 'myMap' && !isRecording ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: insets.top + theme.spacing[3] + 52,
+            left: theme.spacing[6],
+            flexDirection: 'row',
+            gap: theme.spacing[2],
+          }}
+        >
+          {(
+            [
+              { key: 'spots', label: 'Spots' },
+              { key: 'routes', label: 'Routes' },
+              { key: 'traces', label: 'My traces' },
+            ] as const
+          ).map((layer) => {
+            const on = visibleLayers[layer.key];
+            return (
+              <Pressable
+                key={layer.key}
+                onPress={() => setVisibleLayers((prev) => ({ ...prev, [layer.key]: !prev[layer.key] }))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`${layer.label} layer, ${on ? 'on' : 'off'}`}
+                style={chipStyle(theme, on)}
+              >
+                <Text variant="label" color={on ? theme.colors.surface : theme.colors.text}>
+                  {layer.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
 
       {/* Sport-arm control — floats below the header band, left side. Hidden
           while recording: the sport is part of the running recording (the
-          save sheet is where a wrong arm gets corrected). */}
-      {!isRecording ? (
+          save sheet is where a wrong arm gets corrected). My Map only —
+          Explore has no arm to set, nothing records from there. */}
+      {mode === 'myMap' && !isRecording ? (
         <Pressable
           onPress={() => setPickerVisible(true)}
           accessibilityRole="button"
           accessibilityLabel={`Armed sport: ${armed.label}. Tap to change.`}
           style={{
             position: 'absolute',
-            top: insets.top + 52,
+            top: insets.top + theme.spacing[3] + 100,
             left: theme.spacing[6],
             flexDirection: 'row',
             alignItems: 'center',
@@ -383,122 +548,133 @@ export default function MapScreen() {
 
       {/* Bottom control cluster — GPS status + Record, or the live recording
           panel. No insets.bottom here: the tab bar already reserves the
-          home-indicator safe area (src/components/Screen.tsx convention). */}
-      <View
-        style={{
-          position: 'absolute',
-          left: theme.spacing[6],
-          right: theme.spacing[6],
-          bottom: theme.spacing[4],
-        }}
-      >
-        {isRecording ? (
-          <LiveRecordingPanel
-            recorder={recorder}
-            armed={armed}
-            distanceUnit={distanceUnit}
-            guidePath={pinnedFollowRoute?.points}
-            followName={pinnedFollowRoute?.name}
-            onStop={() => void onStopToSave()}
-            onDiscard={() => {
-              Alert.alert('Discard this recording?', 'The track will be deleted.', [
-                { text: 'Keep recording', style: 'cancel' },
-                {
-                  text: 'Discard',
-                  style: 'destructive',
-                  onPress: () => {
-                    setPinnedFollowRoute(null);
-                    void recorder.discard();
+          home-indicator safe area (src/components/Screen.tsx convention).
+          My Map only — Record lives inside it now. */}
+      {mode === 'myMap' ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: theme.spacing[6],
+            right: theme.spacing[6],
+            bottom: theme.spacing[4],
+          }}
+        >
+          {isRecording ? (
+            <LiveRecordingPanel
+              recorder={recorder}
+              armed={armed}
+              distanceUnit={distanceUnit}
+              guidePath={pinnedFollowRoute?.points}
+              followName={pinnedFollowRoute?.name}
+              onStop={() => void onStopToSave()}
+              onDiscard={() => {
+                Alert.alert('Discard this recording?', 'The track will be deleted.', [
+                  { text: 'Keep recording', style: 'cancel' },
+                  {
+                    text: 'Discard',
+                    style: 'destructive',
+                    onPress: () => {
+                      setPinnedFollowRoute(null);
+                      void recorder.discard();
+                    },
                   },
-                },
-              ]);
-            }}
-          />
-        ) : (
-          <Card style={{ gap: theme.spacing[3] }}>
-            {recorder.recoverable != null ? (
-              <RecoveryBanner
-                activityLabel={
-                  activityById(recorder.recoverable.activityId)?.label ?? 'session'
-                }
-                onFinish={() => void onStopToSave({ fromRecovery: true })}
-                onDiscard={() => {
-                  Alert.alert(
-                    'Discard the unfinished recording?',
-                    'Everything captured before the app closed will be deleted.',
-                    [
-                      { text: 'Keep', style: 'cancel' },
-                      {
-                        text: 'Discard',
-                        style: 'destructive',
-                        onPress: () => void recorder.discard(),
-                      },
-                    ]
-                  );
-                }}
-              />
-            ) : null}
-            <GpsStatusLine loc={loc} />
-            {recorder.status === 'error' && recorder.errorMessage ? (
-              <Text variant="bodySm" color={theme.colors.negative}>
-                {recorder.errorMessage}
-              </Text>
-            ) : null}
-            {recorder.status === 'unavailable' ? (
-              <Text variant="bodySm" color={theme.colors.textMuted}>
-                {recorder.errorMessage}
-              </Text>
-            ) : null}
-            {recorder.status === 'denied' ? (
-              <Text variant="bodySm" color={theme.colors.textMuted}>
-                Location was declined, so there's no track to record — turn it on for the app in
-                Settings, or log the session by hand from Home.
-              </Text>
-            ) : null}
-            {justSaved ? (
-              <Text variant="label" color={theme.colors.positive}>
-                Session saved.
-              </Text>
-            ) : null}
-            {activeFollowRoute ? (
-              <Text variant="bodySm" color={theme.colors.textMuted}>
-                Following {activeFollowRoute.name}
-              </Text>
-            ) : null}
-            {loc.status === 'undetermined' ? (
-              <Button label="Enable location" variant="outline" onPress={loc.request} />
-            ) : null}
-            {loc.status === 'denied' || (loc.status === 'granted' && loc.fixFailed) ? (
-              <Button
-                label="Open Settings"
-                variant="outline"
-                onPress={() => void Linking.openSettings()}
-              />
-            ) : null}
-            <Button
-              label={`Record ${armed.label}`}
-              onPress={onRecord}
-              disabled={recorder.recoverable != null}
+                ]);
+              }}
             />
-            {importError ? (
-              <Text variant="bodySm" color={theme.colors.negative}>
-                {importError}
-              </Text>
-            ) : null}
-            {/* The quiet ingestion door — secondary to Record by design. */}
-            <Pressable
-              onPress={() => void onImportTrack()}
-              accessibilityRole="button"
-              accessibilityLabel="Import a track file"
-              style={{ alignSelf: 'center', paddingVertical: theme.spacing[1] }}
-            >
-              <Text variant="label" color={theme.colors.textMuted}>
-                {importing ? 'Reading file…' : 'Import a track (GPX · IGC)'}
-              </Text>
-            </Pressable>
-          </Card>
-        )}
-      </View>
+          ) : (
+            <Card style={{ gap: theme.spacing[3] }}>
+              {recorder.recoverable != null ? (
+                <RecoveryBanner
+                  activityLabel={
+                    activityById(recorder.recoverable.activityId)?.label ?? 'session'
+                  }
+                  onFinish={() => void onStopToSave({ fromRecovery: true })}
+                  onDiscard={() => {
+                    Alert.alert(
+                      'Discard the unfinished recording?',
+                      'Everything captured before the app closed will be deleted.',
+                      [
+                        { text: 'Keep', style: 'cancel' },
+                        {
+                          text: 'Discard',
+                          style: 'destructive',
+                          onPress: () => void recorder.discard(),
+                        },
+                      ]
+                    );
+                  }}
+                />
+              ) : null}
+              <GpsStatusLine loc={loc} />
+              {recorder.status === 'error' && recorder.errorMessage ? (
+                <Text variant="bodySm" color={theme.colors.negative}>
+                  {recorder.errorMessage}
+                </Text>
+              ) : null}
+              {recorder.status === 'unavailable' ? (
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  {recorder.errorMessage}
+                </Text>
+              ) : null}
+              {recorder.status === 'denied' ? (
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  Location was declined, so there's no track to record — turn it on for the app in
+                  Settings, or log the session by hand from Home.
+                </Text>
+              ) : null}
+              {justSaved ? (
+                <Text variant="label" color={theme.colors.positive}>
+                  Session saved.
+                </Text>
+              ) : null}
+              {activeFollowRoute ? (
+                <Text variant="bodySm" color={theme.colors.textMuted}>
+                  Following {activeFollowRoute.name}
+                </Text>
+              ) : null}
+              {loc.status === 'undetermined' ? (
+                <Button label="Enable location" variant="outline" onPress={loc.request} />
+              ) : null}
+              {loc.status === 'denied' || (loc.status === 'granted' && loc.fixFailed) ? (
+                <Button
+                  label="Open Settings"
+                  variant="outline"
+                  onPress={() => void Linking.openSettings()}
+                />
+              ) : null}
+              <Button
+                label={`Record ${armed.label}`}
+                onPress={onRecord}
+                disabled={recorder.recoverable != null}
+              />
+              {importError ? (
+                <Text variant="bodySm" color={theme.colors.negative}>
+                  {importError}
+                </Text>
+              ) : null}
+              {/* The quiet ingestion door — secondary to Record by design. */}
+              <Pressable
+                onPress={() => void onImportTrack()}
+                accessibilityRole="button"
+                accessibilityLabel="Import a track file"
+                style={{ alignSelf: 'center', paddingVertical: theme.spacing[1] }}
+              >
+                <Text variant="label" color={theme.colors.textMuted}>
+                  {importing ? 'Reading file…' : 'Import a track (GPX · IGC)'}
+                </Text>
+              </Pressable>
+            </Card>
+          )}
+        </View>
+      ) : null}
+
+      {/* Explore — a fixed center crosshair reticle over a blank canvas (no
+          spots/routes/traces layer, Dylan 2026-07-16). The reticle + its two
+          actions ("View forecast" / "Pin this location") land in the next
+          commit; this one only proves the mode exists and is unreachable
+          while recording (see the isRecording effect above). Explore-2 (the
+          route builder takeover state) has no seam here yet either — it
+          lands alongside the reticle. */}
 
       <ElementPickerSheet
         visible={pickerVisible}
