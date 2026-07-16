@@ -151,13 +151,21 @@ export default function RoutesScreen() {
         style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
       >
         <Text variant="displayLg">Routes</Text>
-        <Button
-          label={importing ? 'Reading file…' : 'Import GPX'}
-          variant="secondary"
-          size="sm"
-          disabled={importing}
-          onPress={() => void onImportGpx()}
-        />
+        <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
+          <Button
+            label="+ New Route"
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push({ pathname: '/map', params: { build: '1' } })}
+          />
+          <Button
+            label={importing ? 'Reading file…' : 'Import GPX'}
+            variant="secondary"
+            size="sm"
+            disabled={importing}
+            onPress={() => void onImportGpx()}
+          />
+        </View>
       </View>
 
       {pending ? (
@@ -198,7 +206,7 @@ export default function RoutesScreen() {
         {routes === null ? null : sortedRoutes.length === 0 ? (
           <Card>
             <Text variant="body" color={theme.colors.textMuted}>
-              Import a GPX file to add your first route.
+              Build a route on the Map, or import a GPX file, to add your first route.
             </Text>
           </Card>
         ) : (

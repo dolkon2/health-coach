@@ -301,12 +301,11 @@ export default function TrainingScreen() {
       ) : (
         <>
           {/* Routes shelf (training-tab.md § 3 C, locked #8: created on Map,
-              browsed here). Browse-only — no "+ New Route" until Map's
-              builder (M6, gated on Explore/Phase 4) exists; until then the
-              only creation door is Import GPX on the full list
-              (app/routes.tsx). No "Routes" section label here (2026-07-12,
-              Dylan) — the segmented tab already says that; a bare "See all"
-              link avoids repeating it a third time on screen. */}
+              browsed here). The "+ New Route → Map build mode" door (creation
+              door 1) is live now that Map's builder (Explore-2) ships — it
+              deep-links into the builder takeover via `build=1`. No "Routes"
+              section label here (2026-07-12, Dylan) — the segmented tab already
+              says that; a bare "See all" link avoids repeating it a third time. */}
           <Pressable
             onPress={() => router.push('/routes')}
             accessibilityRole="button"
@@ -322,7 +321,7 @@ export default function TrainingScreen() {
             {routes === null ? null : routes.length === 0 ? (
               <Card>
                 <Text variant="body" color={theme.colors.textMuted}>
-                  Import a GPX file to add your first route.
+                  Build a route on the Map, or import a GPX file, to add your first route.
                 </Text>
               </Card>
             ) : (
@@ -336,6 +335,11 @@ export default function TrainingScreen() {
                 />
               ))
             )}
+            <Button
+              label="+ New Route"
+              variant="outline"
+              onPress={() => router.push({ pathname: '/map', params: { build: '1' } })}
+            />
           </View>
         </>
       )}
