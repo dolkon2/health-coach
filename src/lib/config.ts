@@ -27,6 +27,15 @@
  * falls back to it for a broader station gap-fill (ODOT/WSDOT road stations,
  * etc.) when the free NWS client has nothing usable nearby; when unset, F2
  * degrades to NWS-only — never a blocked feature, same rule as MapTiler.
+ *
+ * Routing (Explore-2 route builder, routeSnap.ts): the snap-to-trail engine is
+ * Valhalla. `EXPO_PUBLIC_ROUTING_URL` is the single swap point for the
+ * "free-now → paid → self-host, never rewrite" path — unset it to use Stadia
+ * Maps' hosted endpoint (needs `EXPO_PUBLIC_STADIA_API_KEY`, free non-commercial
+ * tier); set it to a self-hosted Valhalla base URL (no key needed) when you
+ * scale. With neither URL nor key, `valhallaRouteUrl()` is null and the builder
+ * degrades to free-line — honest, never blocked (same rule as MapTiler). Overpass
+ * (river-clip) is keyless and always available.
  */
 
 export const USDA_API_KEY: string =
@@ -43,6 +52,22 @@ export const MAP_STYLE_ID: string =
 
 export const SYNOPTIC_TOKEN: string | null =
   process.env.EXPO_PUBLIC_SYNOPTIC_TOKEN || null;
+
+export const STADIA_API_KEY: string | null =
+  process.env.EXPO_PUBLIC_STADIA_API_KEY || null;
+
+/**
+ * Base URL of a self-hosted (or otherwise custom) Valhalla instance. When set,
+ * routing calls that URL and no key is used — the escape hatch that lets a
+ * commercial launch move off Stadia's non-commercial free tier without touching
+ * app code. Unset ⇒ Stadia's hosted endpoint (keyed). */
+export const ROUTING_BASE_URL: string | null =
+  process.env.EXPO_PUBLIC_ROUTING_URL || null;
+
+/** Overpass API endpoint for the river-clip lookup — keyless public instance by
+ *  default, overridable to a private mirror. Always non-null. */
+export const OVERPASS_URL: string =
+  process.env.EXPO_PUBLIC_OVERPASS_URL || 'https://overpass-api.de/api/interpreter';
 
 /** Shared key guard for every MapTiler endpoint — `null` with no key configured. */
 function mapTilerUrl(path: string): string | null {
@@ -74,4 +99,18 @@ export function mapTerrainTileUrl(): string | null {
  */
 export function mapGeocodeUrl(query: string): string | null {
   return mapTilerUrl(`geocoding/${encodeURIComponent(query)}.json`);
+}
+
+/**
+ * Valhalla `/route` endpoint (a POST target), or `null` when no routing engine
+ * is reachable — the caller (routeSnap.ts) then degrades to free-line. Prefers a
+ * self-hosted `ROUTING_BASE_URL` (no key); otherwise Stadia's hosted endpoint
+ * with the key appended; `null` when neither is configured. Never logs the key.
+ */
+export function valhallaRouteUrl(): string | null {
+  if (ROUTING_BASE_URL) {
+    return `${ROUTING_BASE_URL.replace(/\/+$/, '')}/route`;
+  }
+  if (!STADIA_API_KEY) return null;
+  return `https://api.stadiamaps.com/route/v1?api_key=${STADIA_API_KEY}`;
 }
