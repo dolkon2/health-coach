@@ -47,13 +47,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown, Crosshair } from 'lucide-react-native';
+import { ChevronDown, Crosshair, Search, X } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
 import type { Route } from '@core/route';
 import {
   Text,
   Card,
   Button,
+  Field,
   MapSurface,
   ElementPickerSheet,
   RoutePreview,
@@ -89,6 +90,7 @@ import {
   spotsWithCoords,
 } from '@/lib/mapRecord';
 import { sessionTracks } from '@/lib/mapTraces';
+import { geocode, type GeocodeResult } from '@/lib/geocode';
 import type { LngLat } from '@/components/mapLibre';
 
 type MapMode = 'myMap' | 'explore';
@@ -123,6 +125,18 @@ export default function MapScreen() {
   // was tapped, read once via getCenter() (no continuous region tracking).
   // null = sheet closed.
   const [forecastCoord, setForecastCoord] = useState<LngLat | null>(null);
+
+  // Location search — base chrome, both modes. Submit-triggered (Nominatim's
+  // usage policy asks for no autocomplete-on-keystroke), recenters the
+  // camera declaratively via MapSurface's `flyTo` prop.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<GeocodeResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  // Distinguishes "haven't searched this query yet" from "searched, zero
+  // hits" — typing after a search invalidates the stale result set.
+  const [searched, setSearched] = useState(false);
+  const [flyTo, setFlyTo] = useState<{ center: LngLat; zoom?: number } | null>(null);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -320,6 +334,29 @@ export default function MapScreen() {
     [router]
   );
 
+  async function onSearchSubmit() {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      setSearchResults(await geocode(q));
+      setSearched(true);
+    } finally {
+      setSearching(false);
+    }
+  }
+  function onChangeSearchQuery(text: string) {
+    setSearchQuery(text);
+    setSearched(false);
+  }
+  function onPickSearchResult(result: GeocodeResult) {
+    setFlyTo({ center: [result.lng, result.lat], zoom: 12 });
+    setSearchResults([]);
+    setSearchQuery('');
+    setSearched(false);
+    setSearchOpen(false);
+  }
+
   // Explore's two crosshair actions — both read "wherever the reticle
   // points" on demand via getCenter(), never a continuously-tracked region
   // (map-tab.md REFRAME AMENDMENT: "the crosshair IS the placement model").
@@ -481,6 +518,7 @@ export default function MapScreen() {
         onPressRoute={onPressRoute}
         traces={mapTraces}
         onLongPress={mode === 'myMap' && !isRecording ? onLongPressMyMap : undefined}
+        flyTo={flyTo}
       />
 
       {/* Mode switcher — base chrome, structurally absent (not hidden) while
@@ -497,6 +535,89 @@ export default function MapScreen() {
             onChange={setMode}
           />
         </View>
+      ) : null}
+
+      {/* Location search — base chrome, both modes (map-tab.md REFRAME
+          AMENDMENT). A quiet icon door until tapped, then a submit-triggered
+          field + results list; recenters via MapSurface's declarative
+          `flyTo` prop on a result tap. */}
+      {!isRecording && !searchOpen ? (
+        <Pressable
+          onPress={() => setSearchOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Search for a place"
+          style={{
+            position: 'absolute',
+            top: insets.top + theme.spacing[3] + 52,
+            right: theme.spacing[6],
+            width: 40,
+            height: 40,
+            borderRadius: theme.radius.full,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: theme.colors.surfaceRaised,
+            borderWidth: 1,
+            borderColor: theme.colors.border,
+          }}
+        >
+          <Search size={18} color={theme.colors.accent} strokeWidth={1.75} />
+        </Pressable>
+      ) : null}
+
+      {!isRecording && searchOpen ? (
+        <Card
+          style={{
+            position: 'absolute',
+            top: insets.top + theme.spacing[3] + 52,
+            left: theme.spacing[6],
+            right: theme.spacing[6],
+            gap: theme.spacing[2],
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: theme.spacing[2] }}>
+            <Field
+              value={searchQuery}
+              onChangeText={onChangeSearchQuery}
+              placeholder="Search a place"
+              keyboardType="default"
+              style={{ flex: 1 }}
+            />
+            <Pressable
+              onPress={() => {
+                setSearchOpen(false);
+                setSearchResults([]);
+                setSearchQuery('');
+                setSearched(false);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Close search"
+              hitSlop={8}
+              style={{ padding: theme.spacing[2] }}
+            >
+              <X size={18} color={theme.colors.textMuted} strokeWidth={1.75} />
+            </Pressable>
+          </View>
+          <Button
+            label={searching ? 'Searching…' : 'Search'}
+            onPress={() => void onSearchSubmit()}
+            disabled={searching || searchQuery.trim().length === 0}
+          />
+          {searchResults.map((result, i) => (
+            <Pressable
+              key={`${result.lat}-${result.lng}-${i}`}
+              onPress={() => onPickSearchResult(result)}
+              accessibilityRole="button"
+              style={{ paddingVertical: theme.spacing[2] }}
+            >
+              <Text variant="bodySm">{result.label}</Text>
+            </Pressable>
+          ))}
+          {searched && !searching && searchResults.length === 0 ? (
+            <Text variant="bodySm" color={theme.colors.textMuted}>
+              No results found.
+            </Text>
+          ) : null}
+        </Card>
       ) : null}
 
       {/* My Map's layer toggle row — Spots/Routes/My traces. Explore has no

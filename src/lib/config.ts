@@ -66,3 +66,12 @@ export function mapStyleUrl(): string | null {
 export function mapTerrainTileUrl(): string | null {
   return mapTilerUrl('tiles/terrain-rgb-v2/tiles.json');
 }
+
+/**
+ * MapTiler geocoding URL for `query`, or `null` with no key — the caller
+ * (geocode.ts) falls back to Nominatim (free, no key), same "degrade
+ * honestly, never block the feature" rule as every other MapTiler endpoint.
+ */
+export function mapGeocodeUrl(query: string): string | null {
+  return mapTilerUrl(`geocoding/${encodeURIComponent(query)}.json`);
+}
