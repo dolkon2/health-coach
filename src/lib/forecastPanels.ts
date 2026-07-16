@@ -81,6 +81,29 @@ export function gustStep(gustKts: number | undefined): GustStep {
   return 'calm';
 }
 
+/**
+ * "8 lull / 12 avg / 18 gust kt from 290°" (F2, forecast-tab.md §3) — the
+ * OBSERVED reading's label, deliberately phrased differently from
+ * windHeaderLabel's "avg, gusting" (forecast) so the two registers read as
+ * visually distinct even before styling. Shows only the numbers the station
+ * actually reported — a station with no lull field never gets one invented
+ * (windLullKts stays honest-undefined at the source, liveObservation.ts).
+ */
+export function liveWindLabel(observed: {
+  windAvgKts?: number;
+  windGustKts?: number;
+  windLullKts?: number;
+  windDirectionDeg?: number;
+}): string {
+  const dir = observed.windDirectionDeg !== undefined ? ` from ${Math.round(observed.windDirectionDeg)}°` : '';
+  const nums: string[] = [];
+  if (observed.windLullKts !== undefined) nums.push(`${Math.round(observed.windLullKts)} lull`);
+  if (observed.windAvgKts !== undefined) nums.push(`${Math.round(observed.windAvgKts)} avg`);
+  if (observed.windGustKts !== undefined) nums.push(`${Math.round(observed.windGustKts)} gust`);
+  if (nums.length === 0) return 'No wind reading from this station';
+  return `${nums.join(' / ')} kt${dir}`;
+}
+
 // ─── Rain/Shine ─────────────────────────────────────────────────────────────
 
 /**

@@ -3,6 +3,7 @@ import {
   windHeader,
   windHeaderLabel,
   gustStep,
+  liveWindLabel,
   precipWindowHeadline,
   dailyRainShineRows,
   isBeyondFadeHorizon,
@@ -66,6 +67,26 @@ describe('gustStep', () => {
   it('elevated at 21+ kt', () => {
     expect(gustStep(21)).toBe('elevated');
     expect(gustStep(40)).toBe('elevated');
+  });
+});
+
+describe('liveWindLabel', () => {
+  it('shows all three when lull/avg/gust are all present, in a distinct "/" phrasing', () => {
+    expect(liveWindLabel({ windLullKts: 8, windAvgKts: 12, windGustKts: 18, windDirectionDeg: 289.5 })).toBe(
+      '8 lull / 12 avg / 18 gust kt from 290°'
+    );
+  });
+
+  it('shows only avg/gust when the station reports no lull, never inventing one', () => {
+    expect(liveWindLabel({ windAvgKts: 12, windGustKts: 18 })).toBe('12 avg / 18 gust kt');
+  });
+
+  it('shows avg alone when that is all the station reports', () => {
+    expect(liveWindLabel({ windAvgKts: 12 })).toBe('12 avg kt');
+  });
+
+  it('falls back to an honest no-reading label when nothing is present', () => {
+    expect(liveWindLabel({})).toBe('No wind reading from this station');
   });
 });
 
