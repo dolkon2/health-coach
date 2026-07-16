@@ -23,10 +23,11 @@ function load<T = unknown>(name: string): T {
 describe('parseWindgramResponse — dual-model fixture', () => {
   const out = parseWindgramResponse(load('om-windgram-hrrr-gfs.json'));
 
-  it('parses hours, grid elevation, and day windows', () => {
+  it('parses hours, grid elevation, offset, and day windows', () => {
     expect(out).not.toBeNull();
     expect(out!.hours.length).toBe(12);
     expect(out!.gridElevationM).toBe(167);
+    expect(out!.utcOffsetSeconds).toBe(0); // fixture was captured timezone=UTC
     expect(out!.days.length).toBe(4);
     expect(out!.days[0].sunriseEpochSec).toBeLessThan(out!.days[0].sunsetEpochSec);
   });

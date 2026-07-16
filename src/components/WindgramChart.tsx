@@ -324,16 +324,27 @@ const LAPSE_OPACITY: Record<LapseBucket, number> = {
   inverted: 0.08,
 };
 
-function hourLabel(timeEpochSec: number): string {
-  return new Date(timeEpochSec * 1000).toLocaleTimeString([], { hour: 'numeric' });
+// Labels are rendered in the SPOT's local time (series.utcOffsetSeconds,
+// falling back to UTC when absent), never the viewing device's — the columns
+// are sliced by the spot's own daylight, and a Gorge windgram read from New
+// York must not claim midnight thermals. Trick: shift the epoch by the
+// spot's offset and format with timeZone:'UTC'. Formatters are module-level
+// singletons — Intl.DateTimeFormat construction is one of the costliest
+// std-lib calls on Hermes and this runs per label per render.
+const HOUR_FORMAT = new Intl.DateTimeFormat([], { hour: 'numeric', timeZone: 'UTC' });
+const DAY_FORMAT = new Intl.DateTimeFormat([], {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+export function spotLocalHourLabel(timeEpochSec: number, utcOffsetSeconds = 0): string {
+  return HOUR_FORMAT.format(new Date((timeEpochSec + utcOffsetSeconds) * 1000));
 }
 
-function dayLabel(timeEpochSec: number): string {
-  return new Date(timeEpochSec * 1000).toLocaleDateString([], {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
+export function spotLocalDayLabel(timeEpochSec: number, utcOffsetSeconds = 0): string {
+  return DAY_FORMAT.format(new Date((timeEpochSec + utcOffsetSeconds) * 1000));
 }
 
 export type WindgramChartProps = { series: WindgramSeries };
@@ -470,7 +481,7 @@ export function WindgramChart({ series }: WindgramChartProps) {
                     fill={theme.colors.textMuted}
                     textAnchor="middle"
                   >
-                    {hourLabel(col.timeEpochSec)}
+                    {spotLocalHourLabel(col.timeEpochSec, series.utcOffsetSeconds)}
                   </SvgText>
                   {col.capeJkg !== undefined ? (
                     <SvgText
@@ -540,7 +551,7 @@ export function WindgramChart({ series }: WindgramChartProps) {
               fill={theme.colors.textSecondary}
               textAnchor="start"
             >
-              {dayLabel(d.timeEpochSec)}
+              {spotLocalDayLabel(d.timeEpochSec, series.utcOffsetSeconds)}
             </SvgText>
           ))}
 

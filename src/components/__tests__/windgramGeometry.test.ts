@@ -13,6 +13,8 @@ import {
   windArrowAngle,
   dayColumns,
   windgramGeometry,
+  spotLocalHourLabel,
+  spotLocalDayLabel,
   PLOT_HEIGHT,
 } from '../WindgramChart';
 
@@ -48,6 +50,21 @@ describe('barbStep', () => {
     expect(barbStep(13)).toBe('strong');
     expect(barbStep(20)).toBe('strong');
     expect(barbStep(21)).toBe('elevated');
+  });
+});
+
+describe('spot-local labels', () => {
+  // 2026-07-16T20:00:00Z. The label must follow the SPOT's offset, never
+  // the device timezone (formatting pins timeZone:'UTC' after shifting).
+  const T = 1784232000;
+
+  it('renders hour and day at the spot offset, not the device zone', () => {
+    expect(spotLocalHourLabel(T, 0)).toBe('8 PM');
+    expect(spotLocalHourLabel(T, -7 * 3600)).toBe('1 PM'); // Gorge, PDT
+    expect(spotLocalDayLabel(T, 0)).toContain('Jul 16');
+    // 20:00Z + 10h (AEST) = 06:00 next day at the spot.
+    expect(spotLocalHourLabel(T, 10 * 3600)).toBe('6 AM');
+    expect(spotLocalDayLabel(T, 10 * 3600)).toContain('Jul 17');
   });
 });
 

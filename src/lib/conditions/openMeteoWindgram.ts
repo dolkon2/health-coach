@@ -53,7 +53,11 @@ const HOURLY_VARS =
   WINDGRAM_LEVELS.flatMap((p) => LEVEL_VARS.map((v) => `${v}_${p}hPa`)).join(',') +
   `,${SCALAR_VARS}`;
 
-const PARAMS = 'windspeed_unit=kn&timeformat=unixtime&timezone=UTC&forecast_days=4';
+// timezone=auto: with timeformat=unixtime every time is still an absolute
+// epoch — auto only makes the response carry the SPOT's utc_offset_seconds
+// (for spot-local axis labels) and aggregate daily sunrise/sunset windows
+// on the spot's own calendar days.
+const PARAMS = 'windspeed_unit=kn&timeformat=unixtime&timezone=auto&forecast_days=4';
 
 /** Dual-model payloads are ~120–180 KB — the 4 s fetchJson default is too
  *  tight on a slow cell link. */

@@ -61,6 +61,10 @@ export interface WindgramSeries {
   gridElevationM?: number;
   /** Time of the last HRRR-built hour; undefined when single-model. */
   hrrrEndEpochSec?: number;
+  /** The SPOT's UTC offset (`timezone=auto`) — labels must be rendered in
+   *  the spot's local time, not the viewing device's (a Gorge windgram
+   *  read from New York must not claim midnight thermals). */
+  utcOffsetSeconds?: number;
 }
 
 const HRRR_SUFFIX = 'ncep_hrrr_conus';
@@ -78,6 +82,7 @@ const LEVEL_VARS = [
 interface WindgramBody {
   error?: unknown;
   elevation?: unknown;
+  utc_offset_seconds?: unknown;
   hourly_units?: Record<string, unknown>;
   hourly?: Record<string, unknown> & { time?: unknown };
   daily?: Record<string, unknown> & { time?: unknown };
@@ -224,6 +229,8 @@ export function parseWindgramResponse(json: unknown): WindgramSeries | null {
   const gridElevationM = finite(body.elevation);
   if (gridElevationM !== undefined) result.gridElevationM = gridElevationM;
   if (hasHrrr && hrrrEndEpochSec !== undefined) result.hrrrEndEpochSec = hrrrEndEpochSec;
+  const utcOffsetSeconds = finite(body.utc_offset_seconds);
+  if (utcOffsetSeconds !== undefined) result.utcOffsetSeconds = utcOffsetSeconds;
   return result;
 }
 

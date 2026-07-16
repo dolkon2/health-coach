@@ -62,7 +62,9 @@ describe('fetchWindgram — CONUS branch', () => {
     expect(forecastUrl).toContain('models=ncep_hrrr_conus,gfs_seamless');
     expect(forecastUrl).toContain('windspeed_unit=kn');
     expect(forecastUrl).toContain('timeformat=unixtime');
-    expect(forecastUrl).toContain('timezone=UTC');
+    // timezone=auto: epochs stay absolute; the response carries the spot's
+    // utc_offset_seconds for spot-local axis labels.
+    expect(forecastUrl).toContain('timezone=auto');
     expect(forecastUrl).toContain('forecast_days=4');
     expect(forecastUrl).toContain('daily=sunrise,sunset');
     for (const p of WINDGRAM_LEVELS) {
