@@ -82,16 +82,6 @@ export function clearBuilder(state: BuilderState): BuilderState {
 }
 
 /**
- * Switch routing mode (sport change, or the free-line toggle), keeping the
- * waypoints and clearing the cached segments — they were snapped for the old
- * mode. The hook re-snaps each gap under the new mode and re-appends the
- * segments (instant for 'freeline'; a network call per gap otherwise).
- */
-export function retargetMode(state: BuilderState, mode: RoutingMode): BuilderState {
-  return { ...state, mode, segments: [] };
-}
-
-/**
  * Flatten to stored geometry with per-point `kind` tags. Each segment's two
  * endpoints correspond to placed waypoints → `'waypoint'`; the engine-inserted
  * vertices between them → `'derived'`. Consecutive segments share a join

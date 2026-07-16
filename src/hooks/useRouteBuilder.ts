@@ -22,6 +22,7 @@ import {
   builderRoutePoints,
   builderDistanceM,
   builderHonestyLabel,
+  canSaveBuilder,
   buildRoute,
   type BuilderSegment,
   type BuilderState,
@@ -45,7 +46,19 @@ export function useRouteBuilder(initialActivityId: string) {
     setPending(true);
     try {
       const seg = await snapSegment(prevWp, coord, s.mode);
-      setState((prev) => appendWaypoint(prev, coord, seg));
+      // The snap was computed from `prevWp` under mode `s.mode`. If the builder
+      // changed underneath while it was in flight — an Undo/Clear (neither is
+      // disabled during pending) or a mode toggle — appending now would stitch a
+      // segment from a stale origin (a discontinuous line) or resurrect a point
+      // after Clear. Drop the stale result unless the build is still where we
+      // left it.
+      setState((prev) => {
+        const last = prev.waypoints[prev.waypoints.length - 1];
+        if (!last || last.lat !== prevWp.lat || last.lng !== prevWp.lng || prev.mode !== s.mode) {
+          return prev;
+        }
+        return appendWaypoint(prev, coord, seg);
+      });
     } finally {
       setPending(false);
     }
@@ -64,12 +77,16 @@ export function useRouteBuilder(initialActivityId: string) {
       for (let i = 1; i < wps.length; i++) {
         segs.push(await snapSegment(wps[i - 1], wps[i], mode));
       }
-      setState((prev) => ({
-        ...prev,
-        mode,
-        ...(activityId ? { activityId } : {}),
-        segments: segs,
-      }));
+      setState((prev) => {
+        // Segments were snapped against `wps`; if the waypoints changed under us
+        // (undo/clear/another add) the new segments no longer line up, so apply
+        // them only when the build is unchanged. The activity/mode still switch
+        // either way so the sport selection isn't silently dropped.
+        if (prev.waypoints !== wps) {
+          return { ...prev, mode, ...(activityId ? { activityId } : {}) };
+        }
+        return { ...prev, mode, ...(activityId ? { activityId } : {}), segments: segs };
+      });
     } finally {
       setPending(false);
     }
@@ -98,7 +115,7 @@ export function useRouteBuilder(initialActivityId: string) {
     routePoints,
     distanceM,
     honestyLabel,
-    canSave: routePoints.length >= 2,
+    canSave: canSaveBuilder(state),
     waypointCount: state.waypoints.length,
     pending,
     addWaypoint,

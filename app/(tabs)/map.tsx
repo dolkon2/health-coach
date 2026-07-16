@@ -331,8 +331,7 @@ export default function MapScreen() {
   // locking for a recording, exits it (discarding the in-progress route).
   useEffect(() => {
     if (builderActive && (mode !== 'explore' || mapLocked)) {
-      setBuilderActive(false);
-      builder.clear();
+      closeBuilder();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, mapLocked, builderActive]);
@@ -459,16 +458,17 @@ export default function MapScreen() {
     const coord = await mapSurfaceRef.current?.getCenter();
     if (coord) void builder.addWaypoint({ lat: coord[1], lng: coord[0] });
   }
-  function exitBuilder() {
+  // Single teardown for every exit path (Cancel, save, leaving Explore).
+  function closeBuilder() {
     setBuilderActive(false);
     builder.clear();
   }
+  const exitBuilder = closeBuilder;
   async function onSaveBuilderRoute(name: string) {
     const saved = await builder.save(name);
     if (!saved) return;
     reloadRoutes(); // surface it on My Map's routes layer
-    setBuilderActive(false);
-    builder.clear();
+    closeBuilder();
     Alert.alert('Route saved', `“${saved.name}” is on your map.`);
   }
   function onToggleBuilderFreeline(freeline: boolean) {

@@ -159,9 +159,12 @@ export function RouteBuilderOverlay({
             ) : null}
           </View>
 
+          {/* Undo/Clear/Save are disabled while a snap is in flight: applying
+              them mid-snap would either race the resolving segment or (for Save)
+              persist a route missing the still-pending waypoint. */}
           <View style={{ flexDirection: 'row', gap: theme.spacing[2] }}>
-            <Button label="Undo" variant="outline" onPress={onUndo} disabled={!hasPoints} style={{ flex: 1 }} />
-            <Button label="Clear" variant="outline" onPress={onClear} disabled={!hasPoints} style={{ flex: 1 }} />
+            <Button label="Undo" variant="outline" onPress={onUndo} disabled={!hasPoints || pending} style={{ flex: 1 }} />
+            <Button label="Clear" variant="outline" onPress={onClear} disabled={!hasPoints || pending} style={{ flex: 1 }} />
             <Button
               label="Drop point"
               onPress={onDropWaypoint}
@@ -179,7 +182,7 @@ export function RouteBuilderOverlay({
                 keyboardType="default"
                 style={{ flex: 1 }}
               />
-              <Button label="Save" onPress={confirmSave} disabled={!name.trim()} />
+              <Button label="Save" onPress={confirmSave} disabled={!name.trim() || pending} />
               <Button label="Cancel" variant="outline" onPress={() => setNaming(false)} />
             </View>
           ) : (
@@ -187,7 +190,7 @@ export function RouteBuilderOverlay({
               label="Save route"
               variant="outline"
               onPress={() => setNaming(true)}
-              disabled={!canSave}
+              disabled={!canSave || pending}
             />
           )}
         </Card>

@@ -4,7 +4,6 @@ import {
   appendWaypoint,
   undoWaypoint,
   clearBuilder,
-  retargetMode,
   builderRoutePoints,
   builderDistanceM,
   builderSource,
@@ -78,17 +77,6 @@ describe('appendWaypoint / undo / clear', () => {
     expect(cleared.waypoints).toEqual([]);
     expect(cleared.segments).toEqual([]);
     expect(cleared.mode).toBe('river');
-  });
-});
-
-describe('retargetMode', () => {
-  it('changes the mode and drops cached segments', () => {
-    let s = appendWaypoint(emptyBuilder('run'), w0, null);
-    s = appendWaypoint(s, w1, straight(w0, w1));
-    const r = retargetMode(s, 'freeline');
-    expect(r.mode).toBe('freeline');
-    expect(r.segments).toEqual([]);
-    expect(r.waypoints).toEqual([w0, w1]);
   });
 });
 

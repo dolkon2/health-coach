@@ -5,6 +5,7 @@ import {
   decodeValhalla,
   parseOverpassWays,
   clipWaterway,
+  stitchWays,
   overpassBBox,
   buildOverpassQuery,
   snapSegment,
@@ -171,6 +172,71 @@ describe('clipWaterway', () => {
 
   it('returns null for no ways', () => {
     expect(clipWaterway([], river[0], river[4])).toBeNull();
+  });
+});
+
+describe('stitchWays', () => {
+  it('joins two ways that share an endpoint into one line', () => {
+    const w1 = [
+      { lat: 45.0, lng: -121.0 },
+      { lat: 45.001, lng: -121.0 },
+    ];
+    const w2 = [
+      { lat: 45.001, lng: -121.0 }, // == w1 end
+      { lat: 45.002, lng: -121.0 },
+    ];
+    const stitched = stitchWays([w1, w2]);
+    expect(stitched).toHaveLength(1);
+    expect(stitched[0]).toHaveLength(3);
+    expect(stitched[0][2]).toEqual({ lat: 45.002, lng: -121.0 });
+  });
+
+  it('flips a reversed way to keep the merged line continuous', () => {
+    const w1 = [
+      { lat: 45.0, lng: -121.0 },
+      { lat: 45.001, lng: -121.0 },
+    ];
+    const w2reversed = [
+      { lat: 45.002, lng: -121.0 },
+      { lat: 45.001, lng: -121.0 }, // shares w1's end, but reversed
+    ];
+    const stitched = stitchWays([w1, w2reversed]);
+    expect(stitched).toHaveLength(1);
+    expect(stitched[0][0]).toEqual({ lat: 45.0, lng: -121.0 });
+    expect(stitched[0][2]).toEqual({ lat: 45.002, lng: -121.0 });
+  });
+
+  it('leaves disconnected ways separate', () => {
+    const w1 = [
+      { lat: 45.0, lng: -121.0 },
+      { lat: 45.001, lng: -121.0 },
+    ];
+    const w2 = [
+      { lat: 46.0, lng: -122.0 },
+      { lat: 46.001, lng: -122.0 },
+    ];
+    expect(stitchWays([w1, w2])).toHaveLength(2);
+  });
+
+  it('lets clipWaterway span a river split across two OSM ways', () => {
+    // Put-in on way A, take-out on way B, ends >200 m from the far way — so an
+    // unstitched single-way clip fails but the stitched line spans the reach.
+    const wayA = [
+      { lat: 45.0, lng: -121.0 },
+      { lat: 45.001, lng: -121.0 },
+      { lat: 45.002, lng: -121.0 },
+    ];
+    const wayB = [
+      { lat: 45.002, lng: -121.0 }, // shares wayA's end
+      { lat: 45.003, lng: -121.0 },
+      { lat: 45.004, lng: -121.0 },
+    ];
+    const a = { lat: 45.0, lng: -121.00001 };
+    const b = { lat: 45.004, lng: -121.00001 };
+    expect(clipWaterway([wayA, wayB], a, b)).toBeNull(); // single-way clip can't
+    const clip = clipWaterway(stitchWays([wayA, wayB]), a, b); // stitched can
+    expect(clip).not.toBeNull();
+    expect(clip).toHaveLength(5);
   });
 });
 

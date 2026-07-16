@@ -25,7 +25,7 @@
 import { haversineM, type LatLng } from '@core/geo';
 import { activityById } from './activity';
 import { valhallaRouteUrl, OVERPASS_URL } from './config';
-import type { FetchJsonDeps } from './conditions/fetchJson';
+import { fetchJson, type FetchJsonDeps } from './conditions/fetchJson';
 
 /** Per-sport routing mode. Resolved from the activity's modality. */
 export type RoutingMode = 'foot' | 'bike' | 'river' | 'freeline';
@@ -159,6 +159,49 @@ function nearestVertexIdx(way: LatLng[], p: LatLng): number {
 }
 
 /**
+ * Greedily stitch OSM ways that share (near-)coincident endpoints into longer
+ * polylines. OSM `waterway` lines are routinely split into many `way` elements,
+ * so a river reach whose put-in and take-out sit on different ways would never
+ * clip against a single one — stitching first lets the clip span the whole reach.
+ * Best-effort: ways that don't connect stay as their own polylines; orientation
+ * is flipped as needed so each merged line is continuous.
+ */
+export function stitchWays(ways: LatLng[][], joinM = 30): LatLng[][] {
+  const remaining = ways.filter((w) => w.length >= 2).map((w) => w.slice());
+  const out: LatLng[][] = [];
+  while (remaining.length > 0) {
+    let line = remaining.shift() as LatLng[];
+    let extended = true;
+    while (extended) {
+      extended = false;
+      for (let i = 0; i < remaining.length; i++) {
+        const w = remaining[i];
+        const lineStart = line[0];
+        const lineEnd = line[line.length - 1];
+        const wStart = w[0];
+        const wEnd = w[w.length - 1];
+        if (haversineM(lineEnd, wStart) <= joinM) {
+          line = line.concat(w.slice(1));
+        } else if (haversineM(lineEnd, wEnd) <= joinM) {
+          line = line.concat(w.slice(0, -1).reverse());
+        } else if (haversineM(lineStart, wEnd) <= joinM) {
+          line = w.slice(0, -1).concat(line);
+        } else if (haversineM(lineStart, wStart) <= joinM) {
+          line = w.slice(1).reverse().concat(line);
+        } else {
+          continue;
+        }
+        remaining.splice(i, 1);
+        extended = true;
+        break;
+      }
+    }
+    out.push(line);
+  }
+  return out;
+}
+
+/**
  * Clip an OSM waterway line between put-in `a` and take-out `b`. Picks the way
  * whose nearest vertices to a and b are jointly closest, then returns the
  * sub-polyline between those vertices oriented a→b. Returns null (→ free-line
@@ -216,39 +259,24 @@ function valhallaBody(a: LatLng, b: LatLng, mode: 'foot' | 'bike') {
   };
 }
 
-// ─── Network (POST + timeout + null-on-failure; mirrors fetchJson) ───────────
+// ─── Network (POST via the shared fetchJson: timeout + null-on-failure) ──────
 
-async function postJson(
-  url: string,
-  body: string,
-  headers: Record<string, string>,
-  deps: SnapDeps | undefined,
-  timeoutMs: number
-): Promise<unknown> {
-  const fetchImpl = deps?.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const onAbort = () => controller.abort();
-  if (deps?.signal) {
-    if (deps.signal.aborted) controller.abort();
-    else deps.signal.addEventListener('abort', onAbort);
-  }
-  try {
-    const res = await fetchImpl(url, { method: 'POST', body, headers, signal: controller.signal });
-    if (!res.ok) return null;
-    return (await res.json()) as unknown;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-    if (deps?.signal) deps.signal.removeEventListener('abort', onAbort);
-  }
+/** fetchJson deps for a POST, carrying the caller's injectable fetch/signal. */
+function postDeps(deps: SnapDeps | undefined, body: string, contentType: string): FetchJsonDeps {
+  return {
+    fetchImpl: deps?.fetchImpl,
+    signal: deps?.signal,
+    method: 'POST',
+    body,
+    headers: { 'Content-Type': contentType },
+  };
 }
 
 async function snapValhalla(a: LatLng, b: LatLng, mode: 'foot' | 'bike', deps?: SnapDeps): Promise<SnapResult> {
   const url = deps?.valhallaUrl !== undefined ? deps.valhallaUrl : valhallaRouteUrl();
   if (!url) return { coords: [a, b], fellBack: true };
-  const json = await postJson(url, JSON.stringify(valhallaBody(a, b, mode)), { 'Content-Type': 'application/json' }, deps, 8000);
+  const body = JSON.stringify(valhallaBody(a, b, mode));
+  const json = await fetchJson(url, postDeps(deps, body, 'application/json'), 8000);
   const decoded = decodeValhalla(json);
   return decoded ? { coords: decoded, fellBack: false } : { coords: [a, b], fellBack: true };
 }
@@ -256,8 +284,8 @@ async function snapValhalla(a: LatLng, b: LatLng, mode: 'foot' | 'bike', deps?: 
 async function snapRiver(a: LatLng, b: LatLng, deps?: SnapDeps): Promise<SnapResult> {
   const url = deps?.overpassUrl ?? OVERPASS_URL;
   const body = `data=${encodeURIComponent(buildOverpassQuery(a, b))}`;
-  const json = await postJson(url, body, { 'Content-Type': 'application/x-www-form-urlencoded' }, deps, 25000);
-  const clipped = clipWaterway(parseOverpassWays(json), a, b);
+  const json = await fetchJson(url, postDeps(deps, body, 'application/x-www-form-urlencoded'), 25000);
+  const clipped = clipWaterway(stitchWays(parseOverpassWays(json)), a, b);
   return clipped ? { coords: clipped, fellBack: false } : { coords: [a, b], fellBack: true };
 }
 

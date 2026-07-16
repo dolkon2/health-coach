@@ -14,6 +14,11 @@ export interface FetchJsonDeps {
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
   headers?: Record<string, string>;
+  /** HTTP method — defaults to GET. POST is used by the route builder's
+   *  snapping (Valhalla / Overpass), which is why this helper isn't GET-only. */
+  method?: string;
+  /** Request body (already-serialized string) for a POST. */
+  body?: string;
 }
 
 export async function fetchJson(
@@ -34,6 +39,8 @@ export async function fetchJson(
   try {
     const res = await fetchImpl(url, {
       signal: controller.signal,
+      ...(deps?.method ? { method: deps.method } : {}),
+      ...(deps?.body != null ? { body: deps.body } : {}),
       ...(deps?.headers ? { headers: deps.headers } : {}),
     });
     if (!res.ok) return null;
