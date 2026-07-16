@@ -49,3 +49,19 @@ export function displayToMeters(value: number, unit: DistanceUnit): number {
 export function formatDistance(m: number, unit: DistanceUnit): string {
   return `${metersToDisplay(m, unit).toFixed(2)} ${unit}`;
 }
+
+// ─── Precipitation (F1 forecast panels) ────────────────────────────────────
+// Open-Meteo always serves precipitation in mm; the Wunderground-style
+// headline the forecast spec quotes verbatim ("0.6 in next 24 h") is
+// imperial, so this is the one display unit for now — no user toggle exists
+// yet, matching the app's existing knots-only wind display.
+const MM_PER_IN = 25.4;
+
+export function mmToInches(mm: number): number {
+  return mm / MM_PER_IN;
+}
+
+/** e.g. "0.6 in". Rounds to the tenth — a rain gauge's practical precision. */
+export function formatPrecipIn(mm: number): string {
+  return `${mmToInches(mm).toFixed(1)} in`;
+}
