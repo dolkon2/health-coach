@@ -6,9 +6,10 @@
  * single-select (`value: T | null`) so this is a small sibling rather than a
  * forced fit.
  *
- * Only offers panels this pass actually renders (Wind, Rain/Shine). Meteo
- * (the windgram, F3) and Gauge (the spot's existing live-conditions card
- * already covers it; no distinct forecast-style Gauge card exists yet) are
+ * Only offers panels with a real card (RENDERABLE_FORECAST_PANELS): Wind,
+ * Rain/Shine, and — since F3 — Meteo (the windgram; opt-in per spot, never
+ * a default). Gauge (the spot's existing live-conditions card already
+ * covers it; no distinct forecast-style Gauge card exists yet) stays
  * deliberately left off — a toggle with no visible effect would read as
  * broken, not as a scope boundary. ⚑ A gauge-family spot's sport-derived
  * default still resolves to `['gauge']` (feedForSport.ts); its Forecast

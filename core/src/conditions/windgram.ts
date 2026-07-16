@@ -70,7 +70,13 @@ export interface WindgramSeries {
 const HRRR_SUFFIX = 'ncep_hrrr_conus';
 const GFS_SUFFIX = 'gfs_seamless';
 
-const LEVEL_VARS = [
+/**
+ * The per-level variables the windgram contract covers — the fetch layer
+ * (openMeteoWindgram.ts) builds its `hourly=` request list from this exact
+ * array, and buildHour() below reads the same six fields, so the requested
+ * and parsed variable sets cannot drift.
+ */
+export const WINDGRAM_LEVEL_VARS = [
   'wind_speed',
   'wind_direction',
   'temperature',

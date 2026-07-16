@@ -72,8 +72,10 @@ export function windHeaderLabel(header: WindHeader): string {
  */
 export type GustStep = 'calm' | 'building' | 'elevated';
 
-const GUST_BUILDING_KT = 13;
-const GUST_ELEVATED_KT = 21;
+// Exported: the windgram's arrow-weight ramp (WindgramChart.barbStep)
+// anchors on the same two values — one retune must reach both panels.
+export const GUST_BUILDING_KT = 13;
+export const GUST_ELEVATED_KT = 21;
 
 export function gustStep(gustKts: number | undefined): GustStep {
   if (gustKts === undefined) return 'calm';

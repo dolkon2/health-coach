@@ -34,6 +34,7 @@ import {
   type WindgramModel,
 } from '@core/conditions/windgram';
 import { useTheme } from '@/theme';
+import { GUST_BUILDING_KT, GUST_ELEVATED_KT } from '@/lib/forecastPanels';
 import { Text } from './Text';
 
 export const PLOT_HEIGHT = 240;
@@ -47,15 +48,17 @@ const ARROW_HALF = 5; // arrow shaft half-length, px
 
 /**
  * Wind-speed steps behind the arrow weight ramp — the launchability read.
- * ⚑ Tunable placeholders: the 13/21 kt anchors deliberately reuse
- * GUST_BUILDING_KT / GUST_ELEVATED_KT (src/lib/forecastPanels.ts), which are
- * themselves flagged placeholders read off one Windy-Bingen screenshot.
+ * ⚑ Tunable placeholders: the upper anchors ARE GUST_BUILDING_KT /
+ * GUST_ELEVATED_KT (imported, so a retune reaches the Wind card and the
+ * windgram together); those are themselves flagged placeholders read off
+ * one Windy-Bingen screenshot. BARB_MODERATE_KT is this chart's own floor.
  */
+export const BARB_MODERATE_KT = 8;
 export type BarbStep = 'light' | 'moderate' | 'strong' | 'elevated';
 export function barbStep(speedKts: number): BarbStep {
-  if (speedKts >= 21) return 'elevated';
-  if (speedKts >= 13) return 'strong';
-  if (speedKts >= 8) return 'moderate';
+  if (speedKts >= GUST_ELEVATED_KT) return 'elevated';
+  if (speedKts >= GUST_BUILDING_KT) return 'strong';
+  if (speedKts >= BARB_MODERATE_KT) return 'moderate';
   return 'light';
 }
 
@@ -317,7 +320,10 @@ const ARROW_STYLE: Record<BarbStep, { strokeWidth: number; opacity: number }> = 
   elevated: { strokeWidth: 2.5, opacity: 1 },
 };
 
-const LAPSE_OPACITY: Record<LapseBucket, number> = {
+// Exported so the card's legend (WindgramLegend, ForecastPanelCard.tsx) is
+// generated from the exact values the chart draws with — a legend that
+// drifts from its chart lies.
+export const LAPSE_OPACITY: Record<LapseBucket, number> = {
   unstable: 0.3,
   conditional: 0.22,
   stable: 0.12,
@@ -349,7 +355,10 @@ export function spotLocalDayLabel(timeEpochSec: number, utcOffsetSeconds = 0): s
 
 export type WindgramChartProps = { series: WindgramSeries };
 
-export function WindgramChart({ series }: WindgramChartProps) {
+// memo: the parent spot screen re-renders on unrelated state (picker
+// open/close, each fetch landing) and this tree is ~1,000+ SVG elements —
+// `series` is a stable state reference, so memo holds between fetches.
+export const WindgramChart = React.memo(function WindgramChart({ series }: WindgramChartProps) {
   const theme = useTheme();
   const geo = React.useMemo(() => windgramGeometry(series), [series]);
 
@@ -583,7 +592,7 @@ export function WindgramChart({ series }: WindgramChartProps) {
       </ScrollView>
     </View>
   );
-}
+});
 
 /** Thin horizontal hatch strokes across an inversion band. */
 function hatchPath(x: number, y: number, w: number, h: number): string {

@@ -28,6 +28,7 @@
  */
 import {
   WINDGRAM_LEVELS,
+  WINDGRAM_LEVEL_VARS,
   isWithinConus,
   parseWindgramResponse,
   type WindgramSeries,
@@ -37,20 +38,11 @@ import { fetchJson, type FetchJsonDeps } from './fetchJson';
 const FORECAST_BASE = 'https://api.open-meteo.com/v1/forecast';
 const HRRR_META_URL = 'https://api.open-meteo.com/data/ncep_hrrr_conus/static/meta.json';
 
-const LEVEL_VARS = [
-  'wind_speed',
-  'wind_direction',
-  'temperature',
-  'relative_humidity',
-  'cloud_cover',
-  'geopotential_height',
-] as const;
-
 const SCALAR_VARS =
   'boundary_layer_height,cape,freezing_level_height,wind_speed_10m,wind_direction_10m';
 
 const HOURLY_VARS =
-  WINDGRAM_LEVELS.flatMap((p) => LEVEL_VARS.map((v) => `${v}_${p}hPa`)).join(',') +
+  WINDGRAM_LEVELS.flatMap((p) => WINDGRAM_LEVEL_VARS.map((v) => `${v}_${p}hPa`)).join(',') +
   `,${SCALAR_VARS}`;
 
 // timezone=auto: with timeformat=unixtime every time is still an absolute

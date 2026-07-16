@@ -29,12 +29,14 @@ import {
   precipWindowHeadline,
   dailyRainShineRows,
   isBeyondFadeHorizon,
+  GUST_BUILDING_KT,
+  GUST_ELEVATED_KT,
 } from '@/lib/forecastPanels';
 import { observationAgeLabel, type LiveObservation } from '@/lib/conditions/liveObservation';
 import type { WindgramResult } from '@/lib/conditions/openMeteoWindgram';
 import { Card } from './Card';
 import { Text } from './Text';
-import { WindgramChart } from './WindgramChart';
+import { WindgramChart, BARB_MODERATE_KT, LAPSE_OPACITY } from './WindgramChart';
 
 const VIEW_W = 300;
 const VIEW_H = 70;
@@ -286,20 +288,40 @@ function LegendSwatch({ color, opacity, label }: { color: string; opacity?: numb
 }
 
 /** The windgram's decode ring: lapse buckets (the F3 color exception —
- *  element hues as the ramp), arrow weight = wind speed, line samples. */
+ *  element hues as the ramp), arrow weight = wind speed, line samples.
+ *  Built from the SAME constants the chart draws with (LAPSE_OPACITY,
+ *  BARB_MODERATE/GUST_* anchors) — a legend that drifts from its chart
+ *  lies, and all four arrow tiers must be decodable. */
 function WindgramLegend() {
   const theme = useTheme();
   return (
     <View style={{ gap: theme.spacing[1] }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[3] }}>
-        <LegendSwatch color={theme.colors.element.body} opacity={0.3} label="unstable" />
-        <LegendSwatch color={theme.colors.element.earth} opacity={0.22} label="cond." />
-        <LegendSwatch color={theme.colors.element.sky} opacity={0.12} label="stable" />
-        <LegendSwatch color={theme.colors.element.sky} opacity={0.08} label="inversion (hatched)" />
+        <LegendSwatch
+          color={theme.colors.element.body}
+          opacity={LAPSE_OPACITY.unstable}
+          label="unstable"
+        />
+        <LegendSwatch
+          color={theme.colors.element.earth}
+          opacity={LAPSE_OPACITY.conditional}
+          label="cond."
+        />
+        <LegendSwatch
+          color={theme.colors.element.sky}
+          opacity={LAPSE_OPACITY.stable}
+          label="stable"
+        />
+        <LegendSwatch
+          color={theme.colors.element.sky}
+          opacity={LAPSE_OPACITY.inverted}
+          label="inversion (hatched)"
+        />
       </View>
       <Text variant="bodySm" color={theme.colors.textMuted}>
-        arrows: thin &lt;8 kt · mid 8–20 kt · bold rust ≥21 kt — solid line BL top · dashed 0 °C ·
-        right sliver cloud
+        arrows: thin &lt;{BARB_MODERATE_KT} · mid {BARB_MODERATE_KT}–{GUST_BUILDING_KT - 1} · heavy{' '}
+        {GUST_BUILDING_KT}–{GUST_ELEVATED_KT - 1} · bold rust ≥{GUST_ELEVATED_KT} kt — solid line
+        BL top · dashed 0 °C · right sliver cloud
       </Text>
     </View>
   );
