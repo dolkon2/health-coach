@@ -4,11 +4,16 @@
  * it instead of a second copy). An AbortController timeout (~4s by default)
  * chains onto the caller's own signal (anthropicClient pattern). Any
  * failure — network, timeout, non-2xx — is a typed null, never a throw.
+ *
+ * `headers` (F2) is a passthrough request header map — the NWS client uses
+ * it for the User-Agent api.weather.gov's usage policy asks every consumer
+ * to identify itself with; every other client leaves it unset.
  */
 
 export interface FetchJsonDeps {
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
 }
 
 export async function fetchJson(
@@ -27,7 +32,10 @@ export async function fetchJson(
   }
 
   try {
-    const res = await fetchImpl(url, { signal: controller.signal });
+    const res = await fetchImpl(url, {
+      signal: controller.signal,
+      ...(deps?.headers ? { headers: deps.headers } : {}),
+    });
     if (!res.ok) return null;
     return (await res.json()) as unknown;
   } catch {
