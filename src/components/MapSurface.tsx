@@ -87,6 +87,12 @@ type MapSurfaceProps = {
   traces?: ReadonlyArray<TraceLayerTrace>;
   /** Live-position marker (base chrome, both modes). */
   liveLoc?: LngLat | null;
+  /** Route builder (Explore takeover): the in-progress line, accent-tinted and
+   *  drawn above saved routes; and the placed waypoints as tappable-looking
+   *  discs. Both change on every waypoint edit (intended re-render — the builder
+   *  is Explore-only, never live during a recording). */
+  draftRoute?: LatLng[];
+  draftWaypoints?: LatLng[];
   /** My Map's "pin a spot here" door. */
   onLongPress?: (coord: LngLat) => void;
   /** Location search's recenter — declarative, see file header. */
@@ -112,6 +118,8 @@ const ROUTES_SOURCE_ID = 'routes-source';
 const ROUTES_LAYER_ID = 'routes-line';
 const TRACES_SOURCE_ID = 'traces-source';
 const TRACES_LAYER_ID = 'traces-line';
+const DRAFT_SOURCE_ID = 'draft-route-source';
+const DRAFT_LAYER_ID = 'draft-route-line';
 
 // Google/Apple Maps' "you are here" convention — a deliberate, explicit
 // exception to the monochrome+4-element palette (Dylan, 2026-07-16), not a
@@ -228,6 +236,24 @@ function RouteArrow({ element, headingDeg }: { element: MapElement; headingDeg: 
   );
 }
 
+/** A placed route-builder waypoint — a small accent disc. */
+function WaypointDot() {
+  const theme = useTheme();
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        width: 12,
+        height: 12,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.colors.accent,
+        borderWidth: 2,
+        borderColor: theme.colors.surfaceRaised,
+      }}
+    />
+  );
+}
+
 /** The live-position marker — see file header for the blue-dot decision. */
 function LiveLocationDot() {
   const theme = useTheme();
@@ -249,7 +275,7 @@ function LiveLocationDot() {
 }
 
 const MapSurfaceInner = React.forwardRef<MapSurfaceRef, MapSurfaceProps>(function MapSurfaceInner(
-  { center, zoom, pins, onPressPin, guidePath, routes, onPressRoute, traces, liveLoc, onLongPress, flyTo },
+  { center, zoom, pins, onPressPin, guidePath, routes, onPressRoute, traces, liveLoc, draftRoute, draftWaypoints, onLongPress, flyTo },
   ref
 ) {
   const theme = useTheme();
@@ -304,6 +330,8 @@ const MapSurfaceInner = React.forwardRef<MapSurfaceRef, MapSurfaceProps>(functio
   const traceList = traces ?? [];
   const hasRoutes = routeList.length > 0;
   const hasTraces = traceList.length > 0;
+  const draftWpList = draftWaypoints ?? [];
+  const hasDraft = draftRoute != null && draftRoute.length >= 2;
   // A search result can arrive before any honest center exists (no GPS fix,
   // no spots) — let it seed the initial camera too, same "never [0,0]" rule
   // the bare-zoom comment below already follows.
@@ -368,6 +396,19 @@ const MapSurfaceInner = React.forwardRef<MapSurfaceRef, MapSurfaceProps>(functio
             />
           </GeoJSONSource>
         ) : null}
+        {hasDraft ? (
+          <GeoJSONSource id={DRAFT_SOURCE_ID} data={toLineString(draftRoute!)}>
+            <Layer
+              type="line"
+              id={DRAFT_LAYER_ID}
+              paint={{
+                'line-color': theme.colors.accent,
+                'line-width': 3.5,
+              }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+          </GeoJSONSource>
+        ) : null}
         {hasGuide ? (
           <GeoJSONSource id={GUIDE_SOURCE_ID} data={toLineString(guidePath!)}>
             <Layer
@@ -405,6 +446,11 @@ const MapSurfaceInner = React.forwardRef<MapSurfaceRef, MapSurfaceProps>(functio
         {pins.map((spot) => (
           <ViewAnnotation key={spot.id} lngLat={[spot.lng, spot.lat]}>
             <SpotPin spot={spot} onPress={() => onPressPin(spot)} />
+          </ViewAnnotation>
+        ))}
+        {draftWpList.map((wp, i) => (
+          <ViewAnnotation key={`draft-wp-${i}`} lngLat={[wp.lng, wp.lat]} anchor="center">
+            <WaypointDot />
           </ViewAnnotation>
         ))}
         {liveLoc ? (
