@@ -22,6 +22,7 @@ import {
   Button,
   WindForecastCard,
   RainShineForecastCard,
+  MeteoForecastCard,
   ForecastPanelPicker,
 } from '@/components';
 import { iconFor } from '@/components/activityIcons';
@@ -30,6 +31,7 @@ import { getSpot, updateSpot } from '@/storage/spots';
 import { fetchCurrentForSpot, type CurrentConditions } from '@/lib/conditions/current';
 import { fetchForecast, type ForecastResult } from '@/lib/conditions/openMeteoForecast';
 import { fetchLiveObservationForSpot, type LiveObservation } from '@/lib/conditions/liveObservation';
+import { fetchWindgram, type WindgramResult } from '@/lib/conditions/openMeteoWindgram';
 import { RENDERABLE_FORECAST_PANELS } from '@/lib/forecastPanels';
 import { spotHeadlineReading, updatedAtLabel } from '@/lib/spotHeadline';
 import { feedForSport } from '@core/conditions/feedForSport';
@@ -43,6 +45,7 @@ export default function SpotDetailScreen() {
   const [current, setCurrent] = useState<CurrentConditions | undefined>(undefined);
   const [forecast, setForecast] = useState<ForecastResult | null | undefined>(undefined);
   const [observed, setObserved] = useState<LiveObservation | null | undefined>(undefined);
+  const [windgram, setWindgram] = useState<WindgramResult | null | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
@@ -50,16 +53,23 @@ export default function SpotDetailScreen() {
     const s = await getSpot(id);
     setSpot(s);
     if (s) {
+      const hasCoords = s.lat != null && s.lng != null;
+      // The windgram is the dashboard's heaviest call (dual-model
+      // pressure-level payload) — fetched ONLY when the spot has opted into
+      // the Meteo panel, never speculatively (forecast-tab.md §2a).
+      const wantsMeteo = spotForecastPanels(s).includes('meteo');
       // Independent network calls — run concurrently rather than doubling
       // the screen's worst-case load latency by awaiting them in series.
-      const [c, f, o] = await Promise.all([
+      const [c, f, o, w] = await Promise.all([
         fetchCurrentForSpot(s),
-        s.lat != null && s.lng != null ? fetchForecast(s.lat, s.lng) : Promise.resolve(null),
+        hasCoords ? fetchForecast(s.lat!, s.lng!) : Promise.resolve(null),
         fetchLiveObservationForSpot(s),
+        wantsMeteo && hasCoords ? fetchWindgram(s.lat!, s.lng!) : Promise.resolve(null),
       ]);
       setCurrent(c);
       setForecast(f);
       setObserved(o);
+      setWindgram(w);
     }
   }, [id]);
 
@@ -73,6 +83,11 @@ export default function SpotDetailScreen() {
     if (!spot) return;
     const updated = await updateSpot(spot.id, { meta: { ...spot.meta, forecastPanels: panels } });
     setSpot(updated);
+    // Enabling Meteo mid-visit fetches just the windgram (the screen's
+    // other data is already loaded); disabling drops it without a refetch.
+    if (panels.includes('meteo') && windgram == null && spot.lat != null && spot.lng != null) {
+      setWindgram(await fetchWindgram(spot.lat, spot.lng));
+    }
   }
 
   if (spot === undefined) return <Screen scroll>{null}</Screen>;
@@ -118,6 +133,12 @@ export default function SpotDetailScreen() {
         />
       );
     }
+  }
+  // The Meteo card rides its own fetch — a failed surface forecast must not
+  // swallow a valid windgram (and vice versa; same independence rule as the
+  // F2 observed reading). Undefined = still loading, handled below.
+  if (panels.includes('meteo') && windgram !== undefined) {
+    forecastCards.push(<MeteoForecastCard key="meteo" windgram={windgram} />);
   }
 
   return (

@@ -13,14 +13,15 @@ import { formatPrecipIn, mmToInches } from './units';
 /**
  * The single source of truth for "which ForecastPanel values this pass
  * actually renders a card for." `ForecastPanel` itself also carries 'gauge'
- * and 'meteo' — a spot's sport can default to those, or a future config
- * could record them — but F1 has no card for either yet (the existing live
- * Conditions card already covers gauge; meteo/windgram is F3). Every site
- * that needs to know "is this panel visible" (the spot-detail screen, the
- * picker's option list) reads this array rather than re-listing the two
- * values by hand.
+ * — a spot's sport can default to it — but there's no gauge card here yet
+ * (the existing live Conditions card already covers it). 'meteo' is F3's
+ * windgram: renderable, opt-in only, never a default (E7 resolved
+ * 2026-07-16 — the §8 meteo-panel-cost flag: opt-in everywhere stands).
+ * Every site that needs to know "is this panel visible" (the spot-detail
+ * screen, the picker's option list) reads this array rather than
+ * re-listing the values by hand.
  */
-export const RENDERABLE_FORECAST_PANELS: ForecastPanel[] = ['wind', 'rain-shine'];
+export const RENDERABLE_FORECAST_PANELS: ForecastPanel[] = ['wind', 'rain-shine', 'meteo'];
 
 // ─── Wind ───────────────────────────────────────────────────────────────────
 
