@@ -61,6 +61,7 @@ import {
   SaveRecordingSheet,
   SegmentedControl,
   PointForecastSheet,
+  RouteBuilderOverlay,
   chipStyle,
   type SaveRecordingTrack,
   type MapSurfaceRef,
@@ -76,6 +77,8 @@ import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
 import { useBatteryOptPrompt } from '@/hooks/useBatteryOptPrompt';
 import { useLiveLocation } from '@/hooks/useLiveLocation';
+import { useRouteBuilder } from '@/hooks/useRouteBuilder';
+import { routingModeForActivity } from '@/lib/routeSnap';
 import { elementOf, activityById, type Activity } from '@/lib/activity';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
 import { recordsOnMap, recordingElementOf, pairTrackFormat } from '@/lib/recording/recordingSave';
@@ -107,7 +110,12 @@ export default function MapScreen() {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ activity?: string; element?: string; routeId?: string }>();
+  const params = useLocalSearchParams<{
+    activity?: string;
+    element?: string;
+    routeId?: string;
+    build?: string;
+  }>();
 
   // My Map is the landing (REFRAME AMENDMENT). Structurally forced back to
   // 'myMap' below the instant a recording starts or a fresh Home deep-link
@@ -148,7 +156,13 @@ export default function MapScreen() {
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
+  // The element/activity picker sheet is shared: 'arm' re-arms Record's sport,
+  // 'builder' chooses the route builder's sport. Routed in onPickActivity.
+  const [pickerPurpose, setPickerPurpose] = useState<'arm' | 'builder'>('arm');
   const [armOverride, setArmOverride] = useState<Activity | null>(null);
+  // Route builder (Explore-2 takeover): active flag lives here; the build state
+  // itself is in useRouteBuilder (declared once `armed` resolves, below).
+  const [builderActive, setBuilderActive] = useState(false);
   // One object, one lifecycle: the track being saved and the activity it
   // was recorded under always move together (review: two lockstep states
   // invite a mismatched pair).
@@ -237,6 +251,17 @@ export default function MapScreen() {
   );
   const armed = armOverride ?? suggested;
 
+  // The route builder's state machine (Explore-2). Seeded with the armed sport
+  // as a sensible default; reset() re-seeds it whenever the builder opens.
+  const builder = useRouteBuilder(armed.id);
+  // The sport's *natural* snap mode (what the snap toggle turns back on).
+  const builderNaturalMode = routingModeForActivity(builder.activityId);
+  const builderActivity = activityById(builder.activityId);
+  const builderDistanceLabel =
+    builder.distanceM > 0
+      ? `${numStr(metersToDisplay(builder.distanceM, distanceUnit), 2)} ${distanceUnit}`
+      : '';
+
   // A fresh Home deep-link (new activity/element params) wins over a stale
   // manual re-arm from a previous visit — the Map tab stays mounted across
   // visits, so without this the override would silently swallow the deep link.
@@ -292,6 +317,25 @@ export default function MapScreen() {
   useEffect(() => {
     if (mapLocked) setMode('myMap');
   }, [mapLocked]);
+
+  // Training's "+ New Route" deep-link (build=1) opens the builder takeover on
+  // Explore. Clear the param so re-fronting the tab doesn't re-open it.
+  useEffect(() => {
+    if (paramStr(params.build) !== '1') return;
+    openBuilder();
+    router.setParams({ build: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.build]);
+
+  // The builder is an Explore-only takeover: leaving Explore, or the map
+  // locking for a recording, exits it (discarding the in-progress route).
+  useEffect(() => {
+    if (builderActive && (mode !== 'explore' || mapLocked)) {
+      setBuilderActive(false);
+      builder.clear();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, mapLocked, builderActive]);
 
   // The route Record would arm right now IF you pressed Record — absent
   // when the loaded route is for a different sport than the current arm
@@ -399,11 +443,59 @@ export default function MapScreen() {
     if (coord) pushNewSpotAt(coord);
   }
 
+  // ─── Route builder (Explore-2 takeover state) ─────────────────────────────
+  // Door 2 (Explore's "Build a route") and door 1 (Training's "+ New Route"
+  // deep-link, build=1) both land here. Opens on Explore with a sensible sport;
+  // the overlay lets the user change it.
+  function openBuilder(activityId?: string) {
+    const startId = activityId ?? (recordsOnMap(armed) ? armed.id : 'hike');
+    builder.reset(startId);
+    setBuilderActive(true);
+    setMode('explore');
+  }
+  // "Drop point" reads wherever the crosshair points — the same placement model
+  // as Explore's "Pin this location" (getCenter → {lat,lng}; getCenter is [lng,lat]).
+  async function onBuilderDropWaypoint() {
+    const coord = await mapSurfaceRef.current?.getCenter();
+    if (coord) void builder.addWaypoint({ lat: coord[1], lng: coord[0] });
+  }
+  function exitBuilder() {
+    setBuilderActive(false);
+    builder.clear();
+  }
+  async function onSaveBuilderRoute(name: string) {
+    const saved = await builder.save(name);
+    if (!saved) return;
+    reloadRoutes(); // surface it on My Map's routes layer
+    setBuilderActive(false);
+    builder.clear();
+    Alert.alert('Route saved', `“${saved.name}” is on your map.`);
+  }
+  function onToggleBuilderFreeline(freeline: boolean) {
+    void builder.setMode(freeline ? 'freeline' : builderNaturalMode);
+  }
+  function onChangeBuilderSport() {
+    setPickerPurpose('builder');
+    setPickerVisible(true);
+  }
+
   function onPickActivity(activity: Activity) {
+    if (pickerPurpose === 'builder') {
+      void builder.setActivity(activity.id);
+      setPickerVisible(false);
+      setPickerPurpose('arm');
+      return;
+    }
     setArmOverride(activity);
     setPickerVisible(false);
   }
   function onPickBody() {
+    if (pickerPurpose === 'builder') {
+      // Body sports have no routes — ignore the pick, keep the builder open.
+      setPickerVisible(false);
+      setPickerPurpose('arm');
+      return;
+    }
     // Body isn't a GPS session — it's logged through Training (locked #6).
     setPickerVisible(false);
     router.push('/training');
@@ -546,13 +638,15 @@ export default function MapScreen() {
         onLongPress={mode === 'myMap' && !isRecording ? onLongPressMyMap : undefined}
         flyTo={flyTo}
         liveLoc={liveLoc}
+        draftRoute={builderActive ? builder.routePoints : undefined}
+        draftWaypoints={builderActive ? builder.waypoints : undefined}
       />
 
       {/* Mode switcher — base chrome, structurally absent (not hidden) while
           recording is locked (live, or an orphan awaiting Finish/Discard):
           Record lives inside My Map now, so there is nothing to switch away
           to until whatever's live or unresolved is dealt with. */}
-      {!mapLocked ? (
+      {!mapLocked && !builderActive ? (
         <View style={{ position: 'absolute', top: insets.top + theme.spacing[3], left: theme.spacing[6], right: theme.spacing[6] }}>
           <SegmentedControl
             options={[
@@ -569,7 +663,7 @@ export default function MapScreen() {
           AMENDMENT). A quiet icon door until tapped, then a submit-triggered
           field + results list; recenters via MapSurface's declarative
           `flyTo` prop on a result tap. */}
-      {!isRecording && !searchOpen ? (
+      {!isRecording && !searchOpen && !builderActive ? (
         <Pressable
           onPress={() => setSearchOpen(true)}
           accessibilityRole="button"
@@ -592,7 +686,7 @@ export default function MapScreen() {
         </Pressable>
       ) : null}
 
-      {!isRecording && searchOpen ? (
+      {!isRecording && searchOpen && !builderActive ? (
         <Card
           style={{
             position: 'absolute',
@@ -842,10 +936,9 @@ export default function MapScreen() {
           spots/routes/traces layer, Dylan 2026-07-16): pan the map under it,
           Windy-style — this IS the placement model, no tap-gesture spike.
           `pointerEvents="none"` on the glyph itself so it never eats the
-          map's own pan/zoom gestures; the two action buttons below it are
-          the only tappable part of this overlay. Explore-2 (the route
-          builder takeover state) has no seam here yet — it lands as a
-          takeover alongside this reticle, not before it. */}
+          map's own pan/zoom gestures. The crosshair is shared by both Explore's
+          browse actions and the Explore-2 route-builder takeover — "Drop point"
+          reads it the same way "Pin this location" does. */}
       {mode === 'explore' ? (
         <>
           <View
@@ -863,28 +956,54 @@ export default function MapScreen() {
             <Crosshair size={32} color={theme.colors.accent} strokeWidth={1.5} />
           </View>
 
-          <View
-            style={{
-              position: 'absolute',
-              left: theme.spacing[6],
-              right: theme.spacing[6],
-              bottom: theme.spacing[4],
-              flexDirection: 'row',
-              gap: theme.spacing[3],
-            }}
-          >
-            <Button
-              label="View forecast"
-              onPress={() => void onExploreViewForecast()}
-              style={{ flex: 1 }}
+          {builderActive && builderActivity ? (
+            <RouteBuilderOverlay
+              sportLabel={builderActivity.label}
+              sportIcon={builderActivity.icon}
+              isFreeline={builder.mode === 'freeline'}
+              freelineForced={builderNaturalMode === 'freeline'}
+              snapLabel={builderNaturalMode === 'river' ? 'Snap to river' : 'Snap to trails'}
+              waypointCount={builder.waypointCount}
+              distanceLabel={builderDistanceLabel}
+              honestyLabel={builder.honestyLabel}
+              canSave={builder.canSave}
+              pending={builder.pending}
+              onDropWaypoint={() => void onBuilderDropWaypoint()}
+              onUndo={builder.undo}
+              onClear={builder.clear}
+              onToggleFreeline={onToggleBuilderFreeline}
+              onChangeSport={onChangeBuilderSport}
+              onSave={(name) => void onSaveBuilderRoute(name)}
+              onExit={exitBuilder}
+              topInset={insets.top}
+              bottomInset={insets.bottom}
             />
-            <Button
-              label="Pin this location"
-              variant="outline"
-              onPress={() => void onExplorePinLocation()}
-              style={{ flex: 1 }}
-            />
-          </View>
+          ) : (
+            <View
+              style={{
+                position: 'absolute',
+                left: theme.spacing[6],
+                right: theme.spacing[6],
+                bottom: theme.spacing[4],
+                gap: theme.spacing[3],
+              }}
+            >
+              <View style={{ flexDirection: 'row', gap: theme.spacing[3] }}>
+                <Button
+                  label="View forecast"
+                  onPress={() => void onExploreViewForecast()}
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  label="Pin this location"
+                  variant="outline"
+                  onPress={() => void onExplorePinLocation()}
+                  style={{ flex: 1 }}
+                />
+              </View>
+              <Button label="Build a route" variant="outline" onPress={() => openBuilder()} />
+            </View>
+          )}
         </>
       ) : null}
 
@@ -900,7 +1019,10 @@ export default function MapScreen() {
 
       <ElementPickerSheet
         visible={pickerVisible}
-        onClose={() => setPickerVisible(false)}
+        onClose={() => {
+          setPickerVisible(false);
+          setPickerPurpose('arm');
+        }}
         mostRecent={mostRecent}
         onPickActivity={onPickActivity}
         onPickBody={onPickBody}
