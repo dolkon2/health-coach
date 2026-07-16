@@ -90,7 +90,15 @@ type MapSurfaceProps = {
   /** My Map's "pin a spot here" door. */
   onLongPress?: (coord: LngLat) => void;
   /** Location search's recenter — declarative, see file header. */
-  flyTo?: { center: LngLat; zoom?: number } | null;
+  flyTo?: {
+    center: LngLat;
+    zoom?: number;
+    /** A monotonic per-request id, not just the coordinate — re-picking the
+     *  identical search result twice must still fly there a second time
+     *  (e.g. after the user panned away); comparing raw lng/lat wouldn't
+     *  fire on a numerically-identical repeat request. */
+    requestId: number;
+  } | null;
 };
 
 export type MapSurfaceRef = {
@@ -265,16 +273,19 @@ const MapSurfaceInner = React.forwardRef<MapSurfaceRef, MapSurfaceProps>(functio
   );
 
   // Declarative recenter (location search): fires the imperative Camera
-  // method when the requested coordinate actually changes, never on an
-  // unrelated re-render with the same value.
+  // method on every new request (keyed on `requestId`, not the coordinate
+  // itself — review finding: keying on lng/lat/zoom meant re-picking the
+  // identical search result a second time was silently a no-op, since
+  // React's dependency comparison saw no change).
   const flyToLng = flyTo?.center[0];
   const flyToLat = flyTo?.center[1];
   const flyToZoom = flyTo?.zoom;
+  const flyToRequestId = flyTo?.requestId;
   useEffect(() => {
-    if (flyToLng == null || flyToLat == null) return;
+    if (flyToLng == null || flyToLat == null || flyToRequestId == null) return;
     cameraRef.current?.flyTo({ center: [flyToLng, flyToLat], zoom: flyToZoom });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flyToLng, flyToLat, flyToZoom]);
+  }, [flyToRequestId]);
 
   if (terrain.status === 'unavailable') {
     return <MapUnavailable message="The map needs a MapTiler key to render. Recording still works." />;

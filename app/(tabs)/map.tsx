@@ -91,6 +91,7 @@ import {
   spotsWithCoords,
 } from '@/lib/mapRecord';
 import { sessionTracks } from '@/lib/mapTraces';
+import { routesForLayer } from '@/lib/mapRoutes';
 import { geocode, type GeocodeResult } from '@/lib/geocode';
 import type { LngLat } from '@/components/mapLibre';
 
@@ -137,7 +138,13 @@ export default function MapScreen() {
   // Distinguishes "haven't searched this query yet" from "searched, zero
   // hits" — typing after a search invalidates the stale result set.
   const [searched, setSearched] = useState(false);
-  const [flyTo, setFlyTo] = useState<{ center: LngLat; zoom?: number } | null>(null);
+  const [flyTo, setFlyTo] = useState<{ center: LngLat; zoom?: number; requestId: number } | null>(
+    null
+  );
+  // Monotonic — see MapSurface's flyTo prop comment: keying its recenter
+  // effect on the coordinate alone would silently no-op a repeat request to
+  // the identical spot.
+  const flyToRequestIdRef = useRef(0);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -265,16 +272,26 @@ export default function MapScreen() {
   }, [params.routeId]);
 
   const isRecording = recorder.status === 'tracking' || recorder.status === 'starting';
+  // Recording OR an unresolved orphan from a prior kill (recorder.attach()
+  // sets `recoverable` independently of `status` — an app relaunch after an
+  // iOS swipe-kill mid-recording is neither 'tracking' nor 'starting', but
+  // still has something that needs Finish/Discard). Both cases must keep
+  // the user on My Map: the RecoveryBanner is the ONLY affordance for an
+  // orphaned recording, and it renders exclusively in My Map's bottom
+  // cluster (review finding — Explore was previously reachable with a
+  // recoverable orphan still sitting unresolved, silently hiding the
+  // banner with no other way to find it).
+  const mapLocked = isRecording || recorder.recoverable != null;
 
-  // Structural, not visual: the instant a recording is live, Explore's
+  // Structural, not visual: the instant recording is locked, Explore's
   // render branch becomes unreachable — this isn't just what hides the
-  // switcher below (`!isRecording`), it's what guarantees a live recording
-  // is ALWAYS what's on screen, even if mode was somehow 'explore' a tick
+  // switcher below (`!mapLocked`), it's what guarantees the locked view is
+  // ALWAYS what's on screen, even if mode was somehow 'explore' a tick
   // earlier (defensive — today only the deep-link effect above and the
-  // switcher itself can change mode, and neither fires mid-recording).
+  // switcher itself can change mode, and neither fires while locked).
   useEffect(() => {
-    if (isRecording) setMode('myMap');
-  }, [isRecording]);
+    if (mapLocked) setMode('myMap');
+  }, [mapLocked]);
 
   // The route Record would arm right now IF you pressed Record — absent
   // when the loaded route is for a different sport than the current arm
@@ -306,30 +323,31 @@ export default function MapScreen() {
   // My Map's three layers (map-tab.md REFRAME AMENDMENT). Explore is a blank
   // crosshair canvas — no pins/routes/traces layer, no toggle row (Dylan,
   // 2026-07-16) — so every one of these is empty outside 'myMap', not just
-  // visually absent from the toggle row.
-  const mapPins = mode === 'myMap' && visibleLayers.spots ? pins : [];
-  const mapRoutes = useMemo<RouteLayerRoute[]>(() => {
-    if (mode !== 'myMap' || !visibleLayers.routes) return [];
-    const out: RouteLayerRoute[] = [];
-    for (const r of routes) {
-      if (r.points.length === 0) continue;
-      const activity = activityById(r.activityId);
-      const element = activity ? elementOf(activity) : undefined;
-      if (element !== 'earth' && element !== 'water' && element !== 'sky') continue;
-      out.push({ id: r.id, points: r.points, element });
-    }
-    return out;
-  }, [mode, visibleLayers.routes, routes]);
-  const mapTraces = useMemo<TraceLayerTrace[]>(() => {
-    if (mode !== 'myMap' || !visibleLayers.traces) return [];
-    return sessionTracks(sessions);
-  }, [mode, visibleLayers.traces, sessions]);
+  // visually absent from the toggle row. All three are useMemo'd (not just
+  // the filtering — the `[]` empty case too) so MapSurface's React.memo
+  // isn't defeated by a fresh array reference on every render (review
+  // finding — this is exactly the native-bridge-churn cost the file's own
+  // memo comment warns about; `pins` used to be passed straight through
+  // before My Map's layer toggle needed to sometimes hide it).
+  const mapPins = useMemo(
+    () => (mode === 'myMap' && visibleLayers.spots ? pins : []),
+    [mode, visibleLayers.spots, pins]
+  );
+  const mapRoutes = useMemo<RouteLayerRoute[]>(
+    () => (mode === 'myMap' && visibleLayers.routes ? routesForLayer(routes) : []),
+    [mode, visibleLayers.routes, routes]
+  );
+  const mapTraces = useMemo<TraceLayerTrace[]>(
+    () => (mode === 'myMap' && visibleLayers.traces ? sessionTracks(sessions) : []),
+    [mode, visibleLayers.traces, sessions]
+  );
 
-  // My Map's creation door (REFRAME AMENDMENT): long-hold anywhere on the
-  // map → new-spot.tsx with the held coordinate prefilled. Wired only when
-  // `mode === 'myMap' && !isRecording` below — not internally guarded here —
-  // so a live recording or Explore never even receives the handler.
-  const onLongPressMyMap = useCallback(
+  // The one place a coordinate becomes a new-spot.tsx push — My Map's
+  // long-hold, Explore's "Pin this location", and PointForecastSheet's own
+  // pin button all funnel through this rather than each rebuilding the
+  // param shape (review finding: three near-identical copies had already
+  // drifted apart in argument order).
+  const pushNewSpotAt = useCallback(
     (coord: LngLat) => {
       router.push({
         pathname: '/new-spot',
@@ -338,6 +356,12 @@ export default function MapScreen() {
     },
     [router]
   );
+
+  // My Map's creation door (REFRAME AMENDMENT): long-hold anywhere on the
+  // map → new-spot.tsx with the held coordinate prefilled. Wired only when
+  // `mode === 'myMap' && !isRecording` below — not internally guarded here —
+  // so a live recording or Explore never even receives the handler.
+  const onLongPressMyMap = pushNewSpotAt;
 
   async function onSearchSubmit() {
     const q = searchQuery.trim();
@@ -355,7 +379,8 @@ export default function MapScreen() {
     setSearched(false);
   }
   function onPickSearchResult(result: GeocodeResult) {
-    setFlyTo({ center: [result.lng, result.lat], zoom: 12 });
+    flyToRequestIdRef.current += 1;
+    setFlyTo({ center: [result.lng, result.lat], zoom: 12, requestId: flyToRequestIdRef.current });
     setSearchResults([]);
     setSearchQuery('');
     setSearched(false);
@@ -371,11 +396,7 @@ export default function MapScreen() {
   }
   async function onExplorePinLocation() {
     const coord = await mapSurfaceRef.current?.getCenter();
-    if (!coord) return;
-    router.push({
-      pathname: '/new-spot',
-      params: { lat: String(coord[1]), lng: String(coord[0]) },
-    });
+    if (coord) pushNewSpotAt(coord);
   }
 
   function onPickActivity(activity: Activity) {
@@ -528,9 +549,10 @@ export default function MapScreen() {
       />
 
       {/* Mode switcher — base chrome, structurally absent (not hidden) while
-          a recording is live: Record lives inside My Map now, so there is
-          nothing to switch away from mid-recording. */}
-      {!isRecording ? (
+          recording is locked (live, or an orphan awaiting Finish/Discard):
+          Record lives inside My Map now, so there is nothing to switch away
+          to until whatever's live or unresolved is dealt with. */}
+      {!mapLocked ? (
         <View style={{ position: 'absolute', top: insets.top + theme.spacing[3], left: theme.spacing[6], right: theme.spacing[6] }}>
           <SegmentedControl
             options={[
@@ -872,10 +894,7 @@ export default function MapScreen() {
         onClose={() => setForecastCoord(null)}
         onPin={(coord) => {
           setForecastCoord(null);
-          router.push({
-            pathname: '/new-spot',
-            params: { lat: String(coord[1]), lng: String(coord[0]) },
-          });
+          pushNewSpotAt(coord);
         }}
       />
 

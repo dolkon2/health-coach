@@ -39,33 +39,52 @@ export function locationToLngLat(fix: LocationFix): LngLat {
 export function useLiveLocation(): LngLat | null {
   const [coord, setCoord] = useState<LngLat | null>(null);
   const subRef = useRef<LocationSubscription | null>(null);
+  // True between focus and blur/unmount. `start()` is async across three
+  // awaits (module import, permission check, watchPositionAsync itself); a
+  // fast blur-then-refocus can otherwise let a stale start() assign a live
+  // subscription to subRef AFTER stop() already ran and found nothing to
+  // remove (review finding — a leaked GPS watch, silently running off-screen
+  // until the next blur happens to clean it up). Checked after every await.
+  const activeRef = useRef(false);
 
   const stop = useCallback(() => {
+    activeRef.current = false;
     subRef.current?.remove();
     subRef.current = null;
   }, []);
 
   const start = useCallback(async () => {
     if (subRef.current) return; // already watching
+    activeRef.current = true;
     let Location: typeof import('expo-location');
     try {
       Location = await import('expo-location');
     } catch {
       return; // no native module in this build — honestly absent, not an error
     }
+    if (!activeRef.current) return; // blurred while the module was loading
     try {
       const perm = await Location.getForegroundPermissionsAsync();
+      if (!activeRef.current) return; // blurred while the permission check was in flight
       if (!perm.granted) return;
-      subRef.current = await Location.watchPositionAsync(
+      const sub = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.Balanced,
           timeInterval: 5000,
           distanceInterval: 10,
         },
         (fix) => {
-          setCoord(locationToLngLat(fix));
+          if (activeRef.current) setCoord(locationToLngLat(fix));
         }
       );
+      if (!activeRef.current) {
+        // Blurred while watchPositionAsync itself was resolving — this
+        // subscription is stale the moment it exists; remove it immediately
+        // rather than stashing it in subRef where nothing would ever stop it.
+        sub.remove();
+        return;
+      }
+      subRef.current = sub;
     } catch {
       // Location Services off, or a mid-watch failure — the dot is simply
       // absent; the readiness chip elsewhere already explains why.
