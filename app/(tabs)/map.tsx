@@ -47,7 +47,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Crosshair } from 'lucide-react-native';
 import type { Spot } from '@core/spot';
 import type { Route } from '@core/route';
 import {
@@ -59,6 +59,7 @@ import {
   RoutePreview,
   SaveRecordingSheet,
   SegmentedControl,
+  PointForecastSheet,
   chipStyle,
   type SaveRecordingTrack,
   type MapSurfaceRef,
@@ -118,6 +119,10 @@ export default function MapScreen() {
   });
   const [routes, setRoutes] = useState<Route[]>([]);
   const mapSurfaceRef = useRef<MapSurfaceRef>(null);
+  // Explore's "View forecast" — the crosshair's coordinate at the moment it
+  // was tapped, read once via getCenter() (no continuous region tracking).
+  // null = sheet closed.
+  const [forecastCoord, setForecastCoord] = useState<LngLat | null>(null);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -314,6 +319,22 @@ export default function MapScreen() {
     },
     [router]
   );
+
+  // Explore's two crosshair actions — both read "wherever the reticle
+  // points" on demand via getCenter(), never a continuously-tracked region
+  // (map-tab.md REFRAME AMENDMENT: "the crosshair IS the placement model").
+  async function onExploreViewForecast() {
+    const coord = await mapSurfaceRef.current?.getCenter();
+    if (coord) setForecastCoord(coord);
+  }
+  async function onExplorePinLocation() {
+    const coord = await mapSurfaceRef.current?.getCenter();
+    if (!coord) return;
+    router.push({
+      pathname: '/new-spot',
+      params: { lat: String(coord[1]), lng: String(coord[0]) },
+    });
+  }
 
   function onPickActivity(activity: Activity) {
     setArmOverride(activity);
@@ -669,12 +690,67 @@ export default function MapScreen() {
       ) : null}
 
       {/* Explore — a fixed center crosshair reticle over a blank canvas (no
-          spots/routes/traces layer, Dylan 2026-07-16). The reticle + its two
-          actions ("View forecast" / "Pin this location") land in the next
-          commit; this one only proves the mode exists and is unreachable
-          while recording (see the isRecording effect above). Explore-2 (the
-          route builder takeover state) has no seam here yet either — it
-          lands alongside the reticle. */}
+          spots/routes/traces layer, Dylan 2026-07-16): pan the map under it,
+          Windy-style — this IS the placement model, no tap-gesture spike.
+          `pointerEvents="none"` on the glyph itself so it never eats the
+          map's own pan/zoom gestures; the two action buttons below it are
+          the only tappable part of this overlay. Explore-2 (the route
+          builder takeover state) has no seam here yet — it lands as a
+          takeover alongside this reticle, not before it. */}
+      {mode === 'explore' ? (
+        <>
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Crosshair size={32} color={theme.colors.accent} strokeWidth={1.5} />
+          </View>
+
+          <View
+            style={{
+              position: 'absolute',
+              left: theme.spacing[6],
+              right: theme.spacing[6],
+              bottom: theme.spacing[4],
+              flexDirection: 'row',
+              gap: theme.spacing[3],
+            }}
+          >
+            <Button
+              label="View forecast"
+              onPress={() => void onExploreViewForecast()}
+              style={{ flex: 1 }}
+            />
+            <Button
+              label="Pin this location"
+              variant="outline"
+              onPress={() => void onExplorePinLocation()}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </>
+      ) : null}
+
+      <PointForecastSheet
+        visible={forecastCoord != null}
+        coord={forecastCoord}
+        onClose={() => setForecastCoord(null)}
+        onPin={(coord) => {
+          setForecastCoord(null);
+          router.push({
+            pathname: '/new-spot',
+            params: { lat: String(coord[1]), lng: String(coord[0]) },
+          });
+        }}
+      />
 
       <ElementPickerSheet
         visible={pickerVisible}

@@ -50,6 +50,7 @@ export {
   type RainShineForecastCardProps,
 } from './ForecastPanelCard';
 export { ForecastPanelPicker } from './ForecastPanelPicker';
+export { PointForecastSheet } from './PointForecastSheet';
 export { RouteCard, type RouteCardProps } from './RouteCard';
 export { PillActionButton, DiamondGlyph, TriangleGlyph } from './PillActionButton';
 export {
