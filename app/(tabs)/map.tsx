@@ -75,6 +75,7 @@ import { getRoute, listRoutes } from '@/storage/routes';
 import { useSessionHistory } from '@/hooks/useSessionHistory';
 import { useBackgroundRecorder, type BackgroundRecorder } from '@/hooks/useBackgroundRecorder';
 import { useBatteryOptPrompt } from '@/hooks/useBatteryOptPrompt';
+import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { elementOf, activityById, type Activity } from '@/lib/activity';
 import { mostRecentActivityByElement } from '@/lib/mostRecentActivity';
 import { recordsOnMap, recordingElementOf, pairTrackFormat } from '@/lib/recording/recordingSave';
@@ -169,6 +170,10 @@ export default function MapScreen() {
   // dev-log, not reinterpreted: acceptable for this S-sized pass).
   const [pinnedFollowRoute, setPinnedFollowRoute] = useState<Route | null>(null);
   const loc = useForegroundLocation();
+  // The blue dot — base chrome, both modes (map-tab.md REFRAME AMENDMENT).
+  // Distinct from `loc` above: this is a continuous watch, not a one-shot
+  // pre-start probe, and it never itself prompts for permission.
+  const liveLoc = useLiveLocation();
   const recorder = useBackgroundRecorder();
   const { distanceUnit } = useSettings();
 
@@ -519,6 +524,7 @@ export default function MapScreen() {
         traces={mapTraces}
         onLongPress={mode === 'myMap' && !isRecording ? onLongPressMyMap : undefined}
         flyTo={flyTo}
+        liveLoc={liveLoc}
       />
 
       {/* Mode switcher — base chrome, structurally absent (not hidden) while
