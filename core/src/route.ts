@@ -5,10 +5,9 @@
  * recording — a recipe, not a record. Distinct from a Session's `gpsPath`/
  * `track` (what happened, timestamped, tier-1, never simplified): a Route
  * carries no timestamps at all (`RoutePoint` omits `tsSec`), because a plan
- * has no "when". `source` says how the geometry arrived — 'plotted' (the
- * straight-line builder, deferred to the Explore track, Phase 4), 'session'
- * (promoted from a finished recording — not built this session), or 'gpx'
- * (imported file, stripped of timestamps at the door).
+ * has no "when". `source` says how the geometry arrived — see the RouteSource
+ * union below ('plotted' free-line, 'snapped' trail/road, 'river' waterway,
+ * 'session' promoted recording, 'gpx' import).
  *
  * NOTE (Session 9, flagged not reinterpreted): the authoring `routes-spec.md`
  * this type is meant to implement is cited throughout `planning/rework/tabs/
@@ -30,16 +29,52 @@ export type RoutePoint = {
    *  a plotted route has no elevation number at all (no DEM source chosen
    *  yet; map-tab.md §5). */
   eleM?: number;
+  /**
+   * How this point entered the geometry (Explore-2 route builder). A user-placed
+   * waypoint is `'waypoint'`; a point the snapping engine (Valhalla) or the OSM
+   * river clip inserted between waypoints is `'derived'`. Absent = untagged
+   * (imported/promoted geometry, or a pre-builder plotted route). Rides the
+   * existing `points` JSON column via JSON.stringify — no migration, no
+   * serialize change (verified: serialize.ts round-trips whole point objects).
+   *
+   * The builder's undo/clear model is designed around waypoints, not raw points,
+   * so a future editor (and Sections, below) can recover user *intent* from
+   * derived geometry (routes-implementation.md §3, adopt #5).
+   */
+  kind?: 'waypoint' | 'derived';
 };
 
 /**
- * 'plotted'  — the straight-line builder (Explore track, Phase 4; not built).
+ * 'plotted'  — free-line builder: straight segments between placed waypoints
+ *              (paragliding, and the universal fallback when snapping is off or
+ *              unavailable). Distance "as plotted — trails may be longer".
+ * 'snapped'  — builder segments snapped to trails/roads per sport via the
+ *              routing engine (Valhalla); foot/bike (Explore-2).
+ * 'river'    — builder segments snapped to the OSM waterway line, clipped
+ *              between put-in and take-out (Explore-2).
  * 'session'  — promoted from a finished recording, RDP-simplified (P2.5; not
  *              built this session).
- * 'gpx'      — imported file, timestamps stripped at the door (this session's
- *              creation door — the only one that exists yet).
+ * 'gpx'      — imported file, timestamps stripped at the door.
+ *
+ * `source` is a free TEXT column (migration 016), so this union widens with no
+ * migration. Tagged by the builder's *mode*, not per-segment: a snapped route
+ * whose middle segment fell back to free-line is still `'snapped'` (the honesty
+ * label carries the per-segment caveat, not the source tag).
  */
-export type RouteSource = 'plotted' | 'session' | 'gpx';
+export type RouteSource = 'plotted' | 'snapped' | 'river' | 'session' | 'gpx';
+
+/**
+ * FUTURE — Sections (R1: named timed stretches within a route;
+ * explore-forecasting-research.md §2e). A Route may later gain:
+ *
+ *   sections?: { name: string; startIdx: number; endIdx: number }[];
+ *
+ * where startIdx/endIdx index into the `kind: 'waypoint'` points (user intent,
+ * not derived geometry). Like `RoutePoint.kind` this rides the routes JSON with
+ * no migration. Displayed as tinted sub-segments; per-section self-times derived
+ * post-hoc; friend-compare is Ring 4. NOT built here — no Sections UI — recorded
+ * so it lands migration-free when specced (open question E5).
+ */
 
 export interface Route {
   id: string;
