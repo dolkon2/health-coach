@@ -45,3 +45,21 @@ export function feedForSport(sport: string | undefined | null): ConditionsFeed |
   if (SWELL_ACTIVITY_IDS.has(sport)) return 'swell';
   return null;
 }
+
+/** The forecast panels a spot's dashboard shows (F1, forecast-tab.md §2a). */
+export type ForecastPanel = 'wind' | 'rain-shine' | 'meteo' | 'gauge';
+
+/**
+ * Sport-derived default forecast panel set — the "obvious call, derived not
+ * asked" default an unconfigured spot shows (spotForecastPanels in
+ * `../spot.ts` falls back to this). Gauge-family → Gauge; wind-family AND
+ * swell (surf's honest interim — swell forecasting is a post-MVP panel
+ * type, forecast-tab.md §2a) → Wind; everything else (hike/run/ride/climb/
+ * ski, untagged) → Rain/Shine. Meteo is NEVER a default — too heavy to
+ * force on unasked, opt-in only.
+ */
+export function defaultForecastPanels(sport: string | undefined | null): ForecastPanel[] {
+  if (sport && GAUGE_ACTIVITY_IDS.has(sport)) return ['gauge'];
+  if (sport && (WIND_ACTIVITY_IDS.has(sport) || SWELL_ACTIVITY_IDS.has(sport))) return ['wind'];
+  return ['rain-shine'];
+}

@@ -17,6 +17,10 @@
  * into false.
  */
 
+import { defaultForecastPanels, type ForecastPanel } from './conditions/feedForSport';
+
+export type { ForecastPanel };
+
 export interface Spot {
   id: string;
   name: string; // "White Salmon — Green Truss", "Hood River sandbar"
@@ -54,4 +58,19 @@ export interface Spot {
 export function spotRequiresUshpaMembership(spot: Spot): boolean | undefined {
   const v = spot.meta?.requiresMembership;
   return typeof v === 'boolean' ? v : undefined;
+}
+
+/**
+ * Which forecast panels this spot's dashboard shows (F1, forecast-tab.md
+ * §2a). Unlike `spotRequiresUshpaMembership` above, an unrecorded spot does
+ * NOT resolve to "unknown" — the sport-derived default (`defaultForecastPanels`)
+ * is an obvious call, not an absent fact, so this always returns a concrete
+ * list. A recorded `meta.forecastPanels` always wins over the default.
+ */
+export function spotForecastPanels(spot: Spot): ForecastPanel[] {
+  const recorded = spot.meta?.forecastPanels;
+  if (Array.isArray(recorded) && recorded.length > 0 && recorded.every((p) => typeof p === 'string')) {
+    return recorded as ForecastPanel[];
+  }
+  return defaultForecastPanels(spot.sport);
 }
