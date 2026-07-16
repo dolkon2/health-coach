@@ -1,0 +1,12 @@
+{
+  "properties": {
+    "gridId": "PDT",
+    "gridX": 54,
+    "gridY": 82,
+    "forecast": "https://api.weather.gov/gridpoints/PDT/54,82/forecast",
+    "observationStations": "https://api.weather.gov/gridpoints/PDT/54,82/stations",
+    "relativeLocation": {
+      "properties": { "city": "Hood River", "state": "OR" }
+    }
+  }
+}

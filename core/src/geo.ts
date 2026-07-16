@@ -35,6 +35,30 @@ export function haversineKm(a: LatLng, b: LatLng): number {
 }
 
 /**
+ * The nearest of `candidates` to `point` by haversine, or null for an empty
+ * list — the "pick the closest station" reduction the F2 conditions clients
+ * (nwsClient.ts, synopticClient.ts) both need, centralized for the same
+ * reason haversineKm itself is: two copies of a distance-based pick could
+ * silently drift (e.g. a tie-break rule added to one and not the other).
+ */
+export function nearestTo<T extends LatLng>(
+  point: LatLng,
+  candidates: T[]
+): { item: T; distanceKm: number } | null {
+  if (candidates.length === 0) return null;
+  let best = candidates[0];
+  let bestKm = haversineKm(point, best);
+  for (const c of candidates.slice(1)) {
+    const d = haversineKm(point, c);
+    if (d < bestKm) {
+      best = c;
+      bestKm = d;
+    }
+  }
+  return { item: best, distanceKm: bestKm };
+}
+
+/**
  * Ray-casting point-in-ring test (even-odd rule). `ring` is a GeoJSON linear
  * ring: positions are **[lng, lat]**. Tolerates both closed (first === last)
  * and unclosed rings — the wrap-around edge of a closed ring is zero-length

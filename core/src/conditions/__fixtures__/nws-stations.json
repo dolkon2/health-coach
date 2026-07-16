@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "id": "https://api.weather.gov/stations/4S2",
+      "properties": { "stationIdentifier": "4S2", "name": "Hood River" },
+      "geometry": { "type": "Point", "coordinates": [-121.5199, 45.6866] }
+    },
+    {
+      "id": "https://api.weather.gov/stations/KDLS",
+      "properties": { "stationIdentifier": "KDLS", "name": "The Dalles Municipal Airport" },
+      "geometry": { "type": "Point", "coordinates": [-121.1667, 45.6167] }
+    }
+  ]
+}
