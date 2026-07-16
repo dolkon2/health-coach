@@ -26,6 +26,7 @@ import { useTheme } from '@/theme';
 import { getSpot, updateSpot } from '@/storage/spots';
 import { fetchCurrentForSpot, type CurrentConditions } from '@/lib/conditions/current';
 import { fetchForecast, type ForecastResult } from '@/lib/conditions/openMeteoForecast';
+import { RENDERABLE_FORECAST_PANELS } from '@/lib/forecastPanels';
 import { spotHeadlineReading, updatedAtLabel } from '@/lib/spotHeadline';
 import { feedForSport } from '@core/conditions/feedForSport';
 import { activityById } from '@/lib/activity';
@@ -44,8 +45,14 @@ export default function SpotDetailScreen() {
     const s = await getSpot(id);
     setSpot(s);
     if (s) {
-      setCurrent(await fetchCurrentForSpot(s));
-      setForecast(s.lat != null && s.lng != null ? await fetchForecast(s.lat, s.lng) : null);
+      // Independent network calls — run concurrently rather than doubling
+      // the screen's worst-case load latency by awaiting them in series.
+      const [c, f] = await Promise.all([
+        fetchCurrentForSpot(s),
+        s.lat != null && s.lng != null ? fetchForecast(s.lat, s.lng) : Promise.resolve(null),
+      ]);
+      setCurrent(c);
+      setForecast(f);
     }
   }, [id]);
 
@@ -79,7 +86,7 @@ export default function SpotDetailScreen() {
   const stamp = updatedAtLabel(current, Date.now());
 
   const panels = spotForecastPanels(spot);
-  const renderablePanels = panels.filter((p) => p === 'wind' || p === 'rain-shine');
+  const renderablePanels = panels.filter((p) => RENDERABLE_FORECAST_PANELS.includes(p));
   const forecastCards = [];
   if (forecast) {
     if (panels.includes('wind')) {
@@ -152,7 +159,7 @@ export default function SpotDetailScreen() {
         </View>
         {pickerOpen ? (
           <View style={{ marginTop: theme.spacing[2] }}>
-            <ForecastPanelPicker value={spotForecastPanels(spot)} onChange={handlePanelsChange} />
+            <ForecastPanelPicker value={panels} onChange={handlePanelsChange} />
           </View>
         ) : null}
         {renderablePanels.length === 0 ? (
@@ -161,11 +168,15 @@ export default function SpotDetailScreen() {
           </Text>
         ) : forecastCards.length > 0 ? (
           <View style={{ marginTop: theme.spacing[3], gap: theme.spacing[3] }}>{forecastCards}</View>
-        ) : forecast === null ? (
+        ) : forecast === undefined ? (
+          <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>
+            Loading forecast…
+          </Text>
+        ) : (
           <Text variant="bodySm" color={theme.colors.textMuted} style={{ marginTop: theme.spacing[2] }}>
             Forecast unavailable.
           </Text>
-        ) : null}
+        )}
       </View>
 
       {spot.notes ? (

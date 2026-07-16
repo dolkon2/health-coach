@@ -7,7 +7,20 @@
  * an interpolation.
  */
 import type { HourlyForecastPoint, DailyForecastPoint } from '@core/conditions/forecast';
+import type { ForecastPanel } from '@core/spot';
 import { formatPrecipIn, mmToInches } from './units';
+
+/**
+ * The single source of truth for "which ForecastPanel values this pass
+ * actually renders a card for." `ForecastPanel` itself also carries 'gauge'
+ * and 'meteo' — a spot's sport can default to those, or a future config
+ * could record them — but F1 has no card for either yet (the existing live
+ * Conditions card already covers gauge; meteo/windgram is F3). Every site
+ * that needs to know "is this panel visible" (the spot-detail screen, the
+ * picker's option list) reads this array rather than re-listing the two
+ * values by hand.
+ */
+export const RENDERABLE_FORECAST_PANELS: ForecastPanel[] = ['wind', 'rain-shine'];
 
 // ─── Wind ───────────────────────────────────────────────────────────────────
 

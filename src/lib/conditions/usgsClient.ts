@@ -20,6 +20,7 @@ import {
   type ParsedGaugeReading,
 } from '@core/conditions/usgs';
 import { computeTrend } from '@core/conditions/gaugeTrend';
+import { fetchJson, type FetchJsonDeps } from './fetchJson';
 
 const BASE = 'https://api.waterdata.usgs.gov/ogcapi/v0';
 
@@ -32,10 +33,7 @@ const TREND_WINDOW_S = 6 * 3600;
 
 const PARAMETER_CODES = ['00060', '00065'] as const;
 
-export interface ConditionsDeps {
-  fetchImpl?: typeof fetch;
-  signal?: AbortSignal;
-}
+export type ConditionsDeps = FetchJsonDeps;
 
 /** Epoch seconds → RFC3339 UTC without fractional seconds ('...Z'). */
 function epochToRfc3339(sec: number): string {
@@ -46,34 +44,6 @@ function epochToRfc3339(sec: number): string {
 function normalizeSiteId(siteId: string): string {
   const s = siteId.trim();
   return /^\d+$/.test(s) ? `USGS-${s}` : s;
-}
-
-/**
- * GET a JSON body with an AbortController timeout (~4s), chaining the
- * caller's signal so either source can cancel (anthropicClient pattern).
- * Any failure — network, timeout, non-2xx, bad JSON — is a null miss.
- */
-async function fetchJson(url: string, deps?: ConditionsDeps, timeoutMs = 4000): Promise<unknown> {
-  const fetchImpl = deps?.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  const onAbort = () => controller.abort();
-  if (deps?.signal) {
-    if (deps.signal.aborted) controller.abort();
-    else deps.signal.addEventListener('abort', onAbort);
-  }
-
-  try {
-    const res = await fetchImpl(url, { signal: controller.signal });
-    if (!res.ok) return null;
-    return (await res.json()) as unknown;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-    if (deps?.signal) deps.signal.removeEventListener('abort', onAbort);
-  }
 }
 
 /** Seconds between a reading's timestamp and the session time. */

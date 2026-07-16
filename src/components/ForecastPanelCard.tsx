@@ -36,22 +36,66 @@ const VIEW_W = 300;
 const VIEW_H = 70;
 const PAD_Y = 6;
 
-function xyPaths(
-  window: { a: number; b: number }[]
-): { lineA: string; lineB: string; min: number; max: number } {
+interface DualSeriesPoint {
+  timeEpochSec: number;
+  a?: number;
+  b?: number;
+}
+
+/**
+ * Builds two SVG line paths positioned by REAL time offset (not array
+ * index) — a hover in one series that skips an hour (a real gap in the
+ * response, per forecast.ts's per-field-independent parsing) must read as a
+ * gap on the x-axis, never get silently compressed into a smooth continuous
+ * join. Each series draws its own path from only the points where that
+ * field is present, breaking into a new subpath (a fresh "M") whenever a
+ * point is missing that field — never joining across a hole. Requires at
+ * least 2 points with the `a` (primary) field to establish a time axis;
+ * null otherwise.
+ */
+function dualLinePaths(
+  points: DualSeriesPoint[]
+): { lineA: string; lineB: string; min: number; max: number } | null {
+  const withA = points.filter((p) => p.a !== undefined);
+  if (withA.length < 2) return null;
+
   let min = Infinity;
   let max = -Infinity;
-  for (const { a, b } of window) {
-    min = Math.min(min, a, b);
-    max = Math.max(max, a, b);
+  for (const p of points) {
+    if (p.a !== undefined) {
+      min = Math.min(min, p.a);
+      max = Math.max(max, p.a);
+    }
+    if (p.b !== undefined) {
+      min = Math.min(min, p.b);
+      max = Math.max(max, p.b);
+    }
   }
+
+  const firstT = withA[0].timeEpochSec;
+  const lastT = withA[withA.length - 1].timeEpochSec;
+  const spanX = lastT - firstT;
   const spanY = max - min;
   const innerH = VIEW_H - PAD_Y * 2;
-  const xOf = (i: number) => (window.length > 1 ? (i / (window.length - 1)) * VIEW_W : 0);
+  const xOf = (t: number) => (spanX > 0 ? ((t - firstT) / spanX) * VIEW_W : 0);
   const yOf = (v: number) => (spanY > 0 ? PAD_Y + ((max - v) / spanY) * innerH : VIEW_H / 2);
-  const path = (pick: (p: { a: number; b: number }) => number) =>
-    window.map((p, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)} ${yOf(pick(p)).toFixed(1)}`).join(' ');
-  return { lineA: path((p) => p.a), lineB: path((p) => p.b), min, max };
+
+  function buildPath(pick: (p: DualSeriesPoint) => number | undefined): string {
+    const segments: string[] = [];
+    let drawing = false;
+    for (const p of points) {
+      const v = pick(p);
+      if (v === undefined) {
+        drawing = false; // a hole here breaks the line, never bridges it
+        continue;
+      }
+      segments.push(`${drawing ? 'L' : 'M'}${xOf(p.timeEpochSec).toFixed(1)} ${yOf(v).toFixed(1)}`);
+      drawing = true;
+    }
+    return segments.join(' ');
+  }
+
+  return { lineA: buildPath((p) => p.a), lineB: buildPath((p) => p.b), min, max };
 }
 
 export interface WindChartPaths {
@@ -62,22 +106,22 @@ export interface WindChartPaths {
 }
 
 /**
- * Dual-trace (avg/gust) SVG path pair over the next `hoursAhead` hours.
- * Only includes hours where BOTH fields are present — a gap in one series
- * would otherwise force a fabricated join. Null when fewer than 2 such hours
- * exist (exported for tests; ElevationProfile's pure-path-builder pattern).
+ * Dual-trace (avg/gust) SVG path pair over the next `hoursAhead` hours,
+ * positioned by real time so a missing gust reading on one hour shows as a
+ * gap, not a compressed join. Null when fewer than 2 hours carry a wind
+ * speed at all (exported for tests; ElevationProfile's pure-path-builder
+ * pattern).
  */
 export function windDualLinePaths(
   hourly: HourlyForecastPoint[],
   hoursAhead = 24
 ): WindChartPaths | null {
-  const window = hourly
+  const points: DualSeriesPoint[] = hourly
     .slice(0, hoursAhead)
-    .filter((h) => h.windSpeedKts !== undefined && h.windGustKts !== undefined)
-    .map((h) => ({ a: h.windSpeedKts!, b: h.windGustKts! }));
-  if (window.length < 2) return null;
-  const { lineA, lineB, min, max } = xyPaths(window);
-  return { lineAvg: lineA, lineGust: lineB, minKts: min, maxKts: max };
+    .map((h) => ({ timeEpochSec: h.timeEpochSec, a: h.windSpeedKts, b: h.windGustKts }));
+  const out = dualLinePaths(points);
+  if (!out) return null;
+  return { lineAvg: out.lineA, lineGust: out.lineB, minKts: out.min, maxKts: out.max };
 }
 
 export interface TempChartPaths {
@@ -92,13 +136,12 @@ export function tempDualLinePaths(
   hourly: HourlyForecastPoint[],
   hoursAhead = 24
 ): TempChartPaths | null {
-  const window = hourly
+  const points: DualSeriesPoint[] = hourly
     .slice(0, hoursAhead)
-    .filter((h) => h.tempC !== undefined && h.apparentTempC !== undefined)
-    .map((h) => ({ a: h.tempC!, b: h.apparentTempC! }));
-  if (window.length < 2) return null;
-  const { lineA, lineB, min, max } = xyPaths(window);
-  return { lineTemp: lineA, lineFeels: lineB, minC: min, maxC: max };
+    .map((h) => ({ timeEpochSec: h.timeEpochSec, a: h.tempC, b: h.apparentTempC }));
+  const out = dualLinePaths(points);
+  if (!out) return null;
+  return { lineTemp: out.lineA, lineFeels: out.lineB, minC: out.min, maxC: out.max };
 }
 
 function ForecastMeta({ model, fetchedAtUtc }: { model: string; fetchedAtUtc: string }) {

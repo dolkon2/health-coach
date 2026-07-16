@@ -7,9 +7,24 @@
 import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useTheme } from '@/theme';
+import type { Theme } from '@/theme';
 import { Text } from './Text';
 
 export type ChipOption<T extends string | number> = { value: T; label: string };
+
+/** The chip's fill/border look, keyed on selection — shared with
+ *  ForecastPanelPicker (a multi-select sibling; ChipSelect itself only
+ *  supports single-select) so a brand-kit tweak lands in one place. */
+export function chipStyle(theme: Theme, selected: boolean) {
+  return {
+    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    borderRadius: theme.radius.full,
+    backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceRaised,
+    borderWidth: 1 as const,
+    borderColor: selected ? theme.colors.accent : theme.colors.border,
+  };
+}
 
 type ChipSelectProps<T extends string | number> = {
   options: ChipOption<T>[];
@@ -39,12 +54,7 @@ export function ChipSelect<T extends string | number>({
             accessibilityRole="button"
             accessibilityState={{ selected }}
             style={{
-              paddingVertical: theme.spacing[2],
-              paddingHorizontal: theme.spacing[3],
-              borderRadius: theme.radius.full,
-              backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceRaised,
-              borderWidth: 1,
-              borderColor: selected ? theme.colors.accent : theme.colors.border,
+              ...chipStyle(theme, selected),
               alignItems: 'center',
               ...(columns ? { flexBasis: `${100 / columns - 3}%`, flexGrow: 1 } : null),
             }}

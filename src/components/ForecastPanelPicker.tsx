@@ -19,12 +19,20 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { useTheme } from '@/theme';
 import { Text } from './Text';
+import { chipStyle } from './ChipSelect';
+import { RENDERABLE_FORECAST_PANELS } from '@/lib/forecastPanels';
 import type { ForecastPanel } from '@core/spot';
 
-const PANEL_OPTIONS: { value: ForecastPanel; label: string }[] = [
-  { value: 'wind', label: 'Wind' },
-  { value: 'rain-shine', label: 'Rain / Shine' },
-];
+const PANEL_LABELS: Record<ForecastPanel, string> = {
+  wind: 'Wind',
+  'rain-shine': 'Rain / Shine',
+  gauge: 'Gauge',
+  meteo: 'Meteo',
+};
+
+const PANEL_OPTIONS: { value: ForecastPanel; label: string }[] = RENDERABLE_FORECAST_PANELS.map(
+  (value) => ({ value, label: PANEL_LABELS[value] })
+);
 
 export type ForecastPanelPickerProps = {
   value: ForecastPanel[];
@@ -48,14 +56,7 @@ export function ForecastPanelPicker({ value, onChange }: ForecastPanelPickerProp
             onPress={() => toggle(opt.value)}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            style={{
-              paddingVertical: theme.spacing[2],
-              paddingHorizontal: theme.spacing[3],
-              borderRadius: theme.radius.full,
-              backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceRaised,
-              borderWidth: 1,
-              borderColor: selected ? theme.colors.accent : theme.colors.border,
-            }}
+            style={chipStyle(theme, selected)}
           >
             <Text variant="label" color={selected ? theme.colors.bg : theme.colors.textSecondary}>
               {opt.label}
