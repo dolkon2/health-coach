@@ -1,0 +1,17 @@
+{
+  "UNITS": { "position": "ft", "elevation": "ft", "wind_speed": "Knots", "air_temp": "Celsius" },
+  "STATION": [
+    {
+      "STID": "ODOT123",
+      "NAME": "Rowena Summit",
+      "LATITUDE": "45.6512",
+      "LONGITUDE": "-121.2814",
+      "OBSERVATIONS": {
+        "air_temp_value_1": { "value": 23.1, "date_time": "2026-07-15T21:50:00Z" },
+        "wind_speed_value_1": { "value": 14.0, "date_time": "2026-07-15T21:50:00Z" },
+        "wind_gust_value_1": { "value": 21.0, "date_time": "2026-07-15T21:50:00Z" },
+        "wind_direction_value_1": { "value": 285, "date_time": "2026-07-15T21:50:00Z" }
+      }
+    }
+  ]
+}

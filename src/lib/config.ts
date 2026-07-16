@@ -21,6 +21,12 @@
  * SVG route trace (RoutePreview) — nothing is fabricated, nothing is blocked.
  * MAP_STYLE_ID selects the tile style (defaults to `outdoor`). The style URL is
  * assembled here in code so the key/style never land in app.json or git.
+ *
+ * Synoptic/MesoWest (F2, forecast-tab.md §3): optional, free tier (5k req/mo).
+ * When a token is set, the live-observation combinator (liveObservation.ts)
+ * falls back to it for a broader station gap-fill (ODOT/WSDOT road stations,
+ * etc.) when the free NWS client has nothing usable nearby; when unset, F2
+ * degrades to NWS-only — never a blocked feature, same rule as MapTiler.
  */
 
 export const USDA_API_KEY: string =
@@ -34,6 +40,9 @@ export const MAPTILER_KEY: string | null =
 
 export const MAP_STYLE_ID: string =
   process.env.EXPO_PUBLIC_MAP_STYLE_ID || 'outdoor';
+
+export const SYNOPTIC_TOKEN: string | null =
+  process.env.EXPO_PUBLIC_SYNOPTIC_TOKEN || null;
 
 /** Shared key guard for every MapTiler endpoint — `null` with no key configured. */
 function mapTilerUrl(path: string): string | null {
