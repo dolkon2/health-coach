@@ -6,7 +6,7 @@
  * series' line rather than silently compress the timeline.
  */
 import { describe, it, expect } from '@jest/globals';
-import { windDualLinePaths, tempDualLinePaths } from '@/components/ForecastPanelCard';
+import { windDualLinePaths, tempDualLinePaths, runStampLabel } from '@/components/ForecastPanelCard';
 import type { HourlyForecastPoint } from '@core/conditions/forecast';
 
 describe('windDualLinePaths', () => {
@@ -84,5 +84,18 @@ describe('tempDualLinePaths', () => {
 
   it('returns null with fewer than 2 hours carrying a temp reading', () => {
     expect(tempDualLinePaths([{ timeEpochSec: 0, tempC: 18, apparentTempC: 16 }])).toBeNull();
+  });
+});
+
+describe('runStampLabel', () => {
+  it('formats the model run in UTC with a Z suffix', () => {
+    // 2026-07-16T21:00:00Z — HRRR run init from the real meta endpoint.
+    expect(runStampLabel(1784235600)).toBe('Jul 16 21Z');
+    // Single-digit hours pad: 2026-07-16T06:00:00Z.
+    expect(runStampLabel(1784181600)).toBe('Jul 16 06Z');
+  });
+
+  it("stamps 'n/a' when no run time is known — never a guessed time", () => {
+    expect(runStampLabel(undefined)).toBe('n/a');
   });
 });

@@ -46,8 +46,10 @@ export { SpotCard, type SpotCardProps } from './SpotCard';
 export {
   WindForecastCard,
   RainShineForecastCard,
+  MeteoForecastCard,
   type WindForecastCardProps,
   type RainShineForecastCardProps,
+  type MeteoForecastCardProps,
 } from './ForecastPanelCard';
 export { ForecastPanelPicker } from './ForecastPanelPicker';
 export { WindgramChart, type WindgramChartProps } from './WindgramChart';

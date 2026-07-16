@@ -31,8 +31,10 @@ import {
   isBeyondFadeHorizon,
 } from '@/lib/forecastPanels';
 import { observationAgeLabel, type LiveObservation } from '@/lib/conditions/liveObservation';
+import type { WindgramResult } from '@/lib/conditions/openMeteoWindgram';
 import { Card } from './Card';
 import { Text } from './Text';
+import { WindgramChart } from './WindgramChart';
 
 const VIEW_W = 300;
 const VIEW_H = 70;
@@ -254,6 +256,87 @@ export function WindForecastCard({ hourly, model, fetchedAtUtc, observed }: Wind
       ) : null}
       {header ? <ForecastMeta model={model} fetchedAtUtc={fetchedAtUtc} /> : null}
       {observed ? <LiveReadingLine observed={observed} /> : null}
+    </Card>
+  );
+}
+
+/**
+ * UTC run stamp for the model line, e.g. "Jul 16 21Z" — model init times
+ * are conventionally read in Z, never silently localized. 'n/a' when the
+ * run-meta fetch failed or the windgram is GFS-only (gfs_seamless is a
+ * virtual model with no published run time) — absence over invention.
+ */
+export function runStampLabel(runEpochSec?: number): string {
+  if (runEpochSec === undefined) return 'n/a';
+  const d = new Date(runEpochSec * 1000);
+  const date = d.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `${date} ${String(d.getUTCHours()).padStart(2, '0')}Z`;
+}
+
+function LegendSwatch({ color, opacity, label }: { color: string; opacity?: number; label: string }) {
+  const theme = useTheme();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <View style={{ width: 10, height: 10, backgroundColor: color, opacity: opacity ?? 1 }} />
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/** The windgram's decode ring: lapse buckets (the F3 color exception —
+ *  element hues as the ramp), arrow weight = wind speed, line samples. */
+function WindgramLegend() {
+  const theme = useTheme();
+  return (
+    <View style={{ gap: theme.spacing[1] }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[3] }}>
+        <LegendSwatch color={theme.colors.element.body} opacity={0.3} label="unstable" />
+        <LegendSwatch color={theme.colors.element.earth} opacity={0.22} label="cond." />
+        <LegendSwatch color={theme.colors.element.sky} opacity={0.12} label="stable" />
+        <LegendSwatch color={theme.colors.element.sky} opacity={0.08} label="inversion (hatched)" />
+      </View>
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        arrows: thin &lt;8 kt · mid 8–20 kt · bold rust ≥21 kt — solid line BL top · dashed 0 °C ·
+        right sliver cloud
+      </Text>
+    </View>
+  );
+}
+
+export type MeteoForecastCardProps = {
+  /** Null when the fetch failed — the card folds to a quiet unavailable
+   *  line, never a fabricated chart. */
+  windgram: WindgramResult | null;
+};
+
+/**
+ * The Meteo (full) panel — F3's windgram card (forecast-tab.md §2a). Model
+ * + resolution + run time are stamped on every render, no exceptions: this
+ * is the honest-gap labeling the spec demands of the heaviest panel.
+ */
+export function MeteoForecastCard({ windgram }: MeteoForecastCardProps) {
+  const theme = useTheme();
+  if (!windgram) return <Unavailable title="Meteo" />;
+
+  const gridM = windgram.series.gridElevationM;
+  return (
+    <Card flat style={{ gap: theme.spacing[2] }}>
+      <Text variant="label" color={theme.colors.textSecondary}>
+        Meteo
+      </Text>
+      <WindgramChart series={windgram.series} />
+      <WindgramLegend />
+      {gridM !== undefined ? (
+        <Text variant="bodySm" color={theme.colors.textMuted}>
+          Altitudes vs. the model's grid elevation ({Math.round(gridM)} m) — not the launch.
+        </Text>
+      ) : null}
+      <ForecastMeta
+        model={`${windgram.model} · run ${runStampLabel(windgram.runEpochSec)}`}
+        fetchedAtUtc={windgram.fetchedAtUtc}
+      />
     </Card>
   );
 }
