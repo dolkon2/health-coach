@@ -19,6 +19,18 @@ type SessionCardProps = {
   contribution: string;
 };
 
+/**
+ * A session's GPS track, wherever it lives — Earth's `endurance.gpsPath`,
+ * Water's bespoke `paddling.gpsPath`, or Sky's `sky.track`. `undefined` for
+ * a routeless session (stats-only is a valid, complete state — never a
+ * fabricated single-point line). Exported and pure so it's unit-testable
+ * without rendering the component; same precedence as
+ * `src/lib/mapTraces.ts`'s `trackOf()` for My Map's traces layer.
+ */
+export function sessionTrackOf(payload: ObservationOf<'session'>['payload']) {
+  return payload.endurance?.gpsPath ?? payload.paddling?.gpsPath ?? payload.sky?.track;
+}
+
 export function SessionCard({ session, contribution }: SessionCardProps) {
   const theme = useTheme();
   const p = session.payload;
@@ -29,9 +41,8 @@ export function SessionCard({ session, contribution }: SessionCardProps) {
 
   // Show the route only when one was actually recorded/imported — a routeless
   // session is complete, not broken (gps-mapping-spec.md: stats-only is a valid
-  // state; never an empty map container). Sky sessions carry their track under
-  // `sky.track` rather than `endurance.gpsPath` — same routeless-is-fine rule.
-  const route = p.endurance?.gpsPath ?? p.sky?.track;
+  // state; never an empty map container).
+  const route = sessionTrackOf(p);
 
   return (
     <Card raised style={{ gap: theme.spacing[2] }}>
