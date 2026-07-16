@@ -3,10 +3,13 @@
  * when the sport resolves one), and the F1 Forecast dashboard (a card stack
  * per `spotForecastPanels`, kept visually distinct from the live-conditions
  * Card above it — live = now, forecast = ahead, never merged into one
- * number). Full P3 (session log beneath, edit/rename/re-tag, gauge-link
- * search affordance) is a later pass — this stub exists so the list's and
- * Home's "tap → spot detail" routing (pinned-spots-spec.md, home-tab.md §5)
- * has somewhere real to land rather than a dead route.
+ * number). F2 adds a nearby-station "live reading" line inside the Wind
+ * card itself (forecast-tab.md §3) — a THIRD register, distinct from both
+ * the Conditions card and the model forecast, never blended into either.
+ * Full P3 (session log beneath, edit/rename/re-tag, gauge-link search
+ * affordance) is a later pass — this stub exists so the list's and Home's
+ * "tap → spot detail" routing (pinned-spots-spec.md, home-tab.md §5) has
+ * somewhere real to land rather than a dead route.
  */
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
@@ -26,6 +29,7 @@ import { useTheme } from '@/theme';
 import { getSpot, updateSpot } from '@/storage/spots';
 import { fetchCurrentForSpot, type CurrentConditions } from '@/lib/conditions/current';
 import { fetchForecast, type ForecastResult } from '@/lib/conditions/openMeteoForecast';
+import { fetchLiveObservationForSpot, type LiveObservation } from '@/lib/conditions/liveObservation';
 import { RENDERABLE_FORECAST_PANELS } from '@/lib/forecastPanels';
 import { spotHeadlineReading, updatedAtLabel } from '@/lib/spotHeadline';
 import { feedForSport } from '@core/conditions/feedForSport';
@@ -38,6 +42,7 @@ export default function SpotDetailScreen() {
   const [spot, setSpot] = useState<Spot | null | undefined>(undefined);
   const [current, setCurrent] = useState<CurrentConditions | undefined>(undefined);
   const [forecast, setForecast] = useState<ForecastResult | null | undefined>(undefined);
+  const [observed, setObserved] = useState<LiveObservation | null | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const reload = useCallback(async () => {
@@ -47,12 +52,14 @@ export default function SpotDetailScreen() {
     if (s) {
       // Independent network calls — run concurrently rather than doubling
       // the screen's worst-case load latency by awaiting them in series.
-      const [c, f] = await Promise.all([
+      const [c, f, o] = await Promise.all([
         fetchCurrentForSpot(s),
         s.lat != null && s.lng != null ? fetchForecast(s.lat, s.lng) : Promise.resolve(null),
+        fetchLiveObservationForSpot(s),
       ]);
       setCurrent(c);
       setForecast(f);
+      setObserved(o);
     }
   }, [id]);
 
@@ -96,6 +103,7 @@ export default function SpotDetailScreen() {
           hourly={forecast.hourly}
           model={forecast.model}
           fetchedAtUtc={forecast.fetchedAtUtc}
+          observed={observed}
         />
       );
     }

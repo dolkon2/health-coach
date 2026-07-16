@@ -25,10 +25,12 @@ import {
   windHeader,
   windHeaderLabel,
   gustStep,
+  liveWindLabel,
   precipWindowHeadline,
   dailyRainShineRows,
   isBeyondFadeHorizon,
 } from '@/lib/forecastPanels';
+import { observationAgeLabel, type LiveObservation } from '@/lib/conditions/liveObservation';
 import { Card } from './Card';
 import { Text } from './Text';
 
@@ -154,6 +156,37 @@ function ForecastMeta({ model, fetchedAtUtc }: { model: string; fetchedAtUtc: st
   );
 }
 
+/**
+ * The F2 "live reading" line (forecast-tab.md §3) — a nearby free station's
+ * observed wind, kept in its own bordered block below the forecast chart so
+ * it never reads as part of the model line. Station name, distance, and
+ * reading age are always visible together; a stale/out-of-radius reading
+ * never reaches here at all (liveObservation.ts already filtered it to
+ * null before this component sees it).
+ */
+function LiveReadingLine({ observed }: { observed: LiveObservation }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        marginTop: theme.spacing[1],
+        paddingTop: theme.spacing[2],
+        borderTopWidth: 1,
+        borderTopColor: theme.colors.border,
+        gap: theme.spacing[1],
+      }}
+    >
+      <Text variant="label" color={theme.colors.textSecondary}>
+        Live — {observed.stationName}
+      </Text>
+      <Text variant="dataSm">{liveWindLabel(observed)}</Text>
+      <Text variant="bodySm" color={theme.colors.textMuted}>
+        {observed.distanceKm.toFixed(1)} km away · {observationAgeLabel(observed.observedAtUtc, Date.now())}
+      </Text>
+    </View>
+  );
+}
+
 function Unavailable({ title }: { title: string }) {
   const theme = useTheme();
   return (
@@ -172,15 +205,23 @@ export type WindForecastCardProps = {
   hourly: HourlyForecastPoint[];
   model: string;
   fetchedAtUtc: string;
+  /** F2's nearby-station observed reading, or null/absent when none is in
+   *  range/fresh — absent, not empty (no "no live station" line clutters
+   *  the card; the honest gap here is silence, same convention as an
+   *  unconfigured panel). */
+  observed?: LiveObservation | null;
 };
 
-export function WindForecastCard({ hourly, model, fetchedAtUtc }: WindForecastCardProps) {
+export function WindForecastCard({ hourly, model, fetchedAtUtc, observed }: WindForecastCardProps) {
   const theme = useTheme();
   const header = windHeader(hourly);
-  if (!header) return <Unavailable title="Wind" />;
+  // A failed/absent MODEL forecast must not swallow a valid, independently-
+  // fetched OBSERVED reading (F2, forecast-tab.md §3) — only fall back to
+  // the full "Forecast unavailable" card when there's nothing live either.
+  if (!header && !observed) return <Unavailable title="Wind" />;
 
-  const chart = windDualLinePaths(hourly);
-  const step = gustStep(header.gustKts);
+  const chart = header ? windDualLinePaths(hourly) : null;
+  const step = gustStep(header?.gustKts);
   // Gust emphasis without a new hue (tokens.ts is deliberately monochrome,
   // no green/red anywhere) — 'elevated'/'building' read as bolder ink,
   // 'calm' as the card's normal weight.
@@ -191,9 +232,15 @@ export function WindForecastCard({ hourly, model, fetchedAtUtc }: WindForecastCa
       <Text variant="label" color={theme.colors.textSecondary}>
         Wind
       </Text>
-      <Text variant="dataLg" style={headerWeight ? { fontWeight: headerWeight } : undefined}>
-        {windHeaderLabel(header)}
-      </Text>
+      {header ? (
+        <Text variant="dataLg" style={headerWeight ? { fontWeight: headerWeight } : undefined}>
+          {windHeaderLabel(header)}
+        </Text>
+      ) : (
+        <Text variant="bodySm" color={theme.colors.textMuted}>
+          Forecast unavailable.
+        </Text>
+      )}
       {chart ? (
         <View>
           <Svg width="100%" height={VIEW_H} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none">
@@ -205,7 +252,8 @@ export function WindForecastCard({ hourly, model, fetchedAtUtc }: WindForecastCa
           </Text>
         </View>
       ) : null}
-      <ForecastMeta model={model} fetchedAtUtc={fetchedAtUtc} />
+      {header ? <ForecastMeta model={model} fetchedAtUtc={fetchedAtUtc} /> : null}
+      {observed ? <LiveReadingLine observed={observed} /> : null}
     </Card>
   );
 }
