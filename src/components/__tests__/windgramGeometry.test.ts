@@ -160,20 +160,37 @@ describe('windgramGeometry', () => {
     expect(geo.columns[0].arrows).toHaveLength(2); // the underground level drew nothing
   });
 
-  it('marks the HRRR→GFS boundary at the first GFS column after HRRR', () => {
+  it('marks the HRRR→GFS boundary at the first column past hrrrEndEpochSec', () => {
     const hours = [
       mkHour(T0, 'hrrr', STD_LEVELS),
       mkHour(T0 + HOUR, 'hrrr', STD_LEVELS),
       mkHour(T0 + 2 * HOUR, 'gfs', STD_LEVELS),
     ];
-    const geo = windgramGeometry(mkSeries(hours))!;
+    const geo = windgramGeometry(mkSeries(hours, { hrrrEndEpochSec: T0 + HOUR }))!;
     expect(geo.hrrrBoundaryX).not.toBeNull();
     expect(geo.hrrrBoundaryX).toBe(geo.columns[2].x - 1);
   });
 
+  it('ignores a transient mid-run HRRR hole — the boundary is the horizon, not the first flip', () => {
+    const hours = [
+      mkHour(T0, 'hrrr', STD_LEVELS),
+      mkHour(T0 + HOUR, 'gfs', STD_LEVELS), // one incomplete HRRR hour, demoted by the parser
+      mkHour(T0 + 2 * HOUR, 'hrrr', STD_LEVELS),
+      mkHour(T0 + 3 * HOUR, 'gfs', STD_LEVELS),
+    ];
+    const geo = windgramGeometry(mkSeries(hours, { hrrrEndEpochSec: T0 + 2 * HOUR }))!;
+    // NOT at the transient hole (columns[1]) — at the real downgrade.
+    expect(geo.hrrrBoundaryX).toBe(geo.columns[3].x - 1);
+  });
+
   it('draws no boundary when a single model is visible', () => {
-    const hours = [0, 1, 2].map((i) => mkHour(T0 + i * HOUR, 'gfs', STD_LEVELS));
-    expect(windgramGeometry(mkSeries(hours))!.hrrrBoundaryX).toBeNull();
+    const gfsOnly = [0, 1, 2].map((i) => mkHour(T0 + i * HOUR, 'gfs', STD_LEVELS));
+    expect(windgramGeometry(mkSeries(gfsOnly))!.hrrrBoundaryX).toBeNull();
+    // All drawn columns inside the HRRR window → nothing beyond the horizon.
+    const hrrrOnly = [0, 1, 2].map((i) => mkHour(T0 + i * HOUR, 'hrrr', STD_LEVELS));
+    expect(
+      windgramGeometry(mkSeries(hrrrOnly, { hrrrEndEpochSec: T0 + 5 * HOUR }))!.hrrrBoundaryX
+    ).toBeNull();
   });
 
   it('builds BL and freezing lines that break on holes', () => {
@@ -207,6 +224,21 @@ describe('windgramGeometry', () => {
       mkHour(T0 + 2 * HOUR, 'gfs', STD_LEVELS, { freezingLevelM: 2600 }),
     ];
     const geo = windgramGeometry(mkSeries(hours))!;
+    expect((geo.freezingLine!.match(/M/g) ?? []).length).toBe(2);
+  });
+
+  it('breaks BL/freezing lines across the overnight day gap — no fabricated night trend', () => {
+    const mk = (i: number) =>
+      mkHour(T0 + i * HOUR, 'gfs', STD_LEVELS, { blHeightM: 800, freezingLevelM: 2500 });
+    const series = mkSeries([mk(0), mk(1), mk(24), mk(25)], {
+      days: [
+        { sunriseEpochSec: T0 - HOUR, sunsetEpochSec: T0 + 2 * HOUR },
+        { sunriseEpochSec: T0 + 23 * HOUR, sunsetEpochSec: T0 + 26 * HOUR },
+      ],
+    });
+    const geo = windgramGeometry(series)!;
+    // One subpath per day — never a segment bridging undrawn night hours.
+    expect((geo.blLine!.match(/M/g) ?? []).length).toBe(2);
     expect((geo.freezingLine!.match(/M/g) ?? []).length).toBe(2);
   });
 

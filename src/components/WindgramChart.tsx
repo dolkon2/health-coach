@@ -104,6 +104,8 @@ export interface WindgramColumn {
   x: number; // left edge
   timeEpochSec: number;
   model: WindgramModel;
+  /** Which day group this column belongs to — lines break across groups. */
+  dayIndex: number;
   /** Lapse shading between adjacent levels, ground up. */
   bands: Array<{ yTop: number; yBot: number; bucket: LapseBucket }>;
   /** One arrow per drawable level. */
@@ -228,6 +230,7 @@ export function windgramGeometry(series: WindgramSeries): WindgramGeometry | nul
         x,
         timeEpochSec: hour.timeEpochSec,
         model: hour.model,
+        dayIndex: g,
         bands,
         arrows,
         clouds,
@@ -240,14 +243,20 @@ export function windgramGeometry(series: WindgramSeries): WindgramGeometry | nul
   }
   const svgWidth = x - DAY_GAP + SIDE_INSET;
 
-  // Lines across columns, positioned at column centers, breaking on holes.
+  // Lines across columns, positioned at column centers, breaking on holes
+  // AND on day boundaries — a segment bridging the overnight gap would
+  // fabricate a trend through hours the chart deliberately doesn't draw.
+  // columns[i] was built from allHours[i] (same flatten order), so the
+  // correspondence is by index, not a timestamp search.
   function lineAcross(pick: (h: WindgramHour) => number | undefined): string | null {
     const segments: string[] = [];
     let drawing = false;
-    let any = false;
-    for (const col of columns) {
-      const hour = allHours.find((h) => h.timeEpochSec === col.timeEpochSec)!;
-      const m = pick(hour);
+    let prevDay = -1;
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      if (col.dayIndex !== prevDay) drawing = false;
+      prevDay = col.dayIndex;
+      const m = pick(allHours[i]);
       const y = m !== undefined ? levelY(m, domain) : null;
       if (y === null) {
         drawing = false; // a hole (or out-of-domain hour) breaks the line
@@ -255,9 +264,8 @@ export function windgramGeometry(series: WindgramSeries): WindgramGeometry | nul
       }
       segments.push(`${drawing ? 'L' : 'M'}${(col.x + CELL_W / 2).toFixed(1)} ${y.toFixed(1)}`);
       drawing = true;
-      any = true;
     }
-    return any ? segments.join(' ') : null;
+    return segments.length > 0 ? segments.join(' ') : null;
   }
 
   const blLine =
@@ -266,14 +274,16 @@ export function windgramGeometry(series: WindgramSeries): WindgramGeometry | nul
       : null;
   const freezingLine = lineAcross((h) => h.freezingLevelM);
 
-  // Downgrade boundary: left edge of the first GFS column that follows a
-  // drawn HRRR column.
+  // Downgrade boundary: where the forecast passes the parser's
+  // hrrrEndEpochSec (the LAST HRRR hour) — not the first per-hour model
+  // flip, which a single transient HRRR hole mid-run would trigger early,
+  // mislabeling genuine HRRR columns beyond it. Drawn only when both sides
+  // of the boundary are actually on the chart.
   let hrrrBoundaryX: number | null = null;
-  for (let i = 1; i < columns.length; i++) {
-    if (columns[i].model === 'gfs' && columns[i - 1].model === 'hrrr') {
-      hrrrBoundaryX = columns[i].x - 1;
-      break;
-    }
+  const hrrrEnd = series.hrrrEndEpochSec;
+  if (hrrrEnd !== undefined && columns[0].timeEpochSec <= hrrrEnd) {
+    const firstBeyond = columns.find((c) => c.timeEpochSec > hrrrEnd);
+    if (firstBeyond) hrrrBoundaryX = firstBeyond.x - 1;
   }
 
   const yTicks: WindgramGeometry['yTicks'] = [];
