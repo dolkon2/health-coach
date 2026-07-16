@@ -11,7 +11,7 @@
  * "tap → spot detail" routing (pinned-spots-spec.md, home-tab.md §5) has
  * somewhere real to land rather than a dead route.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MapPin } from 'lucide-react-native';
@@ -47,31 +47,53 @@ export default function SpotDetailScreen() {
   const [observed, setObserved] = useState<LiveObservation | null | undefined>(undefined);
   const [windgram, setWindgram] = useState<WindgramResult | null | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Monotonic ticket for windgram writes: every (re)fetch or clear bumps it,
+  // and a resolved fetch only writes state if its ticket is still current —
+  // a slow or timed-out earlier fetch can never clobber a newer result.
+  const windgramSeq = useRef(0);
+
+  // The windgram is the dashboard's heaviest call (dual-model pressure-level
+  // payload, 8s worst case) — fetched ONLY when the spot has opted into the
+  // Meteo panel, never speculatively (forecast-tab.md §2a). While a fetch is
+  // in flight the state is `undefined` (card unmounted — loading), so the
+  // user never sees a false "unavailable" flash; `null` means the fetch
+  // actually failed (or the spot has no coordinates).
+  const loadWindgram = useCallback(async (s: Spot) => {
+    const seq = ++windgramSeq.current;
+    if (s.lat == null || s.lng == null) {
+      setWindgram(null);
+      return;
+    }
+    setWindgram(undefined);
+    const w = await fetchWindgram(s.lat, s.lng);
+    if (windgramSeq.current === seq) setWindgram(w);
+  }, []);
 
   const reload = useCallback(async () => {
     if (!id) return;
     const s = await getSpot(id);
     setSpot(s);
     if (s) {
-      const hasCoords = s.lat != null && s.lng != null;
-      // The windgram is the dashboard's heaviest call (dual-model
-      // pressure-level payload) — fetched ONLY when the spot has opted into
-      // the Meteo panel, never speculatively (forecast-tab.md §2a).
-      const wantsMeteo = spotForecastPanels(s).includes('meteo');
+      // The windgram rides its own state machine so its longer timeout never
+      // gates the light data below.
+      if (spotForecastPanels(s).includes('meteo')) {
+        loadWindgram(s);
+      } else {
+        windgramSeq.current++; // invalidate any in-flight fetch
+        setWindgram(null);
+      }
       // Independent network calls — run concurrently rather than doubling
       // the screen's worst-case load latency by awaiting them in series.
-      const [c, f, o, w] = await Promise.all([
+      const [c, f, o] = await Promise.all([
         fetchCurrentForSpot(s),
-        hasCoords ? fetchForecast(s.lat!, s.lng!) : Promise.resolve(null),
+        s.lat != null && s.lng != null ? fetchForecast(s.lat, s.lng) : Promise.resolve(null),
         fetchLiveObservationForSpot(s),
-        wantsMeteo && hasCoords ? fetchWindgram(s.lat!, s.lng!) : Promise.resolve(null),
       ]);
       setCurrent(c);
       setForecast(f);
       setObserved(o);
-      setWindgram(w);
     }
-  }, [id]);
+  }, [id, loadWindgram]);
 
   useFocusEffect(
     useCallback(() => {
@@ -81,12 +103,14 @@ export default function SpotDetailScreen() {
 
   async function handlePanelsChange(panels: ForecastPanel[]) {
     if (!spot) return;
+    const hadMeteo = spotForecastPanels(spot).includes('meteo');
     const updated = await updateSpot(spot.id, { meta: { ...spot.meta, forecastPanels: panels } });
     setSpot(updated);
-    // Enabling Meteo mid-visit fetches just the windgram (the screen's
-    // other data is already loaded); disabling drops it without a refetch.
-    if (panels.includes('meteo') && windgram == null && spot.lat != null && spot.lng != null) {
-      setWindgram(await fetchWindgram(spot.lat, spot.lng));
+    // Every enable fetches fresh — re-enabling after a disable must never
+    // silently serve the stale run that was on screen an hour ago. Disabling
+    // just unmounts the card; the seq ticket makes any racing writes safe.
+    if (panels.includes('meteo') && !hadMeteo) {
+      loadWindgram(updated);
     }
   }
 
