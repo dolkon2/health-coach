@@ -21,6 +21,7 @@ import {
   sumHourlyPrecip,
   type ParsedWind,
 } from '@core/conditions/openMeteo';
+import { fetchJson, type FetchJsonDeps } from './fetchJson';
 
 const FORECAST_BASE = 'https://api.open-meteo.com/v1/forecast';
 const ARCHIVE_BASE = 'https://archive-api.open-meteo.com/v1/archive';
@@ -33,10 +34,7 @@ const ARCHIVE_CUTOVER_S = 90 * 86400;
 const WIND_VARS = 'wind_speed_10m,wind_gusts_10m,wind_direction_10m';
 const WIND_PARAMS = 'windspeed_unit=kn&timeformat=unixtime&timezone=UTC';
 
-export interface ConditionsDeps {
-  fetchImpl?: typeof fetch;
-  signal?: AbortSignal;
-}
+export type ConditionsDeps = FetchJsonDeps;
 
 /** Epoch seconds → explicit RFC3339 UTC ('...Z'), no fractional seconds. */
 function epochToUtcIso(sec: number): string {
@@ -46,33 +44,6 @@ function epochToUtcIso(sec: number): string {
 /** Epoch seconds → UTC civil date 'YYYY-MM-DD'. */
 function utcDate(sec: number): string {
   return new Date(Math.round(sec) * 1000).toISOString().slice(0, 10);
-}
-
-/**
- * GET a JSON body with an AbortController timeout (~4s), chaining the
- * caller's signal (anthropicClient pattern). Any failure → null miss.
- */
-async function fetchJson(url: string, deps?: ConditionsDeps, timeoutMs = 4000): Promise<unknown> {
-  const fetchImpl = deps?.fetchImpl ?? fetch;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  const onAbort = () => controller.abort();
-  if (deps?.signal) {
-    if (deps.signal.aborted) controller.abort();
-    else deps.signal.addEventListener('abort', onAbort);
-  }
-
-  try {
-    const res = await fetchImpl(url, { signal: controller.signal });
-    if (!res.ok) return null;
-    return (await res.json()) as unknown;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-    if (deps?.signal) deps.signal.removeEventListener('abort', onAbort);
-  }
 }
 
 function toSnapshot(
