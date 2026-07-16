@@ -50,6 +50,7 @@ export {
   type RainShineForecastCardProps,
 } from './ForecastPanelCard';
 export { ForecastPanelPicker } from './ForecastPanelPicker';
+export { WindgramChart, type WindgramChartProps } from './WindgramChart';
 export { PointForecastSheet } from './PointForecastSheet';
 export { RouteCard, type RouteCardProps } from './RouteCard';
 export { RouteBuilderOverlay, type RouteBuilderOverlayProps } from './RouteBuilderOverlay';
