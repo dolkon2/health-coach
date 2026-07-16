@@ -71,6 +71,7 @@
 ## Phase 5 (Ring 1 full Reflect tab + Benchmarks)
 
 - Benchmarks entry UX — Structured path (v1, deterministic) + Described path (keyword resolver → Haiku-class parser); open risk is how visibly the inferred dimension is confirmed before commit, so the resolver never silently mis-maps. (benchmarks-spec.md v0.3)
+- **Goal-path tagging** — extend a benchmark's behavior face from a single tagged path to a set (food logging, macro adherence, gym frequency, activity frequency, etc.), so the "story of success" surface can show which paths a user tagged toward an outcome. Early sketch only, needs its own visualization-design pass. (`goal-path-tagging-spec.md`)
 - Active benchmark cap — "not infinite" is decided; the exact number is a design-feel call. (benchmarks-spec.md open question)
 - Milestone data model lightness — do they carry their own target values or are they just named markers on the benchmark's data dimension? (benchmarks-spec.md open question)
 - Benchmark creation timing — onboarding / first-open / lazy-once-data-exists; partly resolved — cadence benchmarks spawn contextually from the Training tab (phase-6-plan-tab-spec.md). (benchmarks-spec.md v0.3)

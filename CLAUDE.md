@@ -33,6 +33,7 @@ override stands and the flag doesn't get re-raised on the next pass.
 - `mapping-systems-research.md` — Strava internals, platform landscape, recommended mapping stack
 - `sport-mapping-research.md` — sport-specific mapping data layers (free flight, whitewater, ski, wind/kite, hiking)
 - `benchmarks-spec.md` — user-defined benchmarks; the Reflect layout key
+- `goal-path-tagging-spec.md` — early sketch: tagging multiple behavior paths to one outcome benchmark, feeding the deferred "story of success" surface; needs its own planning pass
 - `rework/master-plan.md` — **the current product shape — read this for design/nav status**: 5-tab shell (Home/Training/Map/Nutrition/Social), Profile + Settings drawer, phased build order; every file under `planning/rework/` is a spoke off this hub
 - `rework/research/social-expansion-plan.md` — the social layer as decided 2026-07-11 (S0–S9 ladder, public accounts, kudos with counts, amended constitution rules 5+6; supersedes `cohorts-spec.md`)
 - `rework/research/supabase-backend-spec.md` — social backend (upload-on-share, RLS, projections)
