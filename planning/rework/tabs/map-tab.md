@@ -6,6 +6,40 @@ v1 — 2026-07-11, product-rework planning pass; one of the 8-spec set under
 `planning/rework/research/gps-recording-expo.md` + `routes-implementation.md`,
 `planning/mapping-architecture-spec.md`. Siblings referenced by path.
 
+## ⚠️ REFRAME AMENDMENT — 2026-07-15 (supersedes conflicting text below; source of record = Notion "🗺️ Explore & Forecast — Build Map")
+
+The Map tab is now **two live modes: My Map | Explore** — Record is no longer its own mode.
+
+- **My Map** (the landing, was "Record"): your established world — pinned spots + saved
+  routes + your own traces, with the **log/record action front-and-center** (recording
+  still takes over the screen when live, but launches from here). **Long-hold → pin a
+  spot** (My Map's creation door).
+- **Explore** (expanding your world): a fixed **center crosshair reticle** (pan the map
+  under it, Windy-style) with two explicit actions for wherever it points — **"View
+  forecast"** (opens the forecast sheet for that coordinate, nothing saved) and **"Pin
+  this location"** (creates a spot there). Dylan's refinement 2026-07-15: this replaces
+  raw tap-anywhere (cleaner + precise) and makes the crosshair the **primary** placement
+  model — **retiring the tap-gesture spike** the old spec carried as a risk. Also:
+  scouting river levels/conditions, and the route builder (takeover state).
+- **Base chrome on BOTH modes:** location search (MapTiler geocoding on the existing key)
+  + a live-position **blue dot**.
+- **No standalone Forecast mode** until the wind arrow/color overlay (v2) earns its own
+  home; until then forecast lives on spot detail (forecast-tab.md F1–F3) and in Explore's
+  crosshair "View forecast".
+- **ROUTING REVERSAL (supersedes §5's straight-line-only lock):** the builder **snaps to
+  trails/roads per sport** (Footpath = reference, footpathapp.com); **paragliding stays
+  free-line**; **rivers snap-to-waterway** (clip the OSM river line between put-in and
+  take-out — a sibling mechanism, not a road-routing engine); **free-line remains the
+  universal fallback**. **Build online / follow offline:** planning a route may require
+  signal (snap-routing calls a service); **tapping into a SAVED route to follow it must
+  work offline** — geometry is already local SQLite, and a saved route should **cache its
+  corridor tiles** so the basemap renders in the field. This **promotes the deferred
+  offline tile-pack flag (⚑4/R8) into a real requirement**, with a route's bbox as the
+  pack unit.
+
+Everything below predates this amendment; where it says "Record ↔ Explore," "two modes
+only: Record," or "no routing engine / straight-line only," this block wins.
+
 ## 1. Purpose & constitution alignment
 
 The Map tab is where geometry happens: GPS capture (Record mode) and, later, map browsing and

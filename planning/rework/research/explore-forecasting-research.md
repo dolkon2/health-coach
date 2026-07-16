@@ -108,7 +108,16 @@ avalanche.org map layer, the freeze store, and `current.ts` live display).*
 
 ## 2. The proposed shape (for Dylan to react to)
 
-### 2a. Three modes on the Map tab, one switcher — not new shell tabs
+### 2a. ⚠️ SUPERSEDED by the 2026-07-15 reframe — now TWO modes (My Map | Explore)
+
+*This section proposed three modes (Record | Explore | Forecast). The reframe collapsed it:
+Record folds into **My Map** (spots + routes + traces + the log/record action); there is no
+standalone Forecast mode (its tap-forecast interaction became Explore's crosshair "View
+forecast", the overlay is v2). Base chrome — location search + blue-dot — on both modes.
+The full current model is the map-tab.md REFRAME AMENDMENT and the Notion "Build Map" row.
+The three-mode reasoning below is kept only as the thinking that led here.*
+
+### 2a-original. Three modes on the Map tab, one switcher — not new shell tabs
 
 **Record | Explore | Forecast** as peer modes of the Map tab, on a single mode switcher —
 the "top-level nav switcher" from Dylan's note, read as the Map tab's internal top-level

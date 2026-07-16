@@ -19,10 +19,15 @@ flagged, sparingly-earned exception — §8 E3).
 already exists as a named place with a sport tag and coordinates (`core/src/spot.ts`).
 Forecasting's core move is turning that spot into a **configurable dashboard** — the user
 picks what that spot shows: rain/shine for a hike, wind for a kite launch, the full
-windgram for a paragliding site, a river gauge for a kayak run. The Forecast **map mode**
-(tap-anywhere, color overlay, timeline) is the browse/discovery layer built on the same
-data, for "where should I go" rather than "what's my spot doing" — genuinely useful, but
-secondary to the spot dashboard.
+windgram for a paragliding site, a river gauge for a kayak run.
+
+**⚠️ 2026-07-15 reframe:** there is **no standalone Forecast map mode**. The
+"where should I go" browse interaction lives in **Explore** as the crosshair "View
+forecast" action (map-tab.md reframe amendment) — the same `fetchForecast({lat,lng})` this
+spec builds, surfaced from Explore's reticle. A dedicated forecast *mode* (wind
+arrow/color overlay, timeline) only earns its own home as a **v2** once that overlay
+exists. §2b below (the old "Forecast map mode") is superseded to that effect; F1–F3 (spot
+detail) are unaffected.
 
 ## 2. Information architecture
 
@@ -71,7 +76,15 @@ default** — it's the expensive, pilot-specific panel a user opts into per spot
 gets a one-tap "add windgram" affordance, not an auto-render). The user can add/remove any
 panel regardless of default; the default only decides what an unconfigured spot shows.
 
-### 2b. Forecast map mode — tap ANY point, no save required (F4's core interaction)
+### 2b. ⚠️ SUPERSEDED — the tap/crosshair interaction moved to Explore (map-tab.md)
+
+*Kept for the `PointForecastSheet` design detail below, but its home changed: this is no
+longer a separate "Forecast mode." In the reframe it's **Explore's crosshair "View
+forecast"** — pan the reticle, tap View forecast → this sheet for that coordinate, nothing
+saved; "Pin this location" is the adjacent action. The `fetchForecast({lat,lng})` call and
+the sheet's panel-rendering are exactly as below; only the entry point (Explore reticle,
+not a dedicated mode) changed. The wind color-field/streamline overlay + a dedicated
+forecast mode are v2.*
 
 A third mode on the Map tab's switcher (`Record | Explore | Forecast` — map-tab.md §2 as
 amended by the research doc §2a), sharing chrome with Explore (same header, same
@@ -176,13 +189,11 @@ research flagged (Windy's own users treat day 9 like day 1 — we don't).
 3. **F3 (L) — Windgram/Meteo panel.** Pressure-level Open-Meteo calls, `WindgramChart`,
    model selection (HRRR inside CONUS, GFS/ECMWF fallback), the honest-gap labeling
    (model + resolution + run time on every chart). Gated on F1's panel architecture.
-4. **F4 (M) — Forecast map mode v1.** Third Map-tab mode, wind-arrow grid + RainViewer
-   radar + the ad-hoc `PointForecastSheet` tap interaction (§2b — no spot required).
-   **Depends only on the mode-switcher control existing, not on M5's full spot/route/
-   trace layer buildout** — the switcher itself is a small shared `SegmentedControl`
-   amendment (map-tab.md §2), so F4 can land it standalone if M5 hasn't shipped yet
-   rather than waiting on Explore's whole scope. Sequence relative to M5 is a scheduling
-   choice, not a hard dependency.
+4. **F4 — ⚠️ DISSOLVED by the reframe.** The runnable half (crosshair "View forecast" →
+   `PointForecastSheet` for a tapped coordinate) is now **built inside Explore-1**
+   (map-tab.md), reusing this spec's `fetchForecast` + panel renderers. The remaining half
+   (dedicated forecast mode + wind arrow/color overlay + RainViewer radar + timeline) is a
+   **v2 milestone** gated on the overlay being worth its own home — parked, not scheduled.
 5. **F5 (ladder, not scoped here) — wind color-field/particle animation (v2, §2b);
    "days like this" (§5); swell panel type; Smart-Forecast-style good-window highlighting;
    model-compare rows.**
