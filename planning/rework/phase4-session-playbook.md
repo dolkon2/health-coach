@@ -69,8 +69,9 @@ P4-5 through P4-9. The four ✅ sessions need none of those answers and can star
 | P4-5 | ~~Sections definition (T0 · paper/plan)~~ | — | ✅ Not needed — Section resolved as Routes-only (R1), Training gets no Sections primitive |
 | P4-6 | Templates 3a application (T6, layout-only — no Sections build) | Sonnet | ✅ Safe now — R1 + R2 both resolved |
 | P4-7 | Benchmarks type-decision application (B5, derived + domain/type tab) | Sonnet | ✅ Safe now — R3 + R4 both resolved |
-| P4-8 | Explore v1 (M5) | **Opus** plan → build | 🟥 Blocked — parked for its own dedicated design session (R7) |
-| P4-9 | Route builder in Explore (M6) + T3 `+ New Route` | Sonnet | 🟥 Blocked on P4-8 |
+| P4-8 | Explore v1 (M5) | — | **SUPERSEDED — see Notion "▶ Map P1"** (R7 delivered 2026-07-15) |
+| P4-9 | Route builder in Explore (M6) + T3 `+ New Route` | — | **SUPERSEDED — see Notion "▶ Map P6"** |
+| *(new)* | Forecast track F1–F4 (per-spot dashboard, NOAA obs, windgram, map mode) | mixed | Not in this playbook — see Notion "▶ Map P2–P5", unblocked now |
 
 **Two independent tracks.** The ✅ platform/decision-proof track (P4-1 → P4-2, plus the
 free-standing P4-3 and P4-4) can run start-to-finish now. The 🟥 decision-gated track (P4-5
@@ -344,7 +345,19 @@ skills, and write me a handoff prompt. Do not push without asking me.
 
 ---
 
-### P4-8 — Explore v1 (M5) · **Opus** plan → Sonnet/Fable build
+### P4-8 — Explore v1 (M5) · SUPERSEDED, see Notion
+
+**2026-07-15: superseded.** R7 (the Explore design) landed as
+`research/explore-forecasting-research.md` + `tabs/forecast-tab.md`, and the real,
+filled-in build prompt (no more `[MY EXPLORE DESIGN]` placeholder) lives in the Notion
+Active Work board as **▶ Map P1 — M5: Explore mode v1**, under the "🗺️ Explore & Forecast
+— Build Map (START HERE)" row. That prompt is still 🟥 blocked on Dylan's E1 (landing
+mode) + E2 (switcher form) answers, same gate this entry used to carry as R7. Run the
+Notion prompt, not this one — this section is kept only so old links don't 404, and its
+copy-paste block below is stale (references a design file that no longer exists in that
+form).
+
+<details><summary>Original entry (stale, kept for history)</summary>
 
 **Blocked on 🟥 R7 (the Explore design) and on P4-1 (the upgrade).** The MVP's largest remaining
 map rock. Do not design Explore ahead of Dylan — the mockup only settles Record-mode chrome. Run
@@ -368,9 +381,18 @@ render on any map surface. End with a build prompt I can hand to a build session
 suits Sonnet or an overnight Fable run). Do not push without asking me.
 ```
 
+</details>
+
 ---
 
-### P4-9 — Route builder in Explore (M6) + T3 `+ New Route` button · Sonnet
+### P4-9 — Route builder in Explore (M6) + T3 `+ New Route` button · SUPERSEDED, see Notion
+
+**2026-07-15: superseded.** Same reason as P4-8. The real build prompt is **▶ Map P6 — M6:
+Route builder in Explore** on the Notion board, updated with the Sections future-proofing
+note (research doc §2e / flag E5) that didn't exist when this entry was written. Blocked
+on Map P1 (Explore must exist to host it) exactly as before.
+
+<details><summary>Original entry (stale, kept for history)</summary>
 
 **Blocked on P4-8 (M5 must host it).** The straight-line, tap-to-place waypoint builder inside
 Explore — and once it's live, the `+ New Route → Map build mode` button finally appears on
@@ -401,6 +423,8 @@ Finish: full jest, tsc LAST, /code-review, sim smoke test (build a route, follow
 route), then status-sync + dev-log-closeout skills, and write me a handoff prompt. Do not push
 without asking me.
 ```
+
+</details>
 
 ---
 
