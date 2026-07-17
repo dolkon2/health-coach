@@ -1,7 +1,9 @@
 # Explore-2 — Route builder (takeover state inside Explore)
 
-*2026-07-16. Branch: `main` (local, not pushed — 8 commits ahead of `origin/main`
-for this pass, HEAD `1bf3be2`; 34 ahead overall).*
+*2026-07-16. Branch: `main`, HEAD `4b92b29` after the sim-test fix (9 commits
+for this pass). Pushed to `origin/main` same session, alongside B5/F1/F2/
+Explore-1/F3 and a docs commit landing the 2026-07-15 reframe-amendment text
+into the specs — see the session's push summary for the full range.*
 
 ## What was built
 
@@ -85,9 +87,33 @@ the new `'snapped'`/`'river'` sources too.
   cleanup (fetchJson POST reuse, dead `retargetMode` removed, `canSaveBuilder`
   wired, teardown deduped). Low findings (interior-waypoint join kink; deep-link
   effect ordering) judged cosmetic / not reachable in real flows — left, noted.
-- **Sim smoke test: NOT YET RUN** — see handoff. Blocked on (1) a Stadia API key
-  in `.env.local` and (2) a dev build; snap routing degrades to free-line without
-  the key, so a true snapped-route test needs it first.
+- **Sim smoke test: RUN 2026-07-16, iPhone 17 sim, dev client, real Stadia key.**
+  All four builds tested live against Dylan's real device DB (fresh Metro on
+  8092, hardware-keyboard passthrough toggled off to fix an accent-popup
+  keyboard quirk): **river** (Kayak, Threemile Creek OR) — real Overpass call,
+  correctly fell back to free-line with "along the waterway — some sections
+  plotted straight (no river found)" for two points 10 km apart; **snapped**
+  (Trail Run) — real Valhalla call returned genuine curved trail-following
+  geometry (7.97 mi), labeled "along trails"; **free-line** (Paraglide) — sport
+  correctly forces free-line (toggle hidden, "Free-line — straight segments"),
+  straight-segment rendering confirmed, "as plotted — trails may be longer";
+  **both save doors** — Explore "Build a route" and Training "+ New Route"
+  (`build=1` deep-link) both saved successfully and surfaced on the Routes
+  shelf/My Map. **Offline follow**: "Start session on this route" loaded the
+  guide line instantly with no network spinner (getRoute() is a pure local
+  SQLite read — architecturally offline-safe; a true airplane-mode disconnect
+  wasn't attempted, since Simulator shares the host's network stack and there's
+  no safe way to hard-cut it without risking the host machine's connectivity).
+  **Bug found + fixed during the sim test**: `app/route/[id].tsx`'s
+  `sourceLabel()` pre-dated this build and only special-cased `'gpx'`/`'session'`,
+  silently falling back to `"Plotted"` for the new `'snapped'`/`'river'` values —
+  a real Valhalla-snapped route displayed "Source: Plotted" on its own detail
+  screen. Fixed to an exhaustive switch (commit `4b92b29`) so a future new
+  source fails to compile there instead of silently mislabeling; verified live
+  via Metro fast-refresh ("Snapped to trail" now shows correctly). All three
+  test routes created during the sim test were deleted afterward via a direct
+  SQL cleanup against the sim's SQLite file — Dylan's real spots/routes/
+  benchmark were untouched (confirmed before and after).
 
 ## Flags carried (⚑ — record, don't re-litigate)
 
@@ -102,7 +128,7 @@ the new `'snapped'`/`'river'` sources too.
   vs the arm-effect; safe today because Training passes only `build` (not
   activity/element), so the arm-effect doesn't fire.
 
-## Not pushed
+## Pushed
 
-34 commits ahead of `origin/main`, unpushed (per standing "don't push without
-asking"). Nothing on this branch has left the machine.
+Pushed to `origin/main` 2026-07-16 at Dylan's explicit request (this pass +
+everything else that had accumulated locally — B5, F1, F2, Explore-1, F3).

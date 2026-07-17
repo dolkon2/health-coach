@@ -1,45 +1,27 @@
-# Handoff — after Explore-2 (route builder)
+# Handoff — after Explore-2 (route builder) — CLOSED OUT
 
-*Written 2026-07-16. Predecessor: `dev-log/explore-2-route-builder-closeout.md`.
-Branch `main`, HEAD `1bf3be2`, 34 commits ahead of `origin/main`, unpushed.*
+*Written 2026-07-16, superseded same day. Predecessor:
+`dev-log/explore-2-route-builder-closeout.md`.*
 
-## Start here — finish Explore-2's verification (the one gap)
+## Status: done, not a live handoff anymore
 
-Everything is green except the on-device smoke test, which needs setup this
-session couldn't do:
+This doc originally asked the next session to add a Stadia key and run the sim
+smoke test. That happened later the same day: the key was added to
+`.env.local`, the dev client was rebuilt, and all four builds (snapped, river,
+free-line, both save doors, offline follow) were verified live — see the
+closeout doc's updated "Sim smoke test" section for the full readout, including
+a real bug found and fixed (`app/route/[id].tsx`'s `sourceLabel()` mislabeled
+snapped/river routes as "Plotted"; fixed in `4b92b29`).
 
-1. **Add the Stadia key.** Create a free account at stadiamaps.com, get an API
-   key, and put it in `~/Projects/health-coach/.env.local` (gitignored — copy by
-   hand into any fresh worktree):
-   ```
-   EXPO_PUBLIC_STADIA_API_KEY=<key>
-   ```
-   Without it the builder still runs but **every snapped segment falls back to
-   free-line** — so a real snap test needs the key first. (River uses keyless
-   Overpass; free-line/paragliding need nothing.)
-2. **Launch a dev build** (from `~/Projects/health-coach`, not `~/Claude Set up`)
-   and run the smoke test:
-   - Build a **snapped** route: Explore → "Build a route" → a foot/bike sport →
-     drop 3–4 points → the line should follow trails/roads; label "along trails".
-   - Build a **free-line paragliding** route: sport = Paraglide → straight
-     segments, toggle shows "Free-line"; label "as plotted — trails may be longer".
-   - Build a **river** route: sport = Kayak/Whitewater on a mapped river → the
-     line snaps to the waterway; where no river is found it free-lines with the
-     "no river found" caveat.
-   - **Follow OFFLINE**: save a route, go to My Map, airplane-mode, open the route
-     → the *line* renders from local geometry (basemap picture may be blank — tile
-     caching was deferred this pass; that's expected, not a bug).
-   - **Both save doors**: Explore "Build a route" (door 2) AND Training/Routes
-     "+ New Route" (door 1, `build=1` deep-link). Confirm each saved route lands
-     on My Map with the right element tint.
-3. If all pass, the closeout's "Sim smoke test: NOT YET RUN" line can flip to done.
+Separately, **Forecast-3 (windgram)** — this doc's "next roadmap item" — was
+also completed and closed out the same day. Its own handoff prompt is in
+`dev-log/forecast-f3-windgram.md` and is the current live handoff; read that
+one, not this one, for what's actually next.
 
-## Then — next roadmap item
+Everything from this pass through F3 was pushed to `origin/main` 2026-07-16 at
+Dylan's request.
 
-Per the roadmap (map-reframe memory): after Explore-1 + Explore-2, next is
-**Forecast-3 (windgram)** — unless Dylan redirects. Confirm scope before building.
-
-## Watch-outs / open flags (from the closeout)
+## Watch-outs / open flags (still live, carried forward)
 
 - **Offline tile-pack is deferred** (⚑4 — MapTiler bulk-download terms; clean
   end-state self-hosted Protomaps). If/when built: `OfflineManager.createPack`
@@ -55,5 +37,4 @@ Per the roadmap (map-reframe memory): after Explore-1 + Explore-2, next is
 
 ## Do not
 
-- Push without asking (34 commits sit local).
 - Add a migration (016 is untouched; `kind`/`source`/Sections all ride JSON).
