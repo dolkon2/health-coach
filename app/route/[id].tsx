@@ -138,9 +138,18 @@ export default function RouteDetailScreen() {
 }
 
 function sourceLabel(source: Route['source']): string {
-  if (source === 'gpx') return 'Imported';
-  if (source === 'session') return 'From a session';
-  return 'Plotted';
+  switch (source) {
+    case 'gpx':
+      return 'Imported';
+    case 'session':
+      return 'From a session';
+    case 'snapped':
+      return 'Snapped to trail';
+    case 'river':
+      return 'Snapped to river';
+    case 'plotted':
+      return 'Plotted';
+  }
 }
 
 function EffortRow({
