@@ -193,3 +193,26 @@ the four-dimensions framework predicted, showing up as a concrete feature gap.
 
 **One thing we're deliberately not copying,** recorded so the choice stays visible: both
 references let you scroll to day 14 and render it identically to day 1. Our spec fades past ~72h.
+
+## 9. Windgram experiment (Experimentation frame)
+
+Our own windgram drawn from the RASP / canadarasp reference in the Gorge kit — full-detail
+landscape (1,280 pt) plus the 354 pt card cut to six columns. Four decisions worth keeping:
+
+- **Barbs are generated, not drawn.** Standard meteorological encoding: staff points into the
+  wind, feathers at the upwind end, half = 5 kt, full = 10, pennant = 50, summed and rounded to
+  the nearest 5; bare staff under 3 kt. Anyone who reads aviation charts can read it unchanged.
+- **The stability ramp reuses existing tokens.** RASP's saturated red→purple isn't in our kit.
+  Instead it diverges across two element colours we already own — Body rust for unstable and
+  conditional, Sky blue for stable, ash for inverted. Warm = lift, cool = none, grey = capped.
+  No new hues, and the warm/cool convention pilots expect survives.
+- **The band dims, it never judges.** Hours inside the user's band draw at full strength, hours
+  outside at 42%. Nothing is coloured good or bad and nothing is scored — same rule as the
+  shipped wind card ("grey bars are hours outside your band").
+- **Two additions the reference lacks:** a barb key (its absence is the biggest barrier for a new
+  pilot), and the model-handoff rule marking where HRRR 3 km ends and GFS 13 km takes over —
+  straight off the `hrrrEndEpochSec` our parser already tracks. Grid elevation is printed against
+  real launch elevation so the terrain error is visible rather than hidden.
+
+Sample data is illustrative. Everything drawn maps to a field the parser already produces, except
+lift and top-of-lift, which are labelled derived on the chart itself.
