@@ -49,11 +49,34 @@ the cheapest items on the board and the right place to start design work.
 | 12 | Snow line | Freezing level is wired, but snow *level* sits a few hundred–1,000 ft below freezing *level*. Same data, correct name, stated offset. Route profiles already carry elevation. |
 | 3 | "Gorge gradient, hourly" | Buildable from Synoptic's ODOT/WSDOT + airport stations — but those are **observations**, so it can't be an hourly forward trace. Label it live or drop "hourly". |
 
+### Decided: build it — swell, wind against current
+
+*Flagged 2026-07-26 as unbuildable-as-drawn; **overridden the same day by Dylan**, deliberately.
+Recorded here so the flag isn't re-raised.*
+
+The constraint is real and stays true: no wave model resolves the Columbia. Windy serves waves
+from ECMWF WAM / GFS WAVE / RDWPS — all open-ocean models — which is why the Gorge is blank in
+every app, not an oversight we can fetch around. There is no feed to buy and no number to borrow.
+
+That absence is the reason to build it. The path that stays inside the constitution is **our own
+observations, not our own model**: log what it actually did (chop / organised / face size) against
+the wind and flow already frozen onto every session, and let the relationship emerge from logged
+days. That is **Tier 2 — accumulated, true by repetition** — rather than a Tier 3 modelled guess
+presented as Tier 1 fact, which is the only version the evidence hierarchy forbids.
+
+Consequences for the build:
+- Ship **qualitative first** ("W 22 kt over 17.2k cfs downstream, opposed — stacking"). Numbers
+  are earned once there are enough logged days to back them, with the count visible.
+- Needs a **session-level swell observation field** (a few ordered categories + optional face
+  size) — the first thing here that writes to the log rather than only reading it.
+- The `conditions_snapshots` freeze store already holds the wind and flow side of every session,
+  so the correlation has one side of its data from day one.
+- UI shape reference: Windy's Waves & Tides card, pulled out in the reference library.
+
 ### Can't do as drawn
 
 | # | Module | Why |
 |---|---|---|
-| 1 | Swell — wind against current | No wave model covers the Columbia. Open-Meteo Marine is ocean-only; nothing forecasts river fetch. "2.4 ft faces, 3–4 s" would be an invented formula with no observations to calibrate against and no statable error band. **Keep the card, drop the numbers** — the qualitative sentence is true and still justifies multi-element tagging. |
 | 2 | Precip — basin, 72h | A basin is not a point. Needs the upstream watershed polygon (USGS NLDI/StreamStats) plus a sampled grid inside it — a real hydrology integration, its own pass. Interim: precip *at the gauge*, labelled as such. |
 | 5 | Rock dry-out | Hours-since-rain is fine. The "needs 36" constant and "dry by 6p" prediction have no dataset behind them. Show the inputs, not the verdict. |
 | 6 | "the sets other pilots read here" | We have no other pilots, and per the social spec we wouldn't harvest private spot configs to get them. Copy fix: "Common sets for a SW-facing launch." |
@@ -114,5 +137,24 @@ only thing this adds.
 2. Body-tagged spots correctly show "no location readings — nothing to forecast." Confirm
    that means a Body spot never offers a forecast build at all, rather than offering an
    empty one.
-3. Swell as a *qualitative* module (§2, flag 1) — worth designing, since the honest version
-   is the only version.
+3. Swell — now a build item, not a question (§2 "Decided"). What needs designing: the
+   session-side observation input, and how the module reads before it has enough days to
+   say anything numeric.
+
+## 7. Reference library (same Figma page)
+
+The `Reference` frame holds the windgram plus Windy and Wunderground screenshots. Normalized to
+one size on even gutters 2026-07-26, and every key asset cropped out individually below as
+`REFERENCE COMPONENTS`, grouped by source (5 windgram / 15 Wunderground / 22 Windy) so ours and
+theirs can be set side by side in a later pass.
+
+Two things worth carrying into build from that extraction:
+
+- **Resolution in the model's name.** Windy labels models `GFS 22km`, `ECMWF 9km`, `HRDPS 2.5km`.
+  The cheapest honesty device available, and it costs nothing to adopt.
+- **Terrain error disclosed.** Their sounding prints `elevation: 1339ft / model elevation: 1319ft`
+  side by side. Worth copying on the windgram, where the gap matters most.
+
+Source-image caveat: most screenshots are 294 × 640 native, so crops are soft. The route/airgram
+and skew-T are full resolution (1206 × 2622); the windgram is 974 × 960. Crops are live views of
+the same image fills, so re-uploading an original updates its components automatically.
