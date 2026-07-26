@@ -197,7 +197,7 @@ references let you scroll to day 14 and render it identically to day 1. Our spec
 ## 9. Windgram experiment (Experimentation frame)
 
 Our own windgram drawn from the RASP / canadarasp reference in the Gorge kit — full-detail
-landscape (1,280 pt) plus the 354 pt card cut to six columns. Four decisions worth keeping:
+landscape (1,280 pt) plus a phone version at 393 pt. Four decisions worth keeping:
 
 - **Barbs are generated, not drawn.** Standard meteorological encoding: staff points into the
   wind, feathers at the upwind end, half = 5 kt, full = 10, pennant = 50, summed and rounded to
@@ -213,6 +213,19 @@ landscape (1,280 pt) plus the 354 pt card cut to six columns. Four decisions wor
   pilot), and the model-handoff rule marking where HRRR 3 km ends and GFS 13 km takes over —
   straight off the `hrrrEndEpochSec` our parser already tracks. Grid elevation is printed against
   real launch elevation so the terrain error is visible rather than hidden.
+
+**Correction — "six columns is the honest limit" was wrong.** The component-library caption (and
+my first phone card) claimed the 354 pt width forces a six-column reduction. The wxtofly phone
+view disproves it: the entire grid renders at phone width and pilots read it there every day. The
+phone version now carries all 16 hours and all seven levels at 17.5 pt per column — the
+reference's own density — with both axes, the lapse legend, and the next day stacked beneath in
+the scroll pattern. The six-column card is kept only as a compact alternative. The caption in
+`forecast-tab.md` / the component library should be amended when that file is next touched.
+
+Vertical density is where we genuinely differ, and it is a data limit rather than a layout one:
+RASP plots ~10 levels, we have seven above launch (Open-Meteo's pressure levels are dense below
+850 hPa and sparse above — 800 → 700 → 600). That suits soaring, since the detail sits where
+thermals are, but it should be stated rather than padded.
 
 Sample data is illustrative. Everything drawn maps to a field the parser already produces, except
 lift and top-of-lift, which are labelled derived on the chart itself.
