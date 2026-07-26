@@ -158,3 +158,38 @@ Two things worth carrying into build from that extraction:
 Source-image caveat: most screenshots are 294 × 640 native, so crops are soft. The route/airgram
 and skew-T are full resolution (1206 × 2622); the windgram is 974 × 960. Crops are live views of
 the same image fills, so re-uploading an original updates its components automatically.
+
+## 8. Side-by-side — where we are derivative, and where we are alone
+
+*`Feature Comparison` frame, same page. All 21 modules paired against their reference, plus six
+reference components with no counterpart of ours. Verdicts: MATCH (direct precedent), PARTIAL
+(they touch it, answering a different question), NO REFERENCE (nobody does this).*
+
+| Element | MATCH | PARTIAL | NO REFERENCE |
+|---|---|---|---|
+| Sky | 5 | 1 | 2 |
+| Water | 0 | 3 | 2 |
+| Earth | 2 | 0 | 3 |
+| Derived | 0 | 3 | 0 |
+
+**Sky is solved territory.** Five of eight modules have a direct precedent, and on wind
+specifically the references are ahead of us. The design work there is differentiation, not
+invention — the one genuinely novel Sky module is the **direction arc**, because nobody else lets
+you declare "this launch works from 202°–270°" and then reads the day against it.
+
+**Water and Earth are the white space, and it's wider than expected.** Not one of the three
+references reads a river gauge, reports flow in cfs, gives a snow line against a route profile, or
+says anything about ground state. Windy does open ocean; Wunderground does weather over your head.
+Nine of our thirteen Water/Earth modules have no precedent at all. That is the positioning wedge
+the four-dimensions framework predicted, showing up as a concrete feature gap.
+
+**Two things they have that we don't, both already named in the spec:**
+
+1. **Model compare (F5).** Windy's most-loved feature — disagreement between models *is* the
+   forecast. The cheap half is free today: they put resolution in the model's own name
+   (`GFS 22km`, `HRDPS 2.5km`). We already select HRRR inside CONUS and simply don't say so.
+2. **Map chrome (F4/v2).** One scrubber owning time for every layer, plus the colour field and
+   its legend. Also our biggest false-precision exposure if built without the legend.
+
+**One thing we're deliberately not copying,** recorded so the choice stays visible: both
+references let you scroll to day 14 and render it identically to day 1. Our spec fades past ~72h.
